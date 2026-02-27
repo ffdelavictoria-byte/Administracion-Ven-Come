@@ -153,16 +153,23 @@
         <div class="button-grid">
             <a href="/emp/" class="btn-comic btn-especial">Gestión de Empleados</a>
             <a href="/asistencia/" class="btn-comic">Asistencias Momias</a>
-            <a href="/asistenciaff/" class="btn-comic">Asistencias FF</a>
-            <a href="/nomina/" class="btn-comic">Nómina</a>
-            <a href="/reportes/" class="btn-comic">Reportes</a>
-
+            
+            
             {% if user.is_superuser %}
                 <a href="{% url 'registrar_usuario' %}" class="btn-comic" style="background-color: var(--puebla-magenta); color: white;">
                     + AGREGAR USUARIO
                 </a>
                 <a href="{% url 'lista_usuarios' %}" class="btn-comic btn-admin">
                     Gestionar Usuarios
+                </a>
+                <a href="/nomina/" class="btn-comic">
+                    Nómina
+                </a>
+                <a href="/reportes/" class="btn-comic">
+                    Reportes
+                </a>
+                <a href="/asistenciaff/" class="btn-comic">
+                    Asistencias FF
                 </a>
             {% endif %}
             
