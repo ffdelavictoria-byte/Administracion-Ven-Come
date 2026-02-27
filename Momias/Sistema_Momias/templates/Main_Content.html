@@ -1,0 +1,205 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Momias de la Victoria | Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --puebla-yellow: #FFD700;
+            --puebla-blue: #1A237E;
+            --puebla-magenta: #9D174D;
+            --comic-border: #000000;
+            --success-green: #2e7d32;
+        }
+
+        body {
+            font-family: 'Patrick Hand', cursive;
+            background-color: var(--puebla-yellow);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- ICONO SUPERIOR --- */
+        .header-icon {
+            position: absolute;
+            top: 20px;
+            width: 100px;
+            z-index: 10;
+            opacity: 0;
+            transform: translateY(-50px) rotate(-10deg);
+            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.5s;
+        }
+        .header-icon.show { opacity: 1; transform: translateY(0) rotate(0deg); }
+
+        /* --- CONTENEDOR DE BOTONES --- */
+        .main-content {
+            z-index: 5;
+            text-align: center;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.6s ease-out 0.8s;
+            width: 95%;
+            max-width: 850px; 
+        }
+        .main-content.show { opacity: 1; transform: scale(1); }
+
+        .title-comic {
+            font-family: 'Bangers', cursive;
+            font-size: 3.5rem;
+            color: var(--puebla-blue);
+            text-shadow: 3px 3px 0px white, 6px 6px 0px var(--comic-border);
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            padding: 20px;
+        }
+
+        /* BOTÓN ESTILO COMIC */
+        .btn-comic {
+            font-family: 'Bangers', cursive;
+            font-size: 1.3rem;
+            text-transform: uppercase;
+            padding: 15px 10px;
+            cursor: pointer;
+            background-color: white;
+            color: var(--puebla-blue);
+            border: 4px solid var(--comic-border);
+            border-radius: 12px;
+            box-shadow: 6px 6px 0px var(--comic-border);
+            transition: all 0.1s;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .btn-comic:hover {
+            background-color: var(--puebla-magenta);
+            color: white;
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0px var(--comic-border);
+        }
+
+        .btn-comic:active {
+            transform: translate(4px, 4px);
+            box-shadow: 2px 2px 0px var(--comic-border);
+        }
+
+        .btn-especial { background-color: var(--puebla-blue); color: white; }
+        .btn-admin { background-color: #444 !important; color: white !important; }
+        .btn-logout { background-color: #ff4444 !important; color: white !important; }
+
+        /* --- DECORACIÓN --- */
+        .talavera-wrapper {
+            position: absolute; z-index: 1; opacity: 0;
+            transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .talavera-wrapper.show { opacity: 1; transform: scale(1) rotate(var(--base-rot)); }
+        .top-left-group { top: -20px; left: -20px; --base-rot: 0deg; transform: translate(-100px, -100px) scale(0.5); }
+        .bottom-right-group { bottom: -20px; right: -20px; --base-rot: 180deg; transform: translate(100px, 100px) scale(0.5); }
+        .leaf { position: absolute; background: var(--puebla-blue); border-radius: 0 100% 0 100%; width: 45px; height: 45px; }
+
+        .brick-wall { position: absolute; display: flex; flex-direction: column; gap: 10px; z-index: 2; }
+        .brick { 
+            background-color: var(--puebla-blue); height: 40px; width: 120px; 
+            border-radius: 4px; opacity: 0; box-shadow: 4px 4px 0px rgba(0,0,0,0.15);
+            transition: all 0.5s ease-out;
+        }
+        .brick.reveal { opacity: 1; transform: translateX(0) !important; }
+        .row-offset { margin-left: 40px; }
+        .wall-top-right { top: 60px; right: -30px; }
+        .wall-bottom-left { bottom: 60px; left: -30px; }
+    </style>
+</head>
+<body>
+    <img src="{% static 'Momias_Icon/MomiasIcon.png' %}" alt="Logo" class="header-icon" id="mainIcon">
+
+    <div class="talavera-wrapper top-left-group" id="talaGroup1">
+        <div style="position:relative; width:150px; height:150px;">
+            <div class="leaf" style="top:0; left:0;"></div>
+            <div class="leaf" style="top:15px; left:50px; transform:rotate(30deg);"></div>
+            <div class="leaf" style="top:60px; left:10px; transform:rotate(-20deg);"></div>
+        </div>
+    </div>
+    <div class="talavera-wrapper bottom-right-group" id="talaGroup2">
+        <div style="position:relative; width:150px; height:150px;">
+            <div class="leaf" style="top:0; left:0;"></div>
+            <div class="leaf" style="top:15px; left:50px; transform:rotate(30deg);"></div>
+            <div class="leaf" style="top:60px; left:10px; transform:rotate(-20deg);"></div>
+        </div>
+    </div>
+    <div class="brick-wall wall-top-right" id="wall1"></div>
+    <div class="brick-wall wall-bottom-left" id="wall2"></div>
+
+    <div class="main-content" id="mainContent">
+        <h1 class="title-comic">¡BIENVENIDO, JEFE!</h1>
+        
+        <div class="button-grid">
+            <a href="/emp/" class="btn-comic btn-especial">Gestión de Empleados</a>
+            <a href="/asistencia/" class="btn-comic">Asistencias Momias</a>
+            <a href="/asistenciaff/" class="btn-comic">Asistencias FF</a>
+            <a href="/nomina/" class="btn-comic">Nómina</a>
+            <a href="/reportes/" class="btn-comic">Reportes</a>
+
+            {% if user.is_superuser %}
+                <a href="{% url 'registrar_usuario' %}" class="btn-comic" style="background-color: var(--puebla-magenta); color: white;">
+                    + AGREGAR USUARIO
+                </a>
+                <a href="{% url 'lista_usuarios' %}" class="btn-comic btn-admin">
+                    Gestionar Usuarios
+                </a>
+            {% endif %}
+            
+            <a href="{% url 'logout' %}" class="btn-comic btn-logout">
+                CERRAR SESIÓN
+            </a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const wall1 = document.getElementById('wall1');
+            const wall2 = document.getElementById('wall2');
+
+            function build(container, side) {
+                for (let i = 0; i < 5; i++) {
+                    const b = document.createElement('div');
+                    b.className = 'brick' + (i % 2 === 1 ? ' row-offset' : '');
+                    b.style.transform = side === 'right' ? 'translateX(400px)' : 'translateX(-400px)';
+                    container.appendChild(b);
+                    setTimeout(() => b.classList.add('reveal'), 120 * i + 600);
+                }
+            }
+
+            build(wall1, 'right');
+            build(wall2, 'left');
+
+            setTimeout(() => {
+                document.getElementById('talaGroup1').classList.add('show');
+                document.getElementById('talaGroup2').classList.add('show');
+            }, 100);
+
+            setTimeout(() => {
+                document.getElementById('mainIcon').classList.add('show');
+                document.getElementById('mainContent').classList.add('show');
+            }, 400);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Momias de la Victoria</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --puebla-yellow: #FFD700;
+            --puebla-blue: #1A237E;
+            --puebla-magenta: #9D174D;
+            --comic-border: #000000;
+        }
+
+        body {
+            font-family: 'Patrick Hand', cursive;
+            background-color: var(--puebla-yellow);
+            margin: 0;
+            /* CAMBIO CLAVE: min-height en lugar de height fijo */
+            min-height: 100vh; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* CAMBIO CLAVE: Permitir scroll vertical, ocultar el horizontal */
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: relative;
+            padding: 20px 0; /* Espacio extra para que el box no pegue a los bordes al scrollear */
+        }
+
+        /* --- TALAVERA Y LADRILLOS --- */
+        .talavera-wrapper {
+            position: fixed; /* CAMBIO: fixed para que no se muevan al hacer scroll */
+            z-index: 1; opacity: 0;
+            transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .talavera-wrapper.show { opacity: 1; transform: scale(1) rotate(var(--base-rot)); }
+        .top-left-group { top: -20px; left: -20px; --base-rot: 0deg; transform: translate(-100px, -100px) scale(0.5); }
+        .bottom-right-group { bottom: -20px; right: -20px; --base-rot: 180deg; transform: translate(100px, 100px) scale(0.5); }
+        
+        .brick-wall { 
+            position: fixed; /* CAMBIO: fixed para mantener el marco visual */
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            z-index: 2; 
+        }
+        .brick { 
+            background-color: var(--puebla-blue); height: 40px; width: 130px; 
+            border-radius: 4px; opacity: 0; box-shadow: 4px 4px 0px rgba(0,0,0,0.15);
+            transition: all 0.5s ease-out;
+        }
+        .brick.reveal { opacity: 1; transform: translateX(0) !important; }
+        .row-offset { margin-left: 50px; }
+        .wall-top-right { top: 40px; right: -30px; }
+        .wall-bottom-left { bottom: 40px; left: -30px; }
+
+        /* --- LOGIN CONTAINER --- */
+        .login-container {
+            background-color: white;
+            padding: 2.5rem;
+            border: 4px solid var(--comic-border);
+            border-radius: 20px;
+            box-shadow: 12px 12px 0px var(--comic-border);
+            width: 90%;
+            max-width: 380px;
+            text-align: center;
+            z-index: 10;
+            opacity: 0;
+            transform: scale(0.8) rotate(-2deg);
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.7s;
+            margin: auto; /* Centrado automático dentro del flex */
+        }
+        .login-container.show { opacity: 1; transform: scale(1) rotate(0deg); }
+
+        /* ... El resto de tus estilos de h2, input y button se mantienen igual ... */
+        .header-gif { width: 140px; margin-bottom: 1rem; }
+        h2 { font-family: 'Bangers', cursive; color: var(--puebla-blue); font-size: 3rem; margin: 0; text-shadow: 2px 2px 0px #fff, 4px 4px 0px var(--comic-border); }
+        .subtitle { font-family: 'Patrick Hand', cursive; color: var(--puebla-magenta); font-weight: bold; font-size: 1.2rem; margin-bottom: 1.5rem; }
+        input { width: 100%; padding: 14px; margin: 10px 0; border: 3px solid var(--comic-border); border-radius: 10px; box-sizing: border-box; font-family: 'Patrick Hand', cursive; font-size: 1.2rem; background: #f9f9f9; }
+        button { width: 100%; padding: 16px; background: var(--puebla-magenta); color: white; border: 3px solid var(--comic-border); border-radius: 12px; font-family: 'Bangers', cursive; font-size: 1.6rem; cursor: pointer; margin-top: 15px; box-shadow: 6px 6px 0px var(--comic-border); transition: 0.1s; }
+        button:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0px var(--comic-border); }
+        .leaf { position: absolute; background: var(--puebla-blue); border-radius: 0 100% 0 100%; width: 45px; height: 45px; }
+        .talavera-branch { position: absolute; width: 150px; height: 150px; }
+    </style>
+</head>
+<body>
+    <div class="talavera-wrapper top-left-group" id="talaGroup1">
+        <div class="talavera-branch"><div class="leaf" style="top:0; left:0;"></div><div class="leaf" style="top:15px; left:50px; transform:rotate(30deg);"></div><div class="leaf" style="top:60px; left:10px; transform:rotate(-20deg);"></div></div>
+    </div>
+    <div class="talavera-wrapper bottom-right-group" id="talaGroup2">
+        <div class="talavera-branch"><div class="leaf" style="top:0; left:0;"></div><div class="leaf" style="top:15px; left:50px; transform:rotate(30deg);"></div><div class="leaf" style="top:60px; left:10px; transform:rotate(-20deg);"></div></div>
+    </div>
+
+    <div class="brick-wall wall-top-right" id="wall1"></div>
+    <div class="brick-wall wall-bottom-left" id="wall2"></div>
+
+    <div class="login-container" id="loginBox">
+        <img src="{% static 'Momias_Icon/MomiasIcon.png' %}" alt="Logo" class="header-gif">
+        <h2>MOMIAS DE LA VICTORIA</h2>
+        <p class="subtitle">© 2026 Momias De La Victoria</p>
+        
+        <form method="POST" action="/login/"> 
+            {% csrf_token %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div style="background: var(--puebla-magenta); color: white; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+            <input type="text" name="username" placeholder="Usuario..." required>
+            <input type="password" name="password" placeholder="Contraseña..." required>
+            <button type="submit">¡ENTRAR!</button>
+        </form>
+    </div>
+
+    <script>
+        // Tu script original funciona perfectamente aquí
+        document.addEventListener("DOMContentLoaded", () => {
+            const wall1 = document.getElementById('wall1');
+            const wall2 = document.getElementById('wall2');
+
+            function build(container, side) {
+                for (let i = 0; i < 5; i++) {
+                    const b = document.createElement('div');
+                    b.className = 'brick' + (i % 2 === 1 ? ' row-offset' : '');
+                    b.style.transform = side === 'right' ? 'translateX(400px)' : 'translateX(-400px)';
+                    container.appendChild(b);
+                    setTimeout(() => b.classList.add('reveal'), 120 * i + 500);
+                }
+            }
+
+            build(wall1, 'right');
+            build(wall2, 'left');
+
+            setTimeout(() => {
+                document.getElementById('talaGroup1').classList.add('show');
+                document.getElementById('talaGroup2').classList.add('show');
+            }, 100);
+
+            setTimeout(() => {
+                document.getElementById('loginBox').classList.add('show');
+            }, 700);
+        });
+    </script>
+</body>
+</html>

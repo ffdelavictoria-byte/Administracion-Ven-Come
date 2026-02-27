@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{% if edit_mode %}Actualizar Llave{% else %}Nuevo Recluta{% endif %} | Momias</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet">
+    <style>
+        :root { --puebla-yellow: #FFD700; --puebla-blue: #1A237E; --puebla-magenta: #9D174D; --comic-border: #000000; }
+        body { font-family: 'Patrick Hand', cursive; background-color: var(--puebla-yellow); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        
+        .register-container {
+            background: white; padding: 2rem; border: 4px solid var(--comic-border);
+            border-radius: 20px; box-shadow: 12px 12px 0px var(--comic-border);
+            width: 90%; max-width: 400px; text-align: center; z-index: 10;
+        }
+        h2 { font-family: 'Bangers', cursive; color: var(--puebla-blue); font-size: 2.5rem; margin-top: 0; }
+        .user-label { font-size: 1.2rem; color: var(--puebla-magenta); font-weight: bold; margin-bottom: 5px; display: block; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 3px solid var(--comic-border); border-radius: 10px; box-sizing: border-box; font-size: 1.1rem; }
+        input:read-only { background-color: #f0f0f0; color: #666; cursor: not-allowed; }
+        
+        .btn-save { width: 100%; padding: 15px; background: var(--puebla-magenta); color: white; border: 3px solid var(--comic-border); border-radius: 12px; font-family: 'Bangers', cursive; font-size: 1.5rem; cursor: pointer; box-shadow: 4px 4px 0px var(--comic-border); transition: 0.2s; }
+        .btn-save:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px var(--comic-border); }
+        .btn-back { display: block; margin-top: 15px; color: var(--puebla-blue); text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <h2>{% if edit_mode %}ACTUALIZAR LLAVE{% else %}NUEVO RECLUTA{% endif %}</h2>
+        
+        <form method="POST">
+            {% csrf_token %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div style="color: var(--puebla-magenta); margin-bottom: 10px; font-weight: bold;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            
+            {% if edit_mode %}
+                <span class="user-badge">Modificando a: <strong>{{ usuario_objetivo.username }}</strong></span>
+                <input type="text" value="{{ usuario_objetivo.username }}" readonly>
+            {% else %}
+                <input type="text" name="username" placeholder="Nombre de usuario" required>
+            {% endif %}
+
+            <input type="password" name="password" placeholder="{% if edit_mode %}Nueva Contraseña{% else %}Contraseña{% endif %}" required>
+            <input type="password" name="password_confirm" placeholder="Confirmar Contraseña" required>
+            
+            <button type="submit" class="btn-save">
+                {% if edit_mode %}¡CAMBIAR LLAVE!{% else %}¡REGISTRAR!{% endif %}
+            </button>
+            
+            <a href="{% url 'main' %}" class="btn-back">← VOLVER</a>
+        </form>
+    </div>
+</body>
+</html>

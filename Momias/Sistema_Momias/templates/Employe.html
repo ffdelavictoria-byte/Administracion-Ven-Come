@@ -1,0 +1,419 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Empleados | Estilo Cómic</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --puebla-yellow: #FFD700;
+            --puebla-blue: #1A237E;
+            --puebla-magenta: #9D174D;
+            --comic-border: #000000;
+            --success-green: #2e7d32;
+            --info-cyan: #00bcd4;
+        }
+
+        body {
+            font-family: 'Patrick Hand', cursive;
+            background-color: var(--puebla-yellow);
+            margin: 0; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* --- MENSAJES FLOTANTES --- */
+        .messages-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            width: 320px;
+            pointer-events: none;
+        }
+
+        .alert-bubble {
+            background: white;
+            border: 4px solid var(--comic-border);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 8px 8px 0 var(--comic-border);
+            pointer-events: auto;
+            animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            border: 5px solid var(--comic-border);
+            border-radius: 20px;
+            padding: 25px;
+            position: relative;
+            box-shadow: 15px 15px 0 var(--puebla-blue);
+            overflow-y: auto;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 10px; right: 20px;
+            font-family: 'Bangers';
+            font-size: 2.5rem;
+            cursor: pointer;
+            color: var(--puebla-magenta);
+        }
+
+        .foto-perfil-container {
+            width: 150px;
+            height: 150px;
+            border: 4px solid var(--comic-border);
+            margin-bottom: 10px;
+            background: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 5px 5px 0 var(--comic-border);
+        }
+
+        .foto-perfil-container img { width: 100%; height: 100%; object-fit: cover; }
+
+        .sidebar { width: 350px; background: white; border-right: 5px solid var(--comic-border); padding: 20px; overflow-y: auto; }
+        .main-content { flex-grow: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px; background-image: radial-gradient(var(--puebla-blue) 1px, transparent 1px); background-size: 20px 20px; background-color: #f0f0f0; }
+        .comic-title { font-family: 'Bangers', cursive; font-size: 2.5rem; color: var(--puebla-blue); text-shadow: 2px 2px 0 white, 4px 4px 0 var(--comic-border); text-align: center; }
+        .comic-card { background: white; border: 4px solid var(--comic-border); border-radius: 15px; padding: 15px; box-shadow: 8px 8px 0 var(--comic-border); margin-bottom: 20px; }
+        .form-group { margin-bottom: 12px; }
+        .comic-input { width: 100%; padding: 8px; border: 3px solid var(--comic-border); border-radius: 8px; font-family: 'Patrick Hand', cursive; font-size: 1.1rem; box-sizing: border-box; }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-comic { font-family: 'Bangers', cursive; padding: 10px; border: 3px solid var(--comic-border); border-radius: 10px; cursor: pointer; text-align: center; text-decoration: none; box-shadow: 4px 4px 0 var(--comic-border); transition: 0.1s; font-size: 1.2rem; color: white; display: inline-block; }
+        .btn-comic:active { transform: translate(3px, 3px); box-shadow: 0px 0px 0 var(--comic-border); }
+        
+        .btn-save { background: var(--success-green); width: 100%; grid-column: span 2; margin-bottom: 5px; }
+        .btn-mod { background: var(--puebla-blue); }
+        .btn-alta { background: var(--info-cyan); }
+        .btn-baja { background: #ff9800; }
+        .btn-del { background: #f44336; }
+
+        .table-container { background: white; border: 4px solid var(--comic-border); border-radius: 15px; box-shadow: 8px 8px 0 var(--comic-border); overflow: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: var(--puebla-blue); color: white; font-family: 'Bangers'; }
+        th, td { padding: 10px; border: 2px solid var(--comic-border); text-align: left; }
+        tr:hover { background-color: rgba(255, 215, 0, 0.2); cursor: pointer; }
+        
+        /* ESTADOS */
+        .text-activo { color: var(--success-green); font-weight: bold; }
+        .text-inactivo { color: var(--puebla-magenta); font-weight: bold; }
+        .row-inactivo { background-color: #ffebee; opacity: 0.8; }
+        
+        /* Efecto de filtro activo */
+        .filter-active { outline: 4px solid white; transform: scale(1.05); z-index: 10; }
+    </style>
+</head>
+<body>
+
+    <div class="messages-container" id="messages-js">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert-bubble">
+                    <p style="font-family: 'Bangers'; margin: 0; color: var(--puebla-magenta); font-size: 1.3rem;">
+                        {{ message }}
+                    </p>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <div id="modalDocumentos" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-modal" onclick="cerrarModal()">&times;</span>
+            <h2 class="comic-title">EXPEDIENTE DIGITAL</h2>
+
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 250px;">
+                    <div class="comic-card">
+                        <h3 style="font-family:'Bangers'; margin-top:0;">FOTO DE PERFIL</h3>
+                        <div class="foto-perfil-container">
+                            <span id="fotoPlaceholder">SIN FOTO</span>
+                            <img id="imgPerfil" style="display:none;">
+                        </div>
+                        <input type="file" id="inputFoto" hidden accept="image/*" onchange="subirFoto()">
+                        <button class="btn-comic btn-mod" onclick="document.getElementById('inputFoto').click()" style="width:100%;">CAMBIAR FOTO</button>
+                    </div>
+
+                    <div class="comic-card">
+                        <h3 style="font-family:'Bangers'; margin-top:0;">NUEVO ARCHIVO</h3>
+                        <input type="file" id="inputPdf" class="comic-input" accept=".pdf">
+                        <button class="btn-comic btn-save" onclick="subirPdf()" style="margin-top:10px;">¡SUBIR ARCHIVO!</button>
+                    </div>
+                </div>
+
+                <div style="flex: 2; min-width: 300px;">
+                    <div class="table-container" style="max-height: 400px;">
+                        <table>
+                            <thead>
+                                <tr><th>ARCHIVO</th><th>FECHA</th><th>ACCIONES</th></tr>
+                            </thead>
+                            <tbody id="listaDocs"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <h2 class="comic-title">FICHA EMPLEADO</h2>
+        <form id="formEmpleado" method="POST" class="comic-card">
+            {% csrf_token %}
+            <input type="hidden" name="empleado_id" id="empleado_id">
+            <div class="form-group">
+                <label>Código:</label>
+                <input type="text" name="codigo" id="codigo" class="comic-input" readonly placeholder="AUTO-GENERADO">
+            </div>
+            <div class="form-group">
+                <label>Nombre(s):</label>
+                <input type="text" name="nombre" id="nombre" class="comic-input" required>
+            </div>
+            <div class="form-group">
+                <label>Apellido Paterno:</label>
+                <input type="text" name="apellido_paterno" id="apellido_paterno" class="comic-input" required>
+            </div>
+            <div class="form-group">
+                <label>Apellido Materno:</label>
+                <input type="text" name="apellido_materno" id="apellido_materno" class="comic-input">
+            </div>
+            <div class="form-group">
+                <label>Puesto:</label>
+                <input type="text" name="puesto" id="puesto" class="comic-input" required>
+            </div>
+            <div class="form-group">
+                <label>Sueldo Base:</label>
+                <input type="number" name="sueldo_base" id="sueldo" class="comic-input" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label>FECHA DE INGRESO:</label>
+                <input type="date" name="fecha_ingreso" id="fecha_ingreso" class="comic-input" required>
+            </div>
+            <div class="btn-group">
+                <button type="submit" name="accion" value="guardar" class="btn-save btn-comic">¡GUARDAR!</button>
+                <button type="button" class="btn-comic btn-mod" onclick="limpiarForm()">LIMPIAR</button>
+                
+                <button type="submit" name="accion" value="alta" class="btn-comic btn-alta">DAR ALTA</button>
+                <button type="submit" name="accion" value="baja" class="btn-comic btn-baja">DAR BAJA</button>
+                
+            </div>
+        </form>
+        <button type="button" onclick="abrirModalDocumentos()" class="btn-comic" style="width:100%; background: #673ab7;">ABRIR EXPEDIENTE</button>
+    </div>
+
+    <div class="main-content">
+        <form class="search-bar" style="display: flex; gap: 10px;" method="GET">
+            <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Buscar por nombre o código..." class="comic-input" style="flex-grow: 1;">
+            <button type="submit" class="btn-comic btn-mod">BUSCAR</button>
+        </form>
+
+        <div style="display: flex; gap: 10px; margin-top: -10px;">
+            <a href="?estatus=Activo" class="btn-comic {% if request.GET.estatus == 'Activo' %}filter-active{% endif %}" style="background: var(--success-green); font-size: 0.9rem; padding: 5px 15px;">VER ACTIVOS</a>
+            <a href="?estatus=Inactivo" class="btn-comic {% if request.GET.estatus == 'Inactivo' %}filter-active{% endif %}" style="background: var(--puebla-magenta); font-size: 0.9rem; padding: 5px 15px;">VER INACTIVOS</a>
+            <a href="?" class="btn-comic {% if not request.GET.estatus %}filter-active{% endif %}" style="background: var(--puebla-blue); font-size: 0.9rem; padding: 5px 15px;">TODOS</a>
+        </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>CÓDIGO</th>
+                    <th>NOMBRE</th>
+                    <th>PUESTO</th>
+                    <th>INGRESO</th>
+                    <th>ESTATUS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in empleados %}
+                <tr class="{% if emp.estatus|lower == 'inactivo' %}row-inactivo{% endif %}" 
+                    onclick="prepararFormulario(this)"
+                    data-id="{{ emp.id }}"
+                    data-codigo="{{ emp.codigo_empleado }}"
+                    data-nombre="{{ emp.nombre }}"
+                    data-ap="{{ emp.apellido_paterno }}"
+                    data-am="{{ emp.apellido_materno }}"
+                    data-puesto="{{ emp.puesto }}"
+                    data-sueldo="{{ emp.sueldo_base }}"
+                    data-fecha="{{ emp.fecha_ingreso|date:'Y-m-d' }}">
+                    
+                    <td>{{ emp.id }}</td>
+                    <td>{{ emp.codigo_empleado }}</td>
+                    <td>{{ emp.nombre }} {{ emp.apellido_paterno }}</td>
+                    <td>{{ emp.puesto }}</td>
+                    <td>{{ emp.fecha_ingreso|date:"d/m/Y" }}</td>
+                    <td class="{% if emp.estatus|lower == 'activo' %}text-activo{% else %}text-inactivo{% endif %}">
+                        {{ emp.estatus }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="text-align:center;">No se encontraron empleados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+        {% if user.is_superuser %}
+    <div style="position: absolute; top: 15px; left: 15px; z-index: 3000;">
+        <a href="/main/" class="btn-comic" style="background: var(--puebla-magenta); text-decoration: none; display: flex; align-items: center; gap: 8px; padding: 5px 15px;">
+            <span style="font-size: 1.5rem;">«</span> SALIR AL MENÚ
+        </a>
+    </div>
+    {% endif %}
+
+    <script>
+    // --- LÓGICA DE INTERFAZ ---
+    window.onload = function() {
+        const msgContainer = document.getElementById('messages-js');
+        if (msgContainer) {
+            setTimeout(() => {
+                msgContainer.style.transition = "opacity 0.5s ease";
+                msgContainer.style.opacity = "0";
+                setTimeout(() => msgContainer.innerHTML = "", 500);
+            }, 4000);
+        }
+    };
+
+        function prepararFormulario(fila) {
+        // Extraemos los datos de los atributos "data-" que pusimos en la fila <tr>
+        const id = fila.getAttribute('data-id');
+        const codigo = fila.getAttribute('data-codigo');
+        const nombre = fila.getAttribute('data-nombre');
+        const ap = fila.getAttribute('data-ap');
+        const am = fila.getAttribute('data-am');
+        const puesto = fila.getAttribute('data-puesto');
+        const sueldo = fila.getAttribute('data-sueldo');
+        const fecha = fila.getAttribute('data-fecha');
+
+        // Llenamos los campos del formulario por su ID
+        document.getElementById('empleado_id').value = id; 
+        document.getElementById('codigo').value = codigo;
+        document.getElementById('nombre').value = nombre;
+        document.getElementById('apellido_paterno').value = ap;
+        document.getElementById('apellido_materno').value = am;
+        document.getElementById('puesto').value = puesto;
+        document.getElementById('sueldo').value = sueldo;
+
+        // Llenamos la fecha (asegúrate de que el input de fecha tenga id="fecha_ingreso")
+        const inputFecha = document.getElementById('fecha_ingreso');
+        if (inputFecha) {
+            inputFecha.value = (fecha && fecha !== 'None') ? fecha : "";
+        }
+        
+        // Efecto visual: quitar borde a todas las filas y ponerlo a la seleccionada
+        const rows = document.querySelectorAll('tbody tr');
+        rows.forEach(r => r.style.outline = "none");
+        fila.style.outline = "3px solid var(--puebla-blue)";
+    }
+
+    function limpiarForm() {
+        document.getElementById('formEmpleado').reset();
+        document.getElementById('empleado_id').value = "";
+        document.getElementById('fecha_ingreso').value = ""; // Limpieza manual
+        document.querySelectorAll('tbody tr').forEach(r => r.style.outline = "none");
+    }
+
+    function cerrarModal() { document.getElementById('modalDocumentos').style.display = 'none'; }
+
+    async function abrirModalDocumentos() {
+        const id = document.getElementById('empleado_id').value;
+        if (!id) return alert("¡RAYOS! Selecciona un empleado primero.");
+        document.getElementById('modalDocumentos').style.display = 'flex';
+        cargarDatosExpediente(id);
+    }
+
+    async function cargarDatosExpediente(id) {
+        try {
+            const response = await fetch(`/gestionar-documentos/${id}/`);
+            const data = await response.json();
+            const imgPerfil = document.getElementById('imgPerfil');
+            const placeholder = document.getElementById('fotoPlaceholder');
+            
+            if (data.foto_url) {
+                imgPerfil.src = data.foto_url;
+                imgPerfil.style.display = 'block';
+                placeholder.style.display = 'none';
+            } else {
+                imgPerfil.style.display = 'none';
+                placeholder.style.display = 'block';
+            }
+
+            const tablaDocs = document.getElementById('listaDocs');
+            tablaDocs.innerHTML = "";
+            data.documentos.forEach(doc => {
+                tablaDocs.innerHTML += `
+                    <tr>
+                        <td style="font-size: 0.9rem;">${doc.nombre}</td>
+                        <td>${doc.fecha}</td>
+                        <td>
+                            <div style="display: flex; gap: 5px;">
+                                <a href="${doc.url}" target="_blank" class="btn-comic btn-mod" style="padding:2px 8px; font-size:0.8rem;">VER</a>
+                                <button onclick="eliminarDocumento(${doc.id})" class="btn-comic btn-del" style="padding:2px 8px; font-size:0.8rem;">X</button>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+        } catch (error) { console.error("Error:", error); }
+    }
+
+    async function subirFoto() {
+        const id = document.getElementById('empleado_id').value;
+        const input = document.getElementById('inputFoto');
+        if (!input.files[0]) return;
+        const formData = new FormData();
+        formData.append('foto', input.files[0]);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        const res = await fetch(`/gestionar-documentos/${id}/`, { method: 'POST', body: formData });
+        if (res.ok) cargarDatosExpediente(id);
+    }
+
+    async function subirPdf() {
+        const id = document.getElementById('empleado_id').value;
+        const input = document.getElementById('inputPdf');
+        if (!input.files[0]) return alert("¡RAYOS! Selecciona un archivo primero.");
+        const formData = new FormData();
+        formData.append('pdf', input.files[0]);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        const res = await fetch(`/gestionar-documentos/${id}/`, { method: 'POST', body: formData });
+        if (res.ok) { input.value = ""; cargarDatosExpediente(id); }
+    }
+
+    async function eliminarDocumento(docId) {
+        if (!confirm("¿SEGURO QUE QUIERES DESTRUIR ESTA EVIDENCIA?")) return;
+        const empId = document.getElementById('empleado_id').value;
+        const res = await fetch(`/gestionar-documentos/${empId}/?doc_id=${docId}`, {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        if (res.ok) cargarDatosExpediente(empId);
+        else alert("¡RAYOS! No se pudo eliminar.");
+    }
+    </script>
+</body>
+</html>

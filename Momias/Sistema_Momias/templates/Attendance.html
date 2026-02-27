@@ -1,0 +1,511 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistencias | Momias de la Victoria</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --puebla-yellow: #FFD700;
+            --puebla-blue: #1A237E;
+            --puebla-magenta: #9D174D;
+            --comic-border: #000000;
+        }
+
+        body {
+            font-family: 'Patrick Hand', cursive;
+            background-color: var(--puebla-yellow);
+            margin: 0;
+            padding: 20px;
+            color: var(--puebla-blue);
+        }
+
+        .comic-container {
+            background: white;
+            border: 4px solid var(--comic-border);
+            box-shadow: 10px 10px 0px var(--comic-border);
+            border-radius: 15px;
+            padding: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-family: 'Bangers', cursive;
+            font-size: 3rem;
+            text-align: center;
+            text-shadow: 2px 2px 0px white, 4px 4px 0px var(--comic-border);
+            margin-bottom: 30px;
+            text-transform: uppercase;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .form-group { display: flex; flex-direction: column; }
+
+        label { font-weight: bold; font-size: 1.2rem; margin-bottom: 5px; }
+
+        input, select, textarea {
+            font-family: 'Patrick Hand', cursive;
+            font-size: 1.1rem;
+            padding: 10px;
+            border: 3px solid var(--comic-border);
+            border-radius: 8px;
+            outline: none;
+            background: #fff;
+        }
+
+        input:focus, select:focus { border-color: var(--puebla-magenta); }
+
+        .flex-row { display: flex; gap: 5px; }
+        .flex-row input { width: 40%; }
+        .flex-row select { width: 60%; }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        .btn-comic {
+            font-family: 'Bangers', cursive;
+            font-size: 1.2rem;
+            padding: 8px 20px;
+            border: 3px solid var(--comic-border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.1s;
+            box-shadow: 4px 4px 0px var(--comic-border);
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-save { background: #4CAF50; color: white; }
+        .btn-clear { background: #2196F3; color: white; }
+        .btn-exit { background: #E53935; color: white; }
+        .btn-edit { background: #FFC107; color: black; font-size: 0.9rem; }
+        .btn-delete { background: #000000; color: white; font-size: 0.9rem; }
+
+        .btn-comic:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px var(--comic-border);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border: 3px solid var(--comic-border);
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th { background: var(--puebla-blue); color: white; font-family: 'Bangers', cursive; padding: 12px; }
+        td { padding: 10px; border-bottom: 2px solid #ddd; text-align: center; }
+
+        #sueldo_sugerido {
+            font-size: 0.9rem;
+            color: var(--puebla-magenta);
+            font-weight: bold;
+            margin-top: 2px;
+            min-height: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="comic-container">
+    <h1>REPORTE DE ASISTENCIAS | Momias De La Victoria</h1>
+
+    <form id="formAsistencia" method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="asistencia_id" id="asistencia_id" value="">
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Fecha:</label>
+                <input type="date" name="fecha" id="fecha" value="{{ hoy }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Empleado:</label>
+                <input type="text" id="empleado_search" placeholder="Escribe nombre o código..." list="lista_empleados" autocomplete="off">
+                
+                <datalist id="lista_empleados">
+                    {% for emp in empleados %}
+                    <option value="{{ emp.codigo_empleado }} - {{ emp.nombre }} {{ emp.apellido_paterno }}" data-id="{{ emp.id }}" data-puesto="{{ emp.puesto }}">
+                    {% endfor %}
+                </datalist>
+
+                <input type="hidden" name="empleado" id="empleado_id_hidden" required>
+            </div>
+
+            <div class="form-group">
+                <label>Sucursal:</label>
+                <select name="sucursal" id="sucursal">
+                    <option value="Momias 1">Momias 1</option>
+                    <option value="Momias 2">Momias 2</option>
+                    <option value="Momias 3">Momias 3</option>
+                    <option value="Momias 4">Momias 4</option>
+                    <option value="Momias 5">Momias 5</option>
+                    <option value="Momias 6">Momias 6</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Puesto:</label>
+                <select name="puesto" id="puesto_input">
+                    <option value="">Selecciona puesto...</option>
+                    {% for puesto_nombre in lista_puestos %}
+                        <option value="{{ puesto_nombre }}">{{ puesto_nombre }}</option>
+                    {% endfor %}
+                </select>
+                <div id="sueldo_sugerido"></div>
+            </div>
+
+            <div class="form-group">
+                <label>Entrada Matutina:</label>
+                <select name="entrada_matutina" id="entrada_matutina">
+                    <option value="" selected>--- No aplica ---</option>
+                    <option value="R1">09:00 - 09:05 (R1)</option>
+                    <option value="R2">09:06 - 09:10 (R2)</option>
+                    <option value="R3">09:11 - 09:20 (R3)</option>
+                    <option value="R4">09:21 - 09:30 (R4)</option>
+                    <option value="R5">09:31 - 09:40 (R5)</option>
+                    <option value="R6">09:41 - 09:50 (R6)</option>
+                    <option value="R7">09:51 - 10:00 (R7)</option>
+                    <option value="R8">10:01 - 10:10 (R8)</option>
+                    <option value="R9">10:11 - 10:20 (R9)</option>
+                    <option value="R10">10:21 - 10:30 (R10)</option>
+                    <option value="R11">10:31 - 10:40 (R11)</option>
+                    <option value="R12">10:41 - 10:50 (R12)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Entrada Vespertina:</label>
+                <select name="entrada_vespertina" id="entrada_vespertina">
+                    <option value="" selected>--- No aplica ---</option>
+                    <option value="R1">15:00 - 15:05 (R1)</option>
+                    <option value="R2">15:06 - 15:10 (R2)</option>
+                    <option value="R3">15:11 - 15:20 (R3)</option>
+                    <option value="R4">15:21 - 15:30 (R4)</option>
+                    <option value="R5">15:31 - 15:40 (R5)</option>
+                    <option value="R6">15:41 - 15:50 (R6)</option>
+                    <option value="R7">15:51 - 16:00 (R7)</option>
+                    <option value="R8">16:01 - 16:10 (R8)</option>
+                    <option value="R9">16:11 - 16:20 (R9)</option>
+                    <option value="R10">16:21 - 16:30 (R10)</option>
+                    <option value="R11">16:31 - 16:40 (R11)</option>
+                    <option value="R12">16:41 - 16:50 (R12)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Salida Matutina:</label>
+                <select name="salida_matutina" id="salida_matutina">
+                    <option value="" selected>--- No aplica ---</option>
+                    <option value="15:00">15:00 (Normal)</option>
+                    <option value="15:30">15:30</option>
+                    <option value="16:00">16:00</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Salida Vespertina:</label>
+                <select name="salida_vespertina" id="salida_vespertina">
+                    <option value="" selected>--- No aplica ---</option>
+                    <option value="21:00">21:00 (Normal)</option>
+                    <option value="21:30">21:30</option>
+                    <option value="22:00">22:00</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Estatus Jornada:</label>
+                <select name="estatus_jornada" id="estatus_jornada">
+                    <option value="Normal">Normal</option>
+                    <option value="Descanso">Descanso</option>
+                    <option value="Descanso trabajado">Descanso trabajado</option>
+                    <option value="Festivo">Festivo</option>
+                    <option value="Falta">Falta</option>
+                    <option value="Permiso">Permiso</option>
+                    <option value="Permiso">Vacaciones</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Bonificación ($):</label>
+                <div class="flex-row">
+                    <input type="number" name="bonificacion" id="bonificacion" step="0.01" value="0">
+                    <select name="motivo_bonificacion" id="motivo_bonificacion">
+                        <option value="">Motivo...</option>
+                        <option value="Error en nómina">Error en nómina</option>
+                        <option value="Gratificación">Gratificación</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Descuento ($):</label>
+                <div class="flex-row">
+                    <input type="number" name="descuento" id="descuento" step="0.01" value="0">
+                    <select name="motivo_descuento" id="motivo_descuento">
+                        <option value="">Motivo...</option>
+                        <option value="Error en nómina">Error en nómina</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Tipo Uniforme:</label>
+                <select name="tipo_uniforme" id="tipo_uniforme">
+                    <option value="">Ninguno</option>
+                    <option value="Pago uniforme 1">Pago uniforme 1 ($181.00)</option>
+                    <option value="Pago uniforme 2">Pago uniforme 2 ($181.00)</option>
+                    <option value="Pago uniforme 3">Pago uniforme 3 ($181.00)</option>
+                    <option value="Prenda individual">Prenda individual ($170.00)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Observaciones:</label>
+                <textarea name="observaciones" id="observaciones" rows="2" placeholder="Notas..."></textarea>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button type="submit" id="btn-principal" class="btn-comic btn-save">CAPTURAR MOVIMIENTO</button>
+            <button type="button" class="btn-comic btn-clear" onclick="limpiarFormularioYTabla()">LIMPIAR FORMULARIO</button>
+            <a href="/main/" class="btn-comic btn-exit">SALIR AL MENÚ</a>
+        </div>
+    </form>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Empleado</th>
+                    <th>Sucursal</th>
+                    <th>Puesto</th>
+                    <th>Estatus</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+                    <tbody id="tabla-asistencias-body">
+            {% for registro in registros %}
+            <tr>
+                <td>{{ registro.fecha|date:"d/m/Y" }}</td>
+                <td>
+                    {{ registro.empleado.nombre }} 
+                    {{ registro.empleado.apellido_paterno }} 
+                    {% if registro.empleado.apellido_materno %}{{ registro.empleado.apellido_materno }}{% endif %}
+                </td>
+                <td><strong>{{ registro.sucursal|default:"--" }}</strong></td>
+                <td>{{ registro.puesto|default:"--" }}</td>
+                <td>{{ registro.estatus_jornada }}</td>
+                <td style="display: flex; gap: 5px; justify-content: center;">
+                    <button type="button" class="btn-comic btn-edit" 
+                        data-id="{{ registro.id }}"
+                        data-emp="{{ registro.empleado.id }}"
+                        data-fec="{{ registro.fecha|date:'Y-m-d' }}"
+                        data-pue="{{ registro.puesto|default:'' }}"
+                        data-suc="{{ registro.sucursal|default:'' }}"
+                        data-mat="{{ registro.entrada_matutina }}"
+                        data-ves="{{ registro.entrada_vespertina }}"
+                        data-est="{{ registro.estatus_jornada }}"
+                        data-bon="{{ registro.bonificacion|default:'0' }}"
+                        data-mbon="{{ registro.motivo_bonificacion|default:'' }}"
+                        data-des="{{ registro.descuento|default:'0' }}"
+                        data-mdes="{{ registro.motivo_descuento|default:'' }}"
+                        data-uni="{{ registro.tipo_uniforme|default:'' }}"
+                        data-obs="{{ registro.observaciones|escapejs }}"
+                        onclick="prepararEdicion(this)">
+                        EDITAR
+                    </button>
+
+                    <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este registro?')">
+                        {% csrf_token %}
+                        <input type="hidden" name="eliminar_id" value="{{ registro.id }}">
+                        <button type="submit" class="btn-comic btn-delete">BORRAR</button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr id="fila-vacia"><td colspan="6">No hay registros guardados.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+
+{{ puestos_json|json_script:"puestos-data" }}
+
+<script>
+    const salarios = JSON.parse(document.getElementById('puestos-data').textContent);
+    const form = document.getElementById('formAsistencia');
+    const asistenciaIdInput = document.getElementById('asistencia_id');
+    const btnPrincipal = document.getElementById('btn-principal');
+    const puestoSelect = document.getElementById('puesto_input');
+    const sueldoMsg = document.getElementById('sueldo_sugerido');
+    const tablaBody = document.getElementById('tabla-asistencias-body');
+    
+    const empleadoSearch = document.getElementById('empleado_search');
+    const empleadoHidden = document.getElementById('empleado_id_hidden');
+    const datalist = document.getElementById('lista_empleados');
+
+    const entMat = document.getElementById('entrada_matutina');
+    const entVes = document.getElementById('entrada_vespertina');
+    const salMat = document.getElementById('salida_matutina');
+    const salVes = document.getElementById('salida_vespertina');
+
+    // --- LÓGICA DE BÚSQUEDA DE EMPLEADO ---
+    empleadoSearch.addEventListener('input', function() {
+        const val = this.value;
+        const options = datalist.options;
+        let encontrado = false;
+
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].value === val) {
+                const id = options[i].getAttribute('data-id');
+                const puesto = options[i].getAttribute('data-puesto');
+                empleadoHidden.value = id;
+
+                if (puesto) {
+                    puestoSelect.value = puesto;
+                } else {
+                    puestoSelect.value = "";
+                }
+                actualizarSueldo(puestoSelect.value);
+                encontrado = true;
+                break;
+            }
+        }
+        if (!encontrado) { empleadoHidden.value = ""; }
+    });
+
+    puestoSelect.addEventListener('change', function() {
+        actualizarSueldo(this.value);
+    });
+
+    function actualizarSueldo(puesto) {
+        const p = puesto ? puesto.trim() : "";
+        if (salarios[p]) {
+            sueldoMsg.innerText = `Sueldo sugerido: $${salarios[p]}`;
+        } else {
+            sueldoMsg.innerText = p ? "Puesto no tarifado" : "";
+        }
+    }
+
+    // --- LÓGICA DE HORARIOS INTELIGENTES ---
+    entMat.addEventListener('change', function() {
+        if (this.value !== "") {
+            // Si hay entrada matutina, asumimos que no hay entrada vespertina (evitar duplicar entrada)
+            entVes.value = ""; 
+            // Sugerimos salida matutina por defecto si no hay nada
+            if (salMat.value === "") salMat.value = "15:00";
+        } else {
+            salMat.value = "";
+        }
+    });
+
+    entVes.addEventListener('change', function() {
+        if (this.value !== "") {
+            // Si entra a las 3, no pudo entrar a las 9
+            entMat.value = "";
+            salMat.value = "";
+            // Sugerimos salida vespertina
+            if (salVes.value === "") salVes.value = "21:00";
+        } else {
+            salVes.value = "";
+        }
+    });
+
+    document.getElementById('estatus_jornada').addEventListener('change', function() {
+    if (this.value === "Vacaciones" || this.value === "Falta" || this.value === "Descanso") {
+        entMat.value = "";
+        entVes.value = "";
+        salMat.value = "";
+        salVes.value = "";
+        // Opcional: avisar que no se requieren horas
+        sueldoMsg.innerText = "Estatus sin registro de horas";
+    }
+    });
+
+    // --- PREPARAR EDICIÓN (CARGAR DATOS) ---
+    function prepararEdicion(boton) {
+        const d = boton.dataset;
+        asistenciaIdInput.value = d.id;
+        empleadoHidden.value = d.emp;
+
+        const opciones = datalist.options;
+        empleadoSearch.value = ""; 
+        for (let i = 0; i < opciones.length; i++) {
+            if (opciones[i].getAttribute('data-id') == d.emp) {
+                empleadoSearch.value = opciones[i].value;
+                break;
+            }
+        }
+
+        document.getElementById('fecha').value = d.fec;
+        puestoSelect.value = d.pue;
+        document.getElementById('sucursal').value = d.suc;
+        
+        // Cargar Horarios
+        entMat.value = d.mat || "";
+        entVes.value = d.ves || "";
+        salMat.value = d.salmat || "";
+        salVes.value = d.salves || "";
+
+        document.getElementById('estatus_jornada').value = d.est;
+        document.getElementById('bonificacion').value = d.bon;
+        document.getElementById('motivo_bonificacion').value = d.mbon;
+        document.getElementById('descuento').value = d.des;
+        document.getElementById('motivo_descuento').value = d.mdes;
+        document.getElementById('tipo_uniforme').value = d.uni;
+        document.getElementById('observaciones').value = d.obs;
+
+        btnPrincipal.innerText = "CORREGIR REGISTRO";
+        btnPrincipal.style.background = "#FFC107";
+        btnPrincipal.style.color = "black";
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        actualizarSueldo(d.pue);
+    }
+
+    // --- LIMPIEZA DE FORMULARIO ---
+    function limpiarFormularioYTabla() {
+        form.reset();
+        asistenciaIdInput.value = "";
+        empleadoHidden.value = "";
+        empleadoSearch.value = ""; 
+        
+        // Reset manual de horarios (por si el reset no lo toma por el "No aplica")
+        entMat.value = "";
+        entVes.value = "";
+        salMat.value = "";
+        salVes.value = "";
+        
+        btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
+        btnPrincipal.style.background = "#4CAF50";
+        btnPrincipal.style.color = "white";
+        sueldoMsg.innerText = "";
+        document.getElementById('fecha').value = "{{ hoy }}";
+
+        tablaBody.innerHTML = '<tr><td colspan="6">Pantalla limpia. Recarga para ver historial.</td></tr>';
+    }
+</script>
+</body>
+</html>
