@@ -76,12 +76,15 @@ WSGI_APPLICATION = 'Momias.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'Momias',
-        'USER': 'postgres',
-        'PASSWORD': 'dennis.117',
-        'HOST': '127.0.0.1',
-        'DATABASE_PORT': '5432',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'defaultdb',  # En la imagen dice database = defaultdb
+        'USER': 'doadmin',
+        'PASSWORD': 'AVNS_qcTgcLnWHUUf7M6tGZG', # Asegúrate de que no haya espacio al final
+        'HOST': 'db-postgresql-nyc3-97117-do-user-33914940-0.k.db.ondigitalocean.com',
+        'PORT': '25060', # La llave correcta es 'PORT', no 'DATABASE_PORT'
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
 }
 
