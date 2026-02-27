@@ -3,10 +3,9 @@ gunicorn==20.1.0
 whitenoise==6.6.0
 dj-database-url==1.3.0
 psycopg==3.1.18
-python-dotenv==1.0.0
-# --- Añade estos ---
-setuptools             # A veces necesario para gunicorn en entornos Linux
+python-dotenv==1.0.0           # A veces necesario para gunicorn en entornos Linux
 tzdata                 # Manejo de zonas horarias (Puebla/CDMX)
-pandas==2.0.3          # Lo necesitas para la lógica de reportes que tenías
+setuptools  # <--- Asegúrate de que esta línea esté
+pandas>=2.2.0         # Lo necesitas para la lógica de reportes que tenías
 openpyxl               # Para que pandas pueda exportar a Excel
 reportlab==4.0.4       # Para que tu lógica de PDF funcione en el servidor
