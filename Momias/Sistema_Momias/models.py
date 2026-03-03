@@ -18,25 +18,41 @@ class Empleado(models.Model):
         return f"{self.codigo_empleado} - {self.nombre} {self.apellido_paterno}"
 
 class Asistencia(models.Model):
-    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='asistencias')
+    # Relaciones y datos básicos
+    empleado = models.ForeignKey('Empleado', on_delete=models.CASCADE, related_name='asistencias')
     fecha = models.DateField()
-    entrada = models.TimeField(blank=True, null=True)
-    salida = models.TimeField(blank=True, null=True)
-    estatus = models.CharField(max_length=50, blank=True, null=True)
-    horas = models.FloatField(blank=True, null=True)
-    # --- AGREGA ESTOS CAMPOS PARA QUE NO TRUENE EL GUARDADO ---
-    puesto = models.CharField(max_length=100, blank=True, null=True)
-    observaciones = models.TextField(blank=True, null=True)
-    bonificacion = models.FloatField(default=0.0)
-    descuento = models.FloatField(default=0.0)
     sucursal = models.CharField(max_length=100, blank=True, null=True)
-    salida_matutina = models.TimeField(null=True, blank=True)
-    salida_vespertina = models.TimeField(null=True, blank=True)
-    retardo = models.IntegerField(default=0) # O el nombre exacto que desees
+    puesto = models.CharField(max_length=100, blank=True, null=True)
+    estatus = models.CharField(max_length=50, blank=True, null=True)
+    
+    # --- BLOQUE DE HORARIOS (MATUTINO Y VESPERTINO) ---
+    # Nota: Usamos CharField porque tu lógica de "puntos/retardos" 
+    # envía valores como "9:00 AM (R1)" desde el select.
+    entrada_matutina = models.CharField(max_length=50, blank=True, null=True)
+    salida_matutina = models.CharField(max_length=50, blank=True, null=True)
+    entrada_vespertina = models.CharField(max_length=50, blank=True, null=True)
+    salida_vespertina = models.CharField(max_length=50, blank=True, null=True)
+    
+    # Campos heredados o de compatibilidad
+    entrada = models.TimeField(blank=True, null=True) # General
+    salida = models.TimeField(blank=True, null=True)  # General
+    
+    # --- CÁLCULOS Y DINERO ---
+    horas = models.FloatField(blank=True, null=True)      # Aquí guardas los puntos de retardo
+    retardo = models.IntegerField(default=0)
+    pago_dia = models.FloatField(default=0.0, null=True, blank=True) # El sueldo calculado (sencillo/doble)
+    
+    # --- EXTRAS ---
+    bonificacion = models.FloatField(default=0.0)
+    motivo_bonificacion = models.CharField(max_length=255, blank=True, null=True)
+    descuento = models.FloatField(default=0.0)
+    motivo_descuento = models.CharField(max_length=255, blank=True, null=True)
+    tipo_uniforme = models.CharField(max_length=100, blank=True, null=True)
+    observaciones = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.fecha} - {self.empleado.nombre}"
-
+        return f"{self.fecha} - {self.empleado.nombre} ({self.sucursal})"
+    
 class Usuario(models.Model):
     # Nota: Django ya tiene un sistema de usuarios (User). 
     # Si quieres uno personalizado, este es el modelo:
