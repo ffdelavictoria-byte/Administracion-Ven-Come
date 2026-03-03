@@ -142,7 +142,9 @@
                 
                 <datalist id="lista_empleados">
                     {% for emp in empleados %}
-                    <option value="{{ emp.codigo_empleado }} - {{ emp.nombre }} {{ emp.apellido_paterno }}" data-id="{{ emp.id }}" data-puesto="{{ emp.puesto }}">
+                    <option value="{{ emp.codigo_empleado }} - {{ emp.nombre }} {{ emp.apellido_paterno }}" 
+                            data-id="{{ emp.id }}" 
+                            data-puesto="{{ emp.puesto }}">
                     {% endfor %}
                 </datalist>
 
@@ -169,65 +171,63 @@
                         <option value="{{ puesto_nombre }}">{{ puesto_nombre }}</option>
                     {% endfor %}
                 </select>
-                <div id="sueldo_sugerido"></div>
+                <div id="sueldo_sugerido" style="margin-top: 5px; font-weight: bold; min-height: 1.2em;"></div>
+            </div>
+
+            <div class="form-group" id="group_cargas" style="display:none; background: #fffde7; padding: 10px; border-radius: 8px; border: 2px dashed #000;">
+                <label id="label_cargas">Cantidad de Cargas:</label>
+                <input type="number" step="0.1" name="cantidad_cargas" id="cantidad_cargas" value="0">
+                <input type="hidden" name="monto_dia" id="monto_dia">
             </div>
 
             <div class="form-group">
                 <label>Entrada Matutina:</label>
                 <select name="entrada_matutina" id="entrada_matutina">
+                    <option value="OTRO">OTRO (Manual)</option>
                     <option value="" selected>--- No aplica ---</option>
+                    <option value="09:00">09:00 (Normal)</option>
                     <option value="R1">09:00 - 09:05 (R1)</option>
                     <option value="R2">09:06 - 09:10 (R2)</option>
                     <option value="R3">09:11 - 09:20 (R3)</option>
                     <option value="R4">09:21 - 09:30 (R4)</option>
-                    <option value="R5">09:31 - 09:40 (R5)</option>
-                    <option value="R6">09:41 - 09:50 (R6)</option>
-                    <option value="R7">09:51 - 10:00 (R7)</option>
-                    <option value="R8">10:01 - 10:10 (R8)</option>
-                    <option value="R9">10:11 - 10:20 (R9)</option>
-                    <option value="R10">10:21 - 10:30 (R10)</option>
-                    <option value="R11">10:31 - 10:40 (R11)</option>
-                    <option value="R12">10:41 - 10:50 (R12)</option>
                 </select>
-            </div>
-
-            <div class="form-group">
-                <label>Entrada Vespertina:</label>
-                <select name="entrada_vespertina" id="entrada_vespertina">
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="R1">15:00 - 15:05 (R1)</option>
-                    <option value="R2">15:06 - 15:10 (R2)</option>
-                    <option value="R3">15:11 - 15:20 (R3)</option>
-                    <option value="R4">15:21 - 15:30 (R4)</option>
-                    <option value="R5">15:31 - 15:40 (R5)</option>
-                    <option value="R6">15:41 - 15:50 (R6)</option>
-                    <option value="R7">15:51 - 16:00 (R7)</option>
-                    <option value="R8">16:01 - 16:10 (R8)</option>
-                    <option value="R9">16:11 - 16:20 (R9)</option>
-                    <option value="R10">16:21 - 16:30 (R10)</option>
-                    <option value="R11">16:31 - 16:40 (R11)</option>
-                    <option value="R12">16:41 - 16:50 (R12)</option>
-                </select>
+                <input type="time" id="custom_entrada_matutina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_matutina')">
             </div>
 
             <div class="form-group">
                 <label>Salida Matutina:</label>
                 <select name="salida_matutina" id="salida_matutina">
+                    <option value="OTRO">OTRO (Manual)</option>
                     <option value="" selected>--- No aplica ---</option>
                     <option value="15:00">15:00 (Normal)</option>
                     <option value="15:30">15:30</option>
-                    <option value="16:00">16:00</option>
+                    <option value="16:00">16:00</option>        
                 </select>
+                <input type="time" id="custom_salida_matutina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_matutina')">
+            </div>
+
+            <div class="form-group">
+                <label>Entrada Vespertina:</label>
+                <select name="entrada_vespertina" id="entrada_vespertina">
+                    <option value="OTRO">OTRO (Manual)</option>
+                    <option value="" selected>--- No aplica ---</option>
+                    <option value="15:00">15:00 (Normal)</option>
+                    <option value="R1">15:00 - 15:05 (R1)</option>
+                    <option value="R2">15:06 - 15:10 (R2)</option>
+                </select>
+                <input type="time" id="custom_entrada_vespertina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_vespertina')">
             </div>
 
             <div class="form-group">
                 <label>Salida Vespertina:</label>
                 <select name="salida_vespertina" id="salida_vespertina">
+                    <option value="OTRO">OTRO (Manual)</option>
                     <option value="" selected>--- No aplica ---</option>
                     <option value="21:00">21:00 (Normal)</option>
                     <option value="21:30">21:30</option>
                     <option value="22:00">22:00</option>
                 </select>
+                <input type="time" id="custom_salida_vespertina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_vespertina')">
             </div>
 
             <div class="form-group">
@@ -239,7 +239,7 @@
                     <option value="Festivo">Festivo</option>
                     <option value="Falta">Falta</option>
                     <option value="Permiso">Permiso</option>
-                    <option value="Permiso">Vacaciones</option>
+                    <option value="Vacaciones">Vacaciones</option>
                 </select>
             </div>
 
@@ -263,6 +263,7 @@
                     <select name="motivo_descuento" id="motivo_descuento">
                         <option value="">Motivo...</option>
                         <option value="Error en nómina">Error en nómina</option>
+                        <option value="Falta de uniforme">Falta de uniforme</option>
                         <option value="Otro">Otro</option>
                     </select>
                 </div>
@@ -304,49 +305,51 @@
                     <th>Acciones</th>
                 </tr>
             </thead>
-                    <tbody id="tabla-asistencias-body">
-            {% for registro in registros %}
-            <tr>
-                <td>{{ registro.fecha|date:"d/m/Y" }}</td>
-                <td>
-                    {{ registro.empleado.nombre }} 
-                    {{ registro.empleado.apellido_paterno }} 
-                    {% if registro.empleado.apellido_materno %}{{ registro.empleado.apellido_materno }}{% endif %}
-                </td>
-                <td><strong>{{ registro.sucursal|default:"--" }}</strong></td>
-                <td>{{ registro.puesto|default:"--" }}</td>
-                <td>{{ registro.estatus_jornada }}</td>
-                <td style="display: flex; gap: 5px; justify-content: center;">
-                    <button type="button" class="btn-comic btn-edit" 
-                        data-id="{{ registro.id }}"
-                        data-emp="{{ registro.empleado.id }}"
-                        data-fec="{{ registro.fecha|date:'Y-m-d' }}"
-                        data-pue="{{ registro.puesto|default:'' }}"
-                        data-suc="{{ registro.sucursal|default:'' }}"
-                        data-mat="{{ registro.entrada_matutina }}"
-                        data-ves="{{ registro.entrada_vespertina }}"
-                        data-est="{{ registro.estatus_jornada }}"
-                        data-bon="{{ registro.bonificacion|default:'0' }}"
-                        data-mbon="{{ registro.motivo_bonificacion|default:'' }}"
-                        data-des="{{ registro.descuento|default:'0' }}"
-                        data-mdes="{{ registro.motivo_descuento|default:'' }}"
-                        data-uni="{{ registro.tipo_uniforme|default:'' }}"
-                        data-obs="{{ registro.observaciones|escapejs }}"
-                        onclick="prepararEdicion(this)">
-                        EDITAR
-                    </button>
+            <tbody id="tabla-asistencias-body">
+                {% for registro in registros %}
+                <tr>
+                    <td>{{ registro.fecha|date:"d/m/Y" }}</td>
+                    <td>
+                        {{ registro.empleado.nombre }} 
+                        {{ registro.empleado.apellido_paterno }} 
+                    </td>
+                    <td><strong>{{ registro.sucursal|default:"--" }}</strong></td>
+                    <td>{{ registro.puesto|default:"--" }}</td>
+                    <td>{{ registro.estatus_jornada }}</td>
+                    <td style="display: flex; gap: 5px; justify-content: center;">
+                        <button type="button" class="btn-comic btn-edit" 
+                            data-id="{{ registro.id }}"
+                            data-emp="{{ registro.empleado.id }}"
+                            data-fec="{{ registro.fecha|date:'Y-m-d' }}"
+                            data-pue="{{ registro.puesto|default:'' }}"
+                            data-suc="{{ registro.sucursal|default:'' }}"
+                            data-mat="{{ registro.entrada_matutina }}"
+                            data-ves="{{ registro.entrada_vespertina }}"
+                            data-salmat="{{ registro.salida_matutina }}"
+                            data-salves="{{ registro.salida_vespertina }}"
+                            data-est="{{ registro.estatus_jornada }}"
+                            data-bon="{{ registro.bonificacion|default:'0' }}"
+                            data-mbon="{{ registro.motivo_bonificacion|default:'' }}"
+                            data-des="{{ registro.descuento|default:'0' }}"
+                            data-mdes="{{ registro.motivo_descuento|default:'' }}"
+                            data-uni="{{ registro.tipo_uniforme|default:'' }}"
+                            data-car="{{ registro.cantidad_cargas|default:'0' }}"
+                            data-obs="{{ registro.observaciones|escapejs }}"
+                            onclick="prepararEdicion(this)">
+                            EDITAR
+                        </button>
 
-                    <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este registro?')">
-                        {% csrf_token %}
-                        <input type="hidden" name="eliminar_id" value="{{ registro.id }}">
-                        <button type="submit" class="btn-comic btn-delete">BORRAR</button>
-                    </form>
-                </td>
-            </tr>
-            {% empty %}
-            <tr id="fila-vacia"><td colspan="6">No hay registros guardados.</td></tr>
-            {% endfor %}
-        </tbody>
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este registro?')">
+                            {% csrf_token %}
+                            <input type="hidden" name="eliminar_id" value="{{ registro.id }}">
+                            <button type="submit" class="btn-comic btn-delete">BORRAR</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr id="fila-vacia"><td colspan="6">No hay registros guardados.</td></tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
 </div>
@@ -354,13 +357,17 @@
 {{ puestos_json|json_script:"puestos-data" }}
 
 <script>
-    const salarios = JSON.parse(document.getElementById('puestos-data').textContent);
+    // 1. Inicialización de Datos y Elementos
+    const salariosRaw = JSON.parse(document.getElementById('puestos-data').textContent);
+    const salarios = {};
+    // Limpieza de llaves del JSON para evitar errores por espacios
+    Object.keys(salariosRaw).forEach(key => { salarios[key.trim()] = salariosRaw[key]; });
+
     const form = document.getElementById('formAsistencia');
     const asistenciaIdInput = document.getElementById('asistencia_id');
     const btnPrincipal = document.getElementById('btn-principal');
     const puestoSelect = document.getElementById('puesto_input');
     const sueldoMsg = document.getElementById('sueldo_sugerido');
-    const tablaBody = document.getElementById('tabla-asistencias-body');
     
     const empleadoSearch = document.getElementById('empleado_search');
     const empleadoHidden = document.getElementById('empleado_id_hidden');
@@ -370,88 +377,165 @@
     const entVes = document.getElementById('entrada_vespertina');
     const salMat = document.getElementById('salida_matutina');
     const salVes = document.getElementById('salida_vespertina');
+    const estatusJornada = document.getElementById('estatus_jornada');
+
+    const divCargas = document.getElementById('group_cargas');
+    const labelCargas = document.getElementById('label_cargas');
+    const inputCargas = document.getElementById('cantidad_cargas');
+    const inputMonto = document.getElementById('monto_dia');
 
     // --- LÓGICA DE BÚSQUEDA DE EMPLEADO ---
     empleadoSearch.addEventListener('input', function() {
         const val = this.value;
         const options = datalist.options;
-        let encontrado = false;
-
         for (let i = 0; i < options.length; i++) {
             if (options[i].value === val) {
-                const id = options[i].getAttribute('data-id');
-                const puesto = options[i].getAttribute('data-puesto');
-                empleadoHidden.value = id;
-
-                if (puesto) {
-                    puestoSelect.value = puesto;
-                } else {
-                    puestoSelect.value = "";
-                }
-                actualizarSueldo(puestoSelect.value);
-                encontrado = true;
+                empleadoHidden.value = options[i].getAttribute('data-id');
+                puestoSelect.value = options[i].getAttribute('data-puesto');
+                actualizarTodo();
                 break;
             }
         }
-        if (!encontrado) { empleadoHidden.value = ""; }
     });
 
-    puestoSelect.addEventListener('change', function() {
-        actualizarSueldo(this.value);
-    });
-
-    function actualizarSueldo(puesto) {
-        const p = puesto ? puesto.trim() : "";
-        if (salarios[p]) {
-            sueldoMsg.innerText = `Sueldo sugerido: $${salarios[p]}`;
+    // --- LÓGICA DE HORARIOS PERSONALIZADOS (Estilo FF) ---
+    function manejarHorarioPersonalizado(selectId) {
+        const select = document.getElementById(selectId);
+        const customInput = document.getElementById('custom_' + selectId);
+        
+        if (select.value === "OTRO") {
+            select.style.display = "none";
+            customInput.style.display = "block";
+            customInput.focus();
         } else {
-            sueldoMsg.innerText = p ? "Puesto no tarifado" : "";
+            select.style.display = "block";
+            customInput.style.display = "none";
+            customInput.value = "";
+        }
+        actualizarTodo();
+    }
+
+    // Sincroniza el valor del input de tiempo con el valor del select oculto
+    function sincronizarTiempo(input, selectId) {
+        const select = document.getElementById(selectId);
+        if (input.value) {
+            let optionOtro = select.querySelector('option[value="OTRO"]');
+            if (optionOtro) {
+                optionOtro.value = input.value;
+                select.value = input.value;
+            }
+        }
+        actualizarTodo();
+    }
+
+    // --- CÁLCULO DE HORAS (Estilo FF) ---
+    function calcularHorasTrabajadas(inicio, fin) {
+        // Si no hay valores o son rangos de retardo (R1, R2...), devolvemos 6h (jornada estándar)
+        if (!inicio || !fin) return null;
+        if (inicio.includes('R') || fin.includes('R')) return 6; 
+        
+        const [h1, m1] = inicio.split(':').map(Number);
+        const [h2, m2] = fin.split(':').map(Number);
+        const totalInicio = h1 * 60 + m1;
+        const totalFin = h2 * 60 + m2;
+        const diferenciaMins = totalFin - totalInicio;
+        return diferenciaMins > 0 ? diferenciaMins / 60 : 0;
+    }
+
+    // --- FUNCIÓN MAESTRA: ACTUALIZAR TODO ---
+    function actualizarTodo() {
+        const puesto = puestoSelect.value.trim();
+        const estatus = estatusJornada.value;
+        const cargas = parseFloat(inputCargas.value) || 0;
+
+        // 1. Visibilidad de Cargas
+        if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
+            divCargas.style.display = "block";
+            labelCargas.innerText = (puesto === "Hamburguesas Momias") 
+                ? "Cantidad de Cargas ($51.50 c/u):" 
+                : "Cantidad de Tuppers ($46.50 c/u):";
+        } else {
+            divCargas.style.display = "none";
+            if (asistenciaIdInput.value === "") inputCargas.value = 0; 
+        }
+
+        // 2. Lógica de Sueldos
+        const estatusSinPago = ["Falta", "Vacaciones", "Permiso"];
+        
+        if (estatusSinPago.includes(estatus)) {
+            inputMonto.value = "0.00";
+            sueldoMsg.innerHTML = `<span style="color: gray;">Sin pago por ${estatus}</span>`;
+        } 
+        else if (estatus === "Descanso") {
+            if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
+                inputMonto.value = "138.00";
+                sueldoMsg.innerHTML = `<b style="color: blue;">Descanso Pagado: $138.00</b>`;
+            } else {
+                inputMonto.value = "0.00";
+                sueldoMsg.innerHTML = "Descanso No Pagado";
+            }
+        }
+        else if (puesto === "Hamburguesas Momias") {
+            let total = (cargas * 51.50).toFixed(2);
+            inputMonto.value = total;
+            sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
+        } 
+        else if (puesto === "Tuppers") {
+            let total = (cargas * 46.50).toFixed(2);
+            inputMonto.value = total;
+            sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
+        } 
+        else {
+            // Sueldo Proporcional (Estilo FF)
+            let base = parseFloat(salarios[puesto]) || 0;
+            let totalCalculado = 0;
+            
+            let hMat = calcularHorasTrabajadas(entMat.value, salMat.value);
+            let hVes = calcularHorasTrabajadas(entVes.value, salVes.value);
+
+            // Si hay algún horario definido
+            if (hMat !== null || hVes !== null) {
+                // Cálculo: (Sueldo base / 6 horas de jornada estándar) * horas reales
+                if (hMat !== null) totalCalculado += (base / 6) * hMat;
+                if (hVes !== null) totalCalculado += (base / 6) * hVes;
+                
+                inputMonto.value = totalCalculado.toFixed(2);
+                sueldoMsg.innerHTML = `<b style="color: green;">Sueldo Sugerido: $${totalCalculado.toFixed(2)}</b>`;
+            } else {
+                // Si no hay horarios pero el estatus es normal, mostrar base
+                inputMonto.value = base.toFixed(2);
+                sueldoMsg.innerText = base > 0 ? `Sueldo Base: $${base.toFixed(2)}` : "Puesto no tarifado";
+            }
         }
     }
 
-    // --- LÓGICA DE HORARIOS INTELIGENTES ---
-    entMat.addEventListener('change', function() {
-        if (this.value !== "") {
-            // Si hay entrada matutina, asumimos que no hay entrada vespertina (evitar duplicar entrada)
-            entVes.value = ""; 
-            // Sugerimos salida matutina por defecto si no hay nada
-            if (salMat.value === "") salMat.value = "15:00";
-        } else {
-            salMat.value = "";
-        }
+    // --- EVENTOS ---
+    [entMat, entVes, salMat, salVes].forEach(el => {
+        el.addEventListener('change', () => {
+            if (el.id.includes('entrada')) {
+                // Autocompletado de salida si se marca una entrada (Ahorro de clics)
+                if (el.id === 'entrada_matutina' && el.value !== "" && salMat.value === "") {
+                    salMat.value = "15:00";
+                }
+                if (el.id === 'entrada_vespertina' && el.value !== "" && salVes.value === "") {
+                    salVes.value = "21:00";
+                }
+            }
+            manejarHorarioPersonalizado(el.id);
+        });
     });
 
-    entVes.addEventListener('change', function() {
-        if (this.value !== "") {
-            // Si entra a las 3, no pudo entrar a las 9
-            entMat.value = "";
-            salMat.value = "";
-            // Sugerimos salida vespertina
-            if (salVes.value === "") salVes.value = "21:00";
-        } else {
-            salVes.value = "";
-        }
-    });
+    puestoSelect.addEventListener('change', actualizarTodo);
+    estatusJornada.addEventListener('change', actualizarTodo);
+    inputCargas.addEventListener('input', actualizarTodo);
 
-    document.getElementById('estatus_jornada').addEventListener('change', function() {
-    if (this.value === "Vacaciones" || this.value === "Falta" || this.value === "Descanso") {
-        entMat.value = "";
-        entVes.value = "";
-        salMat.value = "";
-        salVes.value = "";
-        // Opcional: avisar que no se requieren horas
-        sueldoMsg.innerText = "Estatus sin registro de horas";
-    }
-    });
-
-    // --- PREPARAR EDICIÓN (CARGAR DATOS) ---
+    // --- PREPARAR EDICIÓN ---
     function prepararEdicion(boton) {
         const d = boton.dataset;
         asistenciaIdInput.value = d.id;
         empleadoHidden.value = d.emp;
 
         const opciones = datalist.options;
-        empleadoSearch.value = ""; 
         for (let i = 0; i < opciones.length; i++) {
             if (opciones[i].getAttribute('data-id') == d.emp) {
                 empleadoSearch.value = opciones[i].value;
@@ -463,18 +547,19 @@
         puestoSelect.value = d.pue;
         document.getElementById('sucursal').value = d.suc;
         
-        // Cargar Horarios
         entMat.value = d.mat || "";
         entVes.value = d.ves || "";
         salMat.value = d.salmat || "";
         salVes.value = d.salves || "";
 
-        document.getElementById('estatus_jornada').value = d.est;
+        if (inputCargas) inputCargas.value = d.car || 0;
+
+        estatusJornada.value = d.est;
         document.getElementById('bonificacion').value = d.bon;
-        document.getElementById('motivo_bonificacion').value = d.mbon;
+        document.getElementById('motivo_bonificacion').value = d.mbon || "";
         document.getElementById('descuento').value = d.des;
-        document.getElementById('motivo_descuento').value = d.mdes;
-        document.getElementById('tipo_uniforme').value = d.uni;
+        document.getElementById('motivo_descuento').value = d.mdes || "";
+        document.getElementById('tipo_uniforme').value = d.uni || "";
         document.getElementById('observaciones').value = d.obs;
 
         btnPrincipal.innerText = "CORREGIR REGISTRO";
@@ -482,30 +567,55 @@
         btnPrincipal.style.color = "black";
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        actualizarSueldo(d.pue);
+        actualizarTodo();
     }
 
-    // --- LIMPIEZA DE FORMULARIO ---
     function limpiarFormularioYTabla() {
-        form.reset();
-        asistenciaIdInput.value = "";
-        empleadoHidden.value = "";
-        empleadoSearch.value = ""; 
-        
-        // Reset manual de horarios (por si el reset no lo toma por el "No aplica")
-        entMat.value = "";
-        entVes.value = "";
-        salMat.value = "";
-        salVes.value = "";
-        
-        btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
-        btnPrincipal.style.background = "#4CAF50";
-        btnPrincipal.style.color = "white";
-        sueldoMsg.innerText = "";
-        document.getElementById('fecha').value = "{{ hoy }}";
+    // 1. Reset básico del formulario
+    form.reset();
 
-        tablaBody.innerHTML = '<tr><td colspan="6">Pantalla limpia. Recarga para ver historial.</td></tr>';
+    // 2. Limpiar la tabla visualmente
+    const tablaBody = document.getElementById('tabla-asistencias-body');
+    if (tablaBody) {
+        tablaBody.innerHTML = '<tr id="fila-vacia"><td colspan="6">No hay registros visualizados.</td></tr>';
     }
+
+    // 3. Resetear lógica de horarios (Selects y Custom Inputs)
+    [entMat, entVes, salMat, salVes].forEach(el => {
+        // Volver a mostrar el select y ocultar el input de tiempo
+        el.style.display = "block";
+        const customInput = document.getElementById('custom_' + el.id);
+        if (customInput) {
+            customInput.style.display = "none";
+            customInput.value = "";
+        }
+        
+        // IMPORTANTE: Resetear el valor de la opción "OTRO" para que no guarde la hora manual anterior
+        const optionOtro = el.querySelector('option[value!="OTRO"][value!=""]'); // busca si se quedó con un valor manual
+        let optOtro = el.querySelector('option[text*="Manual"]');
+        if (optOtro) optOtro.value = "OTRO"; 
+    });
+
+    // 4. Limpiar variables de control y búsqueda
+    asistenciaIdInput.value = "";
+    empleadoHidden.value = "";
+    empleadoSearch.value = ""; 
+    
+    // 5. Limpiar el mensaje de sueldo sugerido
+    if (sueldoMsg) {
+        sueldoMsg.innerHTML = "";
+    }
+
+    // 6. Restaurar el botón principal a su estado original
+    btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
+    btnPrincipal.style.background = "#4CAF50";
+    btnPrincipal.style.color = "white";
+
+    // 7. Forzar actualización de lógica (ocultar campos de cargas, etc.)
+    actualizarTodo();
+}
+
+    window.onload = actualizarTodo;
 </script>
 </body>
 </html>
