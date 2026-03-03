@@ -111,7 +111,7 @@
 
 <div class="comic-container">
     <header class="d-flex justify-content-between align-items-center mb-4 no-print">
-        <h2 class="m-0"> Sistema de Nómina - Control Global</h2>
+        <h2 class="m-0" style="font-family: 'Bangers';"> Sistema de Nómina - Control Global</h2>
         <a href="{% url 'main' %}" class="btn btn-outline-dark btn-sm fw-bold">
             <i class="fas fa-arrow-left"></i> REGRESAR
         </a>
@@ -170,46 +170,57 @@
     </div>
     {% endif %}
 
-    <div class="table-responsive bg-white mb-5 no-print">
-        <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.85rem;">
-            <thead class="table-dark text-center text-uppercase">
-                <tr>
-                    <th rowspan="2" class="align-middle">Empleado</th>
-                    <th rowspan="2" class="align-middle">Puesto Principal</th>
-                    <th colspan="7" class="bg-secondary text-white">Asistencia / Estatus (Horas)</th>
-                    <th rowspan="2" class="align-middle">Ret</th>
-                    <th rowspan="2" class="align-middle">Pago Base</th>
-                    <th rowspan="2" class="align-middle text-success">Bonif.</th>
-                    <th rowspan="2" class="align-middle text-danger">Desc.</th>
-                    <th rowspan="2" class="align-middle bg-primary text-white">TOTAL</th>
-                </tr>
-                <tr class="small text-center table-light text-dark">
-                    <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for n in nominas %}
-                <tr>
-                    <td class="fw-bold px-2">{{ n.nombre }}</td>
-                    <td class="small">{{ n.puesto_principal|default:"--" }}</td>
-                    {% for dia in n.dias %}
-                    <td class="text-center small {% if 'ACTIVO' in dia.estatus or 'NORMAL' in dia.estatus %}table-success{% elif 'FALTA' in dia.estatus %}table-danger{% elif 'DESCANSO' in dia.estatus or 'FESTIVO' in dia.estatus %}table-warning{% endif %}">
-                        {{ dia.horas|default:"0" }}h<br>
-                        <span style="font-size: 0.65rem; font-weight: bold;">{{ dia.estatus }}</span>
-                    </td>
-                    {% endfor %}
-                    <td class="text-center fw-bold">{{ n.retardos }}</td>
-                    <td class="text-end px-2">${{ n.pago_base|floatformat:2 }}</td>
-                    <td class="text-end px-2 text-success">+${{ n.bonos|floatformat:2 }}</td>
-                    <td class="text-end px-2 text-danger">-${{ n.desc_retardos|add:n.descuentos|floatformat:2 }}</td>
-                    <td class="text-end px-2 fw-bold bg-light" style="font-size: 1rem; border-left: 2px solid #000 !important;">
-                        ${{ n.total_neto|floatformat:2 }}
-                    </td>
-                </tr>
+    <div class="table-responsive bg-white mb-5 no-print shadow-sm border border-dark">
+    <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.75rem;"> <thead class="table-dark text-center text-uppercase">
+            <tr>
+                <th rowspan="2" class="align-middle">Empleado</th>
+                <th rowspan="2" class="align-middle">Puesto Principal</th>
+                <th colspan="7" class="bg-secondary text-white">Desglose Diario (Sucursal / Puesto / Pago)</th>
+                <th rowspan="2" class="align-middle">Ret</th>
+                <th rowspan="2" class="align-middle">Pago Base</th>
+                <th rowspan="2" class="align-middle text-success">Bonif.</th>
+                <th rowspan="2" class="align-middle text-danger">Desc.</th>
+                <th rowspan="2" class="align-middle bg-primary text-white">TOTAL</th>
+            </tr>
+            <tr class="small text-center table-light text-dark">
+                <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for n in nominas %}
+            <tr>
+                <td class="fw-bold px-2" style="font-size: 0.85rem;">{{ n.nombre }}</td>
+                <td class="small text-muted">{{ n.puesto_principal|default:"--" }}</td>
+                
+                {% for dia in n.dias %}
+                <td class="text-center p-1 {% if 'FALTA' in dia.estatus %}table-danger{% elif 'DESCANSO' in dia.estatus %}table-warning{% elif 'ACTIVO' in dia.estatus %}table-success{% endif %}" style="min-width: 100px;">
+                    <div class="fw-bold border-bottom mb-1">
+                        {{ dia.horas|default:"0" }}h - <span style="font-size: 0.6rem;">{{ dia.estatus }}</span>
+                    </div>
+                    
+                    <div style="line-height: 1; margin-bottom: 2px;">
+                        <span class="text-primary fw-bold" style="font-size: 0.65rem;">{{ dia.sucursal|default:"---" }}</span><br>
+                        <span class="text-magenta" style="font-size: 0.6rem; color: #9D174D;">{{ dia.puesto|default:"---" }}</span>
+                    </div>
+
+                    <div class="text-success fw-bold mt-1" style="border-top: 1px dashed #bbb; font-size: 0.7rem;">
+                        ${{ dia.pago_dia|default:"0.00"|floatformat:2 }}
+                    </div>
+                </td>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
+
+                <td class="text-center fw-bold">{{ n.retardos }}</td>
+                <td class="text-end px-2">${{ n.pago_base|floatformat:2 }}</td>
+                <td class="text-end px-2 text-success">+${{ n.bonos|floatformat:2 }}</td>
+                <td class="text-end px-2 text-danger">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
+                <td class="text-end px-2 fw-bold bg-light" style="font-size: 1rem; border-left: 2px solid #000 !important;">
+                    ${{ n.total_neto|floatformat:2 }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
     <div id="tiras-impresion">
         <h3 class="fw-bold text-uppercase mb-4 no-print text-center" style="font-family: 'Bangers';">Tiras para Recortar</h3>
@@ -217,14 +228,14 @@
         {% for n in nominas %}
         <div class="tira-recortable">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="m-0 text-uppercase">COMPROBANTE: {{ n.nombre }}</h5>
-                <span class="small fw-bold">Periodo: {{ inicio }} al {{ fin }}</span>
+                <h5 class="m-0 text-uppercase fw-bold">COMPROBANTE: {{ n.nombre }}</h5>
+                <span class="small fw-bold text-muted">Periodo: {{ n.periodo_info }}</span>
             </div>
             
             <table class="table table-bordered table-sm align-middle mb-2" style="font-size: 0.8rem;">
                 <thead class="table-dark text-center text-uppercase">
                     <tr>
-                        <th>Puesto</th>
+                        <th style="width: 100px;">Puesto Pral.</th>
                         <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
                         <th>Ret</th>
                         <th>Pago Base</th>
@@ -235,27 +246,51 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="text-center">{{ n.puesto_principal|default:"--" }}</td>
+                        <td class="text-center small fw-bold">{{ n.puesto_principal|default:"--" }}</td>
+                        
                         {% for dia in n.dias %}
-                        <td class="text-center">
-                            {{ dia.horas|default:"0" }}h<br>
-                            <span style="font-size: 0.6rem;">{{ dia.estatus }}</span>
+                        <td class="text-center p-1 {% if 'FALTA' in dia.estatus %}table-danger{% endif %}" style="min-width: 95px; vertical-align: top;">
+                            <div class="fw-bold" style="font-size: 0.65rem; border-bottom: 1px solid #eee; padding-bottom: 2px;">
+                                {{ dia.horas|default:"0" }}h - {{ dia.estatus }}
+                            </div>
+
+                            <div style="font-size: 0.6rem; line-height: 1.1; margin-top: 3px;">
+                                <span class="text-uppercase fw-bold text-primary">{{ dia.sucursal|default:"--" }}</span><br>
+                                <span style="color: #9D174D; font-weight: bold;">{{ dia.puesto|default:"--" }}</span>
+                            </div>
+
+                            <div class="mt-1 fw-bold text-success" style="font-size: 0.75rem; border-top: 1px dashed #ccc; padding-top: 2px;">
+                                ${{ dia.pago_dia|default:"0.00"|floatformat:2 }}
+                            </div>
+
+                            {% if dia.puntos_retardo > 0 %}
+                            <div class="badge bg-danger mt-1" style="font-size: 0.5rem; width: 100%;">
+                                {{ dia.puntos_retardo }} pts
+                            </div>
+                            {% endif %}
                         </td>
                         {% endfor %}
+
                         <td class="text-center fw-bold">{{ n.retardos }}</td>
-                        <td class="text-end">${{ n.pago_base|floatformat:2 }}</td>
-                        <td class="text-end text-success">+${{ n.bonos|floatformat:2 }}</td>
-                        <td class="text-end text-danger">-${{ n.desc_retardos|add:n.descuentos|floatformat:2 }}</td>
+                        <td class="text-end px-1">${{ n.pago_base|floatformat:2 }}</td>
+                        <td class="text-end px-1 text-success">+${{ n.bonos|floatformat:2 }}</td>
+                        <td class="text-end px-1 text-danger">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
+                        {% if n.uniforme > 0 %}
+                        <div class="text-danger" style="font-size: 0.6rem; text-align: right;">
+                            * Incluye Uniforme ($181.00)
+                        </div>
+                        {% endif %}
                         <td class="text-end fw-bold bg-light" style="font-size: 1.1rem; border-left: 2px solid #000 !important;">
                             ${{ n.total_neto|floatformat:2 }}
                         </td>
                     </tr>
                 </tbody>
             </table>
+
             <div class="d-flex justify-content-between mt-3">
                 <small class="fst-italic text-muted">Momias de la Victoria - Sistema de Control Administrativo</small>
                 <div style="border-top: 1px solid #000; width: 200px; text-align: center; padding-top: 5px;">
-                    <small>Firma de Recibido</small>
+                    <small class="fw-bold">Firma de Recibido</small>
                 </div>
             </div>
         </div>
@@ -266,7 +301,7 @@
     <div class="mt-4 row justify-content-end no-print">
         <div class="col-md-4">
             <div class="p-3 border border-dark shadow-sm bg-light">
-                <h5 class="fw-bold text-uppercase border-bottom border-dark pb-2">Resumen</h5>
+                <h5 class="fw-bold text-uppercase border-bottom border-dark pb-2">Resumen Global</h5>
                 <div class="d-flex justify-content-between">
                     <span>Empleados en lista:</span>
                     <span class="fw-bold">{{ nominas|length }}</span>
@@ -276,22 +311,38 @@
     </div>
     {% endif %}
 </div>
+</body>
 
 <script>
 function descargaDirecta(tipo) {
+    // Obtenemos los valores de los inputs y el select
     const inicio = document.querySelector('[name="inicio"]').value;
     const fin = document.querySelector('[name="fin"]').value;
-    const nombre = document.querySelector('[name="nombre"]').value;
+    const nombre = document.querySelector('[name="nombre"]').value.trim();
     const sucursal = document.querySelector('[name="sucursal"]').value;
 
-    if(!inicio || !fin) {
-        alert("Por favor selecciona las fechas");
+    // Validación básica de fechas
+    if (!inicio || !fin) {
+        alert("¡Rayos! Por favor selecciona las fechas de inicio y fin para continuar.");
         return;
     }
 
-    let url = (tipo === 'excel') ? "{% url 'exportar_excel' %}" : "{% url 'exportar_pdf' %}";
-    const urlFinal = `${url}?inicio=${inicio}&fin=${fin}&nombre=${encodeURIComponent(nombre)}&sucursal=${encodeURIComponent(sucursal)}`;
+    // Determinamos la URL base según el tipo de archivo (Excel o PDF)
+    // Usamos las etiquetas de Django que ya tienes configuradas
+    let baseUrl = (tipo === 'excel') ? "{% url 'exportar_excel' %}" : "{% url 'exportar_pdf' %}";
 
+    // Construimos los parámetros de la URL
+    // encodeURIComponent es vital para nombres con espacios o caracteres especiales
+    const params = new URLSearchParams({
+        'inicio': inicio,
+        'fin': fin,
+        'nombre': nombre,
+        'sucursal': sucursal
+    });
+
+    // Generamos la URL final y redirigimos para la descarga
+    const urlFinal = `${baseUrl}?${params.toString()}`;
+    
     window.location.href = urlFinal;
 }
 </script>
