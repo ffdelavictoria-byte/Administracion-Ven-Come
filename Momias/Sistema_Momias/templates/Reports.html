@@ -61,6 +61,8 @@
             background-color: #ffebee !important;
         }
 
+        .col-pago { font-weight: bold; color: #2E7D32; }
+
         .col-obs { font-style: italic; color: #555; text-align: left; font-size: 0.85rem; max-width: 250px; }
 
         .summary-box {
@@ -112,6 +114,7 @@
                     <th>Salida</th>
                     <th>Retardo</th>
                     <th>Estatus</th>
+                    <th>Pago Día</th>
                     <th>Observaciones</th>
                 </tr>
             </thead>
@@ -121,12 +124,14 @@
                     <td>{{ a.fecha|date:"d/m/Y" }}</td>
                     <td style="font-weight: bold;">{{ a.sucursal|default:"--" }}</td>
                     <td>{{ a.puesto }}</td>
-                    <td>{{ a.hora_entrada_matutino|default:"---" }}</td>
-                    <td>{{ a.hora_salida|default:"---" }}</td>
-                    <td class="{% if a.retardos > 0 or a.retardo > 0 %}retardo-celda{% endif %}">
-                        {{ a.retardos|default:a.retardo|default:"0" }}
+                    {# Usamos los campos reales para mostrar Combo o Manual según corresponda #}
+                    <td>{{ a.entrada_matutina|default:a.entrada_vespertina|default:"---" }}</td>
+                    <td>{{ a.salida_vespertina|default:a.salida_matutina|default:"---" }}</td>
+                    <td class="{% if a.horas > 0 %}retardo-celda{% endif %}">
+                        {{ a.horas|default:"0" }}
                     </td>
-                    <td><strong>{{ a.estatus_jornada }}</strong></td>
+                    <td><strong>{{ a.estatus|upper }}</strong></td>
+                    <td class="col-pago">${{ a.pago_calculado }}</td>
                     <td class="col-obs">{{ a.observaciones|default:"--" }}</td>
                 </tr>
                 {% endfor %}
@@ -135,13 +140,16 @@
 
         <div class="summary-box">
             <div>
-                <strong>DÍAS LABORADOS:</strong> {{ asistencias|length }}
+                <strong>DÍAS EN LISTA:</strong> {{ asistencias|length }}
             </div>
             <div style="color: var(--puebla-red);">
                 <strong>TOTAL RETARDOS:</strong> {{ resumen.total_retardos|default:"0" }}
             </div>
+            <div>
+                <strong>BONOS:</strong> <span style="color: #1A237E;">${{ resumen.total_bonif|default:"0.00" }}</span>
+            </div>
             <div style="border-left: 2px solid black; padding-left: 20px;">
-                <strong>A PAGAR:</strong> <span style="color: green; font-weight: bold;">${{ resumen.total_pagar }}</span>
+                <strong>TOTAL A PAGAR:</strong> <span style="color: green; font-weight: bold;">${{ resumen.total_pagar }}</span>
             </div>
         </div>
         {% else %}
