@@ -68,6 +68,8 @@
         .flex-row input { width: 40%; }
         .flex-row select { width: 60%; }
 
+        .custom-time { display: none; margin-top: 5px; background: #fffde7; }
+
         .btn-group {
             display: flex;
             gap: 15px;
@@ -119,6 +121,14 @@
             margin-top: 2px;
             min-height: 1.2rem;
         }
+
+        /* Estilo especial para el campo de cargas */
+        #group_cargas {
+            background: #e1f5fe;
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px dashed var(--puebla-blue);
+        }
     </style>
 </head>
 <body>
@@ -148,26 +158,32 @@
             </div>
 
             <div class="form-group">
-                <label>Sucursal:</label>
-                <select name="sucursal" id="sucursal">
-                    <option value="FastFood" selected>FastFood</option>
+                <label>Puesto</label>
+                <select name="puesto" id="puesto_selector" onchange="verificarTodo()">
+                    {% for puesto in lista_puestos %}
+                        <option value="{{ puesto }}">{{ puesto }}</option>
+                    {% endfor %}
                 </select>
+                <div id="sueldo_sugerido"></div> 
+            </div>
+
+            <div class="form-group" id="group_cargas" style="display:none;">
+                <label id="label_cargas">Cantidad de Cargas:</label>
+                <input type="number" step="0.1" name="cantidad_cargas" id="cantidad_cargas" value="0" oninput="verificarTodo()">
             </div>
 
             <div class="form-group">
-                <label>Puesto:</label>
-                <select name="puesto" id="puesto_input">
-                    <option value="">Selecciona puesto...</option>
-                    {% for puesto_nombre in lista_puestos %}
-                        <option value="{{ puesto_nombre }}">{{ puesto_nombre }}</option>
-                    {% endfor %}
-                </select>
-                <div id="sueldo_sugerido"></div>
+                <label id="label_monto">Salario Base del Día</label>
+                <input type="number" step="0.01" name="monto_dia" id="monto_dia" readonly>
+                <small id="helper_produccion" style="display:none; color: var(--puebla-magenta);">
+                    * Puede ajustar el monto manualmente para este puesto.
+                </small>
             </div>
 
             <div class="form-group">
                 <label>Entrada Matutina:</label>
                 <select name="entrada_matutina" id="entrada_matutina">
+                    <option value="OTRO">--- OTRO (Personalizado) ---</option>
                     <option value="" selected>--- No aplica ---</option>
                     <option value="R1">09:00 - 09:05 (R1)</option>
                     <option value="R2">09:06 - 09:10 (R2)</option>
@@ -177,45 +193,48 @@
                     <option value="R6">09:41 - 09:50 (R6)</option>
                     <option value="R7">09:51 - 10:00 (R7)</option>
                 </select>
-            </div>
-
-            <div class="form-group">
-                <label>Entrada Vespertina:</label>
-                <select name="entrada_vespertina" id="entrada_vespertina">
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="R1">15:00 - 15:05 (R1)</option>
-                    <option value="R2">15:06 - 15:10 (R2)</option>
-                    <option value="R3">15:11 - 15:20 (R3)</option>
-                    <option value="R4">15:21 - 15:30 (R4)</option>
-                    <option value="R5">15:31 - 15:40 (R5)</option>
-                    <option value="R6">15:41 - 15:50 (R6)</option>
-                    <option value="R7">15:51 - 16:00 (R7)</option>
-                </select>
+                <input type="time" id="custom_entrada_matutina" class="custom-time" oninput="sincronizarTiempo(this, 'entrada_matutina')">
             </div>
 
             <div class="form-group">
                 <label>Salida Matutina:</label>
                 <select name="salida_matutina" id="salida_matutina">
+                    <option value="OTRO">--- OTRO (Personalizado) ---</option>
                     <option value="" selected>--- No aplica ---</option>
                     <option value="15:00">15:00 (Normal)</option>
                     <option value="15:30">15:30</option>
                     <option value="16:00">16:00</option>
                 </select>
+                <input type="time" id="custom_salida_matutina" class="custom-time" oninput="sincronizarTiempo(this, 'salida_matutina')">
+            </div>
+
+            <div class="form-group">
+                <label>Entrada Vespertina:</label>
+                <select name="entrada_vespertina" id="entrada_vespertina">
+                    <option value="OTRO">--- OTRO (Personalizado) ---</option>
+                    <option value="" selected>--- No aplica ---</option>
+                    <option value="15:00">15:00 (R1)</option>
+                    <option value="15:10">15:10 (R2)</option>
+                    <option value="R3">15:20 (R3)</option>
+                </select>
+                <input type="time" id="custom_entrada_vespertina" class="custom-time" oninput="sincronizarTiempo(this, 'entrada_vespertina')">
             </div>
 
             <div class="form-group">
                 <label>Salida Vespertina:</label>
                 <select name="salida_vespertina" id="salida_vespertina">
+                    <option value="OTRO">--- OTRO (Personalizado) ---</option>
                     <option value="" selected>--- No aplica ---</option>
                     <option value="21:00">21:00 (Normal)</option>
                     <option value="21:30">21:30</option>
                     <option value="22:00">22:00</option>
                 </select>
+                <input type="time" id="custom_salida_vespertina" class="custom-time" oninput="sincronizarTiempo(this, 'salida_vespertina')">
             </div>
 
             <div class="form-group">
                 <label>Estatus Jornada:</label>
-                <select name="estatus_jornada" id="estatus_jornada">
+                <select name="estatus_jornada" id="estatus_jornada" onchange="verificarTodo()">
                     <option value="Normal">Normal</option>
                     <option value="Descanso">Descanso</option>
                     <option value="Descanso trabajado">Descanso trabajado</option>
@@ -252,27 +271,16 @@
             </div>
 
             <div class="form-group">
-                <label>Tipo Uniforme:</label>
-                <select name="tipo_uniforme" id="tipo_uniforme">
-                    <option value="">Ninguno</option>
-                    <option value="Pago uniforme 1">Pago uniforme 1 ($181.00)</option>
-                    <option value="Pago uniforme 2">Pago uniforme 2 ($181.00)</option>
-                    <option value="Pago uniforme 3">Pago uniforme 3 ($181.00)</option>
-                    <option value="Prenda individual">Prenda individual ($170.00)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
                 <label>Observaciones:</label>
                 <textarea name="observaciones" id="observaciones" rows="2" placeholder="Notas de FastFood..."></textarea>
             </div>
         </div>
 
-        <div class="btn-group">
-            <button type="submit" id="btn-principal" class="btn-comic btn-save">CAPTURAR MOVIMIENTO</button>
-            <button type="button" class="btn-comic btn-clear" onclick="limpiarFormularioYTabla()">LIMPIAR FORMULARIO</button>
-            <a href="/main/" class="btn-comic btn-exit">SALIR AL MENÚ</a>
-        </div>
+<div class="btn-group">
+    <button type="submit" id="btn-principal" class="btn-comic btn-save">CAPTURAR MOVIMIENTO</button>
+    <button type="button" class="btn-comic btn-clear" onclick="limpiarFormulario()">LIMPIAR CAMPOS</button>
+    <a href="/main/" class="btn-comic btn-exit">SALIR</a>
+</div>
     </form>
 
     <div class="table-wrapper">
@@ -281,9 +289,9 @@
                 <tr>
                     <th>Fecha</th>
                     <th>Empleado</th>
-                    <th>Sucursal</th>
                     <th>Puesto</th>
                     <th>Estatus</th>
+                    <th>Pago</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -291,61 +299,57 @@
                 {% for registro in registros %}
                 <tr>
                     <td>{{ registro.fecha|date:"d/m/Y" }}</td>
-                    <td>
-                        {{ registro.empleado.nombre }} 
-                        {{ registro.empleado.apellido_paterno }} 
-                        {% if registro.empleado.apellido_materno %}{{ registro.empleado.apellido_materno }}{% endif %}
-                    </td>
-                    <td><strong>{{ registro.sucursal|default:"FastFood" }}</strong></td>
-                    <td>{{ registro.puesto|default:"--" }}</td>
-                    <td>{{ registro.estatus_jornada }}</td>
+                    <td>{{ registro.empleado.nombre }} {{ registro.empleado.apellido_paterno }}</td>
+                    <td>{{ registro.puesto }}</td>
+                    <td>{{ registro.estatus }}</td>
+                    <td>${{ registro.pago_dia }}</td>
                     <td style="display: flex; gap: 5px; justify-content: center;">
                         <button type="button" class="btn-comic btn-edit" 
                             data-id="{{ registro.id }}"
                             data-emp="{{ registro.empleado.id }}"
                             data-fec="{{ registro.fecha|date:'Y-m-d' }}"
-                            data-pue="{{ registro.puesto|default:'' }}"
-                            data-suc="{{ registro.sucursal|default:'FastFood' }}"
+                            data-pue="{{ registro.puesto }}"
                             data-mat="{{ registro.entrada_matutina }}"
+                            data-smat="{{ registro.salida_matutina }}"
                             data-ves="{{ registro.entrada_vespertina }}"
-                            data-est="{{ registro.estatus_jornada }}"
-                            data-bon="{{ registro.bonificacion|default:'0' }}"
-                            data-mbon="{{ registro.motivo_bonificacion|default:'' }}"
-                            data-des="{{ registro.descuento|default:'0' }}"
-                            data-mdes="{{ registro.motivo_descuento|default:'' }}"
-                            data-uni="{{ registro.tipo_uniforme|default:'' }}"
-                            data-obs="{{ registro.observaciones|escapejs }}"
-                            onclick="prepararEdicion(this)">
-                            EDITAR
-                        </button>
-
-                        <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este registro?')">
-                            {% csrf_token %}
-                            <input type="hidden" name="eliminar_id" value="{{ registro.id }}">
-                            <button type="submit" class="btn-comic btn-delete">BORRAR</button>
-                        </form>
+                            data-sves="{{ registro.salida_vespertina }}"
+                            data-est="{{ registro.estatus }}"
+                            data-bon="{{ registro.bonificacion }}"
+                            data-des="{{ registro.descuento }}"
+                            data-obs="{{ registro.observaciones }}"
+                            onclick="prepararEdicion(this)">EDITAR</button>
+                            <button type="button" class="btn-comic btn-delete" 
+                        onclick="eliminarRegistro('{{ registro.id }}', '{{ registro.empleado.nombre }}')">BORRAR</button>
                     </td>
                 </tr>
-                {% empty %}
-                <tr id="fila-vacia"><td colspan="6">No hay registros de FastFood hoy.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
-    </div>
     </div>
 </div>
 
 {{ puestos_json|json_script:"puestos-data" }}
 
 <script>
-    const salarios = JSON.parse(document.getElementById('puestos-data').textContent);
+    // 1. Inicialización de Datos y Elementos
+    const salariosRaw = JSON.parse(document.getElementById('puestos-data').textContent);
+    const puestosSalarios = {};
+    // Limpieza de llaves del JSON para evitar errores por espacios
+    Object.keys(salariosRaw).forEach(key => { puestosSalarios[key.trim()] = salariosRaw[key]; });
+
     const form = document.getElementById('formAsistencia');
     const asistenciaIdInput = document.getElementById('asistencia_id');
     const btnPrincipal = document.getElementById('btn-principal');
-    const puestoSelect = document.getElementById('puesto_input');
+    const puestoSelect = document.getElementById('puesto_selector');
     const sueldoMsg = document.getElementById('sueldo_sugerido');
-    const tablaBody = document.getElementById('tabla-asistencias-body');
+    const inputMonto = document.getElementById('monto_dia');
+    const estatusJornada = document.getElementById('estatus_jornada');
     
+    // Elementos de cargas
+    const divCargas = document.getElementById('group_cargas');
+    const labelCargas = document.getElementById('label_cargas');
+    const inputCargas = document.getElementById('cantidad_cargas');
+
     const empleadoSearch = document.getElementById('empleado_search');
     const empleadoHidden = document.getElementById('empleado_id_hidden');
     const datalist = document.getElementById('lista_empleados');
@@ -355,74 +359,149 @@
     const salMat = document.getElementById('salida_matutina');
     const salVes = document.getElementById('salida_vespertina');
 
-    // --- LÓGICA DE BÚSQUEDA ---
+    // --- LÓGICA DE HORARIOS PERSONALIZADOS ---
+    function manejarHorarioPersonalizado(selectId) {
+        const select = document.getElementById(selectId);
+        const customInput = document.getElementById('custom_' + selectId);
+        if (select.value === "OTRO") {
+            select.style.display = "none";
+            customInput.style.display = "block";
+            customInput.focus();
+        } else {
+            select.style.display = "block";
+            customInput.style.display = "none";
+            customInput.value = "";
+        }
+        verificarTodo();
+    }
+
+    function sincronizarTiempo(input, selectId) {
+        const select = document.getElementById(selectId);
+        if (input.value) {
+            const optionOtro = select.querySelector('option[value="OTRO"]');
+            if (optionOtro) {
+                optionOtro.value = input.value;
+                select.value = input.value;
+            }
+        }
+        verificarTodo();
+    }
+
+    // --- CÁLCULO DE HORAS ---
+    function calcularHorasTrabajadas(inicio, fin) {
+        if (!inicio || !fin) return null;
+        if (inicio.includes('R') || fin.includes('R')) return 6; // Jornada estándar si hay retardos
+        
+        const [h1, m1] = inicio.split(':').map(Number);
+        const [h2, m2] = fin.split(':').map(Number);
+        const totalInicio = h1 * 60 + m1;
+        const totalFin = h2 * 60 + m2;
+        const diferenciaMins = totalFin - totalInicio;
+        return diferenciaMins > 0 ? diferenciaMins / 60 : 0;
+    }
+
+    // --- BÚSQUEDA DE EMPLEADO ---
     empleadoSearch.addEventListener('input', function() {
         const val = this.value;
         const options = datalist.options;
-        let encontrado = false;
-
         for (let i = 0; i < options.length; i++) {
             if (options[i].value === val) {
-                const id = options[i].getAttribute('data-id');
-                const puesto = options[i].getAttribute('data-puesto');
-                empleadoHidden.value = id;
-
-                if (puesto) {
-                    puestoSelect.value = puesto;
-                }
-                actualizarSueldo(puestoSelect.value);
-                encontrado = true;
+                empleadoHidden.value = options[i].getAttribute('data-id');
+                puestoSelect.value = options[i].getAttribute('data-puesto');
+                verificarTodo();
                 break;
             }
         }
-        if (!encontrado) { empleadoHidden.value = ""; }
     });
 
-    puestoSelect.addEventListener('change', function() {
-        actualizarSueldo(this.value);
+    function resetHorarios() {
+        [entMat, entVes, salMat, salVes].forEach(s => {
+            s.value = ""; s.style.display = "block";
+            const custom = document.getElementById('custom_' + s.id);
+            if (custom) { custom.style.display = "none"; custom.value = ""; }
+        });
+    }
+
+    [entMat, entVes, salMat, salVes].forEach(el => {
+        el.addEventListener('change', () => manejarHorarioPersonalizado(el.id));
     });
 
-    function actualizarSueldo(puesto) {
-        const p = puesto ? puesto.trim() : "";
-        if (salarios[p]) {
-            sueldoMsg.innerText = `Sueldo sugerido: $${salarios[p]}`;
+    // --- FUNCIÓN MAESTRA DE VERIFICACIÓN ---
+    function verificarTodo() {
+        const puesto = puestoSelect.value.trim();
+        const estatus = estatusJornada.value;
+        const cargas = parseFloat(inputCargas.value) || 0;
+        
+        // 1. Mostrar/Ocultar Cargas
+        if (puesto === "Hamburguesas FF" || puesto === "Tuppers") {
+            divCargas.style.display = "block";
+            labelCargas.innerText = (puesto === "Hamburguesas FF") ? "Cantidad de Cargas (62 c/u):" : "Cantidad de Tuppers (46.50 c/u):";
         } else {
-            sueldoMsg.innerText = p ? "Puesto no tarifado" : "";
+            divCargas.style.display = "none";
+            if (asistenciaIdInput.value === "") inputCargas.value = 0;
+        }
+
+        // 2. Lógica de Monto
+        const estatusSinPago = ["Falta", "Permiso", "Vacaciones"];
+        
+        if (estatusSinPago.includes(estatus)) {
+            inputMonto.value = "0.00";
+            sueldoMsg.innerHTML = `<span style="color: grey;">Sin pago por ${estatus}</span>`;
+        } 
+        else if (estatus === "Descanso") {
+            if (puesto === "Hamburguesas FF" || puesto === "Tuppers") {
+                inputMonto.value = "138.00";
+                sueldoMsg.innerHTML = `<b style="color: blue;">Descanso Pagado FF: $138.00</b>`;
+            } else {
+                inputMonto.value = "0.00";
+                sueldoMsg.innerHTML = `<span>Descanso no pagado</span>`;
+            }
+        }
+        else if (puesto === "Hamburguesas FF") {
+            inputMonto.value = (cargas * 62).toFixed(2);
+            sueldoMsg.innerHTML = `<b>Destajo: ${cargas} cargas</b>`;
+        } 
+        else if (puesto === "Tuppers") {
+            inputMonto.value = (cargas * 46.50).toFixed(2);
+            sueldoMsg.innerHTML = `<b>Destajo: ${cargas} unidades</b>`;
+        }
+        else {
+            // Lógica Estándar
+            if (puesto === "Produccion") {
+                inputMonto.readOnly = false;
+                inputMonto.style.backgroundColor = "#fff3cd";
+            } else {
+                inputMonto.readOnly = true;
+                inputMonto.style.backgroundColor = "#e9ecef";
+            }
+
+            let base = parseFloat(puestosSalarios[puesto]) || 0;
+            let total = 0;
+            
+            let hMat = calcularHorasTrabajadas(entMat.value, salMat.value);
+            let hVes = calcularHorasTrabajadas(entVes.value, salVes.value);
+
+            if (hMat !== null || hVes !== null) {
+                if (hMat !== null) total += (base / 6) * hMat;
+                if (hVes !== null) total += (base / 6) * hVes;
+                inputMonto.value = total.toFixed(2);
+                sueldoMsg.innerHTML = `<b style="color: green;">Sueldo Sugerido: $${total.toFixed(2)}</b>`;
+            } else {
+                inputMonto.value = base.toFixed(2);
+                sueldoMsg.innerHTML = base > 0 ? `Sueldo Base: $${base.toFixed(2)}` : "Esperando horarios...";
+            }
         }
     }
 
-    // --- LIMPIEZA AUTOMÁTICA DE HORAS SEGÚN ESTATUS ---
-    document.getElementById('estatus_jornada').addEventListener('change', function() {
-        const estatusInactivos = ["Vacaciones", "Falta", "Descanso", "Permiso"];
-        if (estatusInactivos.includes(this.value)) {
-            entMat.value = ""; entVes.value = "";
-            salMat.value = ""; salVes.value = "";
-            sueldoMsg.innerText = "Estatus sin registro de horas";
-        }
-    });
-
-    // --- HORARIOS INTELIGENTES ---
-    entMat.addEventListener('change', function() {
-        if (this.value !== "") {
-            entVes.value = ""; 
-            if (salMat.value === "") salMat.value = "15:00";
-        }
-    });
-
-    entVes.addEventListener('change', function() {
-        if (this.value !== "") {
-            entMat.value = ""; salMat.value = "";
-            if (salVes.value === "") salVes.value = "21:00";
-        }
-    });
-
+    // --- PREPARAR EDICIÓN ---
     function prepararEdicion(boton) {
         const d = boton.dataset;
+        resetHorarios();
         asistenciaIdInput.value = d.id;
         empleadoHidden.value = d.emp;
 
+        // Buscar el nombre en el datalist para mostrarlo en el search
         const opciones = datalist.options;
-        empleadoSearch.value = ""; 
         for (let i = 0; i < opciones.length; i++) {
             if (opciones[i].getAttribute('data-id') == d.emp) {
                 empleadoSearch.value = opciones[i].value;
@@ -430,38 +509,61 @@
             }
         }
 
-        document.getElementById('fecha').value = d.fec;
         puestoSelect.value = d.pue;
-        document.getElementById('sucursal').value = d.suc;
-        entMat.value = d.mat || "";
-        entVes.value = d.ves || "";
-        document.getElementById('estatus_jornada').value = d.est;
+        document.getElementById('fecha').value = d.fec;
+        estatusJornada.value = d.est;
         document.getElementById('bonificacion').value = d.bon;
-        document.getElementById('motivo_bonificacion').value = d.mbon;
         document.getElementById('descuento').value = d.des;
-        document.getElementById('motivo_descuento').value = d.mdes;
-        document.getElementById('tipo_uniforme').value = d.uni;
         document.getElementById('observaciones').value = d.obs;
 
         btnPrincipal.innerText = "CORREGIR REGISTRO";
         btnPrincipal.style.background = "#FFC107";
         btnPrincipal.style.color = "black";
+        
+        verificarTodo();
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        actualizarSueldo(d.pue);
     }
 
-    function limpiarFormularioYTabla() {
-        form.reset();
-        asistenciaIdInput.value = "";
-        empleadoHidden.value = "";
-        empleadoSearch.value = ""; 
-        btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
-        btnPrincipal.style.background = "var(--success-green)";
-        btnPrincipal.style.color = "white";
-        sueldoMsg.innerText = "";
-        document.getElementById('fecha').value = "{{ hoy }}";
-        tablaBody.innerHTML = '<tr><td colspan="6">Pantalla limpia. Recarga para ver historial.</td></tr>';
+    // --- LIMPIAR FORMULARIO ---
+    // --- LIMPIAR FORMULARIO ---
+    // --- LIMPIAR SOLO LA TABLA VISUAL ---
+    function limpiarFormulario() {
+        const tablaBody = document.getElementById('tabla-asistencias-body');
+        
+        if (tablaBody) {
+            // Reemplazamos todo el contenido por una fila que indique que está vacío
+            tablaBody.innerHTML = `
+                <tr id="fila-vacia">
+                    <td colspan="6" style="text-align: center; padding: 20px; color: #999;">
+                        La tabla ha sido limpiada visualmente. 
+                        <br><small>(Los datos siguen en la base de datos)</small>
+                    </td>
+                </tr>
+            `;
+        }
     }
+
+    // --- FUNCIÓN PARA BORRAR ---
+    function eliminarRegistro(id, nombre) {
+        if (confirm(`¿Estás seguro de que deseas eliminar el registro de ${nombre}?`)) {
+            // Creamos un formulario temporal para enviar el POST
+            const formBorrar = document.createElement('form');
+            formBorrar.method = 'POST';
+            
+            // El CSRF Token es necesario en Django
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            formBorrar.innerHTML = `
+                <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+                <input type="hidden" name="eliminar_id" value="${id}">
+            `;
+            
+            document.body.appendChild(formBorrar);
+            formBorrar.submit();
+        }
+    }
+
+    window.onload = verificarTodo;
 </script>
 </body>
 </html>
