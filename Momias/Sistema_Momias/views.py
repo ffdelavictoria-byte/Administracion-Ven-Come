@@ -21,6 +21,12 @@ from django.contrib.auth.models import User
 from django.contrib.auth.forms import AdminPasswordChangeForm
 from django.contrib.admin.views.decorators import staff_member_required
 from datetime import datetime # Asegúrate de importar esto
+import re
+from django.db.models import Q
+from collections import Counter
+from datetime import datetime, timedelta
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
 
 HORAS_POR_PUESTO = {
     "6 horas": 6, "9 horas": 9, "12 horas": 12, "6 hrs": 6, "9 hrs": 9
@@ -282,6 +288,7 @@ def lista_empleados(request):
     return render(request, 'Employe.html', {'empleados': empleados})
 
 def Asistencias_view(request):
+    # 1. Diccionario de salarios base (Momias)
     puestos_salarios = {
         "Caja (6 horas)": 236.50, 
         "Caja (9 horas)": 354.50,
@@ -293,13 +300,39 @@ def Asistencias_view(request):
         "Freidor (9 horas)": 372.00, 
         "Despacho (6 horas)": 236.50,
         "Despacho (9 horas)": 354.75, 
-        "Benny": 171.00
+        "Hamburguesas Momias": 0.00, # Dinámico por cargas
+        "Tuppers": 0.00,             # Dinámico por cargas
     }
-    
+
+    # --- MOTOR DE CÁLCULO HOMOLOGADO (Estilo FF) ---
+    def obtener_monto_bloque(base_puesto, entrada, salida):
+        if not entrada or not salida:
+            return 0.0
+        
+        ent_str = entrada.strip().upper()
+        sal_str = salida.strip().upper()
+
+        # Si es un código de retardo (R1, R2...) pagamos el bloque completo
+        if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
+            return float(base_puesto)
+
+        try:
+            fmt = '%H:%M'
+            inicio = datetime.strptime(ent_str[:5], fmt)
+            fin = datetime.strptime(sal_str[:5], fmt)
+            
+            diferencia = fin - inicio
+            hrs = diferencia.total_seconds() / 3600
+            if hrs < 0: hrs += 24 # Soporte para cruce de medianoche
+            
+            # Cálculo proporcional basado en bloque estándar de 6 horas
+            return (float(base_puesto) / 6) * hrs
+        except (ValueError, ZeroDivisionError):
+            return float(base_puesto)
+
     # --- LÓGICA DE ELIMINACIÓN ---
     if request.method == 'POST' and 'eliminar_id' in request.POST:
-        asistencia_id = request.POST.get('eliminar_id')
-        asistencia = get_object_or_404(Asistencia, id=asistencia_id)
+        asistencia = get_object_or_404(Asistencia, id=request.POST.get('eliminar_id'))
         asistencia.delete()
         messages.success(request, "¡Registro eliminado!")
         return redirect('asistencias')
@@ -307,74 +340,116 @@ def Asistencias_view(request):
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
-            empleado_id = request.POST.get('empleado')
             asistencia_id = request.POST.get('asistencia_id')
+            empleado_id = request.POST.get('empleado')
+            puesto_seleccionado = (request.POST.get('puesto') or "").strip()
+            estatus = request.POST.get('estatus_jornada')
             
-            # 1. Calcular puntos de retardo
-            def calcular_puntos(rango):
-                if not rango or "R1" in rango: return 0
+            ent_m = (request.POST.get('entrada_matutina') or "").strip()
+            sal_m = (request.POST.get('salida_matutina') or "").strip()
+            ent_v = (request.POST.get('entrada_vespertina') or "").strip()
+            sal_v = (request.POST.get('salida_vespertina') or "").strip()
+
+            # 1. Cálculo de monto final
+            monto_final = 0.0
+            DESCANSO_DESTAJO = 138.00
+
+            if estatus in ["Falta", "Permiso", "Vacaciones"]:
+                monto_final = 0.0
+            
+            elif estatus == "Descanso":
+                # Lógica específica para puestos de destajo
+                if puesto_seleccionado in ["Hamburguesas Momias", "Tuppers"]:
+                    monto_final = DESCANSO_DESTAJO
+                else:
+                    monto_final = 0.0
+
+            elif puesto_seleccionado == "Hamburguesas Momias":
+                cargas = float(request.POST.get('cantidad_cargas') or 0)
+                monto_final = cargas * 51.50
+            
+            elif puesto_seleccionado == "Tuppers":
+                cargas = float(request.POST.get('cantidad_cargas') or 0)
+                monto_final = cargas * 46.50
+
+            else:
+                # Lógica proporcional para puestos con horario
+                salario_real = float(puestos_salarios.get(puesto_seleccionado, 0))
+                
+                # Normalizar a base 6h según el nombre del puesto
+                base_6h = salario_real
+                if "(9 horas)" in puesto_seleccionado or "(9 Horas)" in puesto_seleccionado:
+                    base_6h = salario_real / 1.5
+                elif "(12 Horas)" in puesto_seleccionado:
+                    base_6h = salario_real / 2
+
+                pago_m = obtener_monto_bloque(base_6h, ent_m, sal_m)
+                pago_v = obtener_monto_bloque(base_6h, ent_v, sal_v)
+                monto_final = pago_m + pago_v
+
+            # 2. Puntos de Retardo (Referencia en campo horas)
+            def calcular_puntos(valor):
+                if not valor or ":" in valor or "R1" in valor: return 0
                 mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
-                for clave, valor in mapping.items():
-                    if clave in rango: return valor
+                for clave, pts in mapping.items():
+                    if clave in valor.upper(): return pts
                 return 0
 
-            puntos_m = calcular_puntos(request.POST.get('entrada_matutina'))
-            puntos_v = calcular_puntos(request.POST.get('entrada_vespertina'))
-            total_puntos = puntos_m + puntos_v
+            total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
 
-            # 2. Obtener o Crear el objeto (Modo Tkinter: Modificar si existe ID)
-            if asistencia_id:
+            # 3. Guardado en Base de Datos
+            if asistencia_id and asistencia_id.strip():
                 asistencia = get_object_or_404(Asistencia, id=asistencia_id)
-                msg = "¡Registro actualizado con éxito!"
             else:
                 asistencia = Asistencia()
-                msg = "¡Nuevo registro capturado!"
-                asistencia.sucursal = request.POST.get('sucursal')
 
-            # 3. Asignar todos los campos del formulario
             asistencia.empleado = Empleado.objects.get(id=empleado_id)
             asistencia.fecha = request.POST.get('fecha')
-            asistencia.estatus = request.POST.get('estatus_jornada')
-            asistencia.horas = float(total_puntos) # Siguiendo tu lógica de guardar puntos aquí
-            asistencia.puesto = request.POST.get('puesto')
-            asistencia.observaciones = request.POST.get('observaciones')
+            asistencia.estatus = estatus
+            asistencia.puesto = puesto_seleccionado
+            asistencia.sucursal = request.POST.get('sucursal', 'Victoria')
+            asistencia.pago_dia = round(monto_final, 2)
+            asistencia.horas = float(total_puntos) # Guardamos puntos aquí
             
-            # Campos de dinero (con validación por si vienen vacíos)
+            asistencia.entrada_matutina = ent_m
+            asistencia.salida_matutina = sal_m
+            asistencia.entrada_vespertina = ent_v
+            asistencia.salida_vespertina = sal_v
+
             asistencia.bonificacion = float(request.POST.get('bonificacion') or 0)
             asistencia.descuento = float(request.POST.get('descuento') or 0)
-            
-            # Guardar
+            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
+            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
+            asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
+            asistencia.observaciones = request.POST.get('observaciones')
+
             asistencia.save()
-            messages.success(request, msg)
+            messages.success(request, "¡Registro guardado con éxito!")
             return redirect('asistencias')
 
         except Exception as e:
-            messages.error(request, f"¡Rayos! Algo salió mal: {e}")
+            messages.error(request, f"Error al procesar: {e}")
+            return redirect('asistencias')
 
     # --- LÓGICA GET ---
-    filtro = request.GET.get('filtro')
-    hoy_str = datetime.now().strftime('%Y-%m-%d')
-    
-    if filtro == 'hoy':
-        registros = Asistencia.objects.filter(fecha=hoy_str).order_by('-id')
-    else:
-        registros = Asistencia.objects.all().order_by('-fecha', '-id')[:20]
-
-    context = {
+    registros = Asistencia.objects.all().order_by('-fecha', '-id')[:20]
+    return render(request, 'Attendance.html', {
         'lista_puestos': puestos_salarios.keys(),
         'empleados': Empleado.objects.filter(estatus='Activo'),
-        'registros': Asistencia.objects.all().order_by('-id')[:20],
+        'registros': registros,
         'hoy': datetime.now().strftime('%Y-%m-%d'),
-        # IMPORTANTE: Convertir a JSON aquí
         'puestos_json': json.dumps(puestos_salarios), 
-    }
-    return render(request, 'Attendance.html', context)
+    })
 
+from datetime import datetime, timedelta
 
 def Asistencias_FF_view(request):
+    # 1. Diccionario de puestos (Sin cambios)
     puestos_salarios_ff = {
-        "Caja (6 horas)": 236.50, "Caja (9 horas)": 354.50,
-        "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
+        "Caja (6 horas)": 236.50, 
+        "Caja (9 horas)": 354.50,
+        "Gerente (12 Horas)": 600.00, 
+        "Chef de Línea": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
         "Encargado Cocina (Matutino 9 horas)": 378.00,
         "Encargado Cocina (Matutino 12 horas)": 504.00,
@@ -384,75 +459,119 @@ def Asistencias_FF_view(request):
         "Barra (6 horas) Entregas": 236.50,
         "Barra (9 horas) Entregas": 354.50,
         "Fin de Semana": 473.00,
+        "Aux Produccion": 177.00,
+        "Produccion": 370.00,
+        "Benny": 171.00,
+        "Hamburguesas FF": 0.00,
+        "Tuppers": 0.00,
     }
-    
-    # --- 1. LÓGICA POST (GUARDADO Y ELIMINACIÓN) ---
-    if request.method == 'POST':
-        # Caso A: Eliminar
-        if 'eliminar_id' in request.POST:
-            asistencia_id = request.POST.get('eliminar_id')
-            asistencia = get_object_or_404(Asistencia, id=asistencia_id)
-            asistencia.delete()
-            messages.success(request, "¡Registro de FastFood eliminado!")
-            return redirect('asistenciasff')
 
-        # Caso B: Guardar/Actualizar
+    # Función auxiliar (Sin cambios)
+    def obtener_monto_bloque(base_puesto, entrada, salida):
+        if not entrada or not salida: return 0.0
+        ent_str, sal_str = entrada.strip().upper(), salida.strip().upper()
+        if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
+            return float(base_puesto)
         try:
-            empleado_id = request.POST.get('empleado')
+            fmt = '%H:%M'
+            inicio = datetime.strptime(ent_str[:5], fmt)
+            fin = datetime.strptime(sal_str[:5], fmt)
+            hrs = (fin - inicio).total_seconds() / 3600
+            if hrs < 0: hrs += 24
+            return (float(base_puesto) / 6) * hrs
+        except: return float(base_puesto)
+
+    # --- 1. LÓGICA DE ELIMINACIÓN (IGUAL QUE EN MOMIAS) ---
+    if request.method == 'POST' and 'eliminar_id' in request.POST:
+        asistencia = get_object_or_404(Asistencia, id=request.POST.get('eliminar_id'))
+        asistencia.delete()
+        messages.success(request, "¡Registro eliminado de FF!")
+        return redirect('asistenciasff')
+
+    # --- 2. LÓGICA DE GUARDADO / MODIFICACIÓN ---
+    if request.method == 'POST':
+        try:
             asistencia_id = request.POST.get('asistencia_id')
+            empleado_id = request.POST.get('empleado')
+            puesto_seleccionado = (request.POST.get('puesto') or "").strip()
+            estatus_jornada = request.POST.get('estatus_jornada')
             
-            def calcular_puntos(rango):
-                if not rango or "R1" in rango: return 0
+            ent_m = (request.POST.get('entrada_matutina') or "").strip()
+            sal_m = (request.POST.get('salida_matutina') or "").strip()
+            ent_v = (request.POST.get('entrada_vespertina') or "").strip()
+            sal_v = (request.POST.get('salida_vespertina') or "").strip()
+
+            monto_final = 0.0
+            DESCANSO_ESPECIFICO = 138.00
+
+            if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
+                monto_final = 0.0
+            elif estatus_jornada == "Descanso":
+                monto_final = DESCANSO_ESPECIFICO if puesto_seleccionado in ["Hamburguesas FF", "Tuppers"] else 0.0
+            elif puesto_seleccionado == "Hamburguesas FF":
+                monto_final = float(request.POST.get('cantidad_cargas') or 0) * 62.00
+            elif puesto_seleccionado == "Tuppers":
+                monto_final = float(request.POST.get('cantidad_cargas') or 0) * 46.50
+            else:
+                base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
+                base_6h = base_real
+                if "(9 horas)" in puesto_seleccionado or "(9 hrs)" in puesto_seleccionado:
+                    base_6h = base_real / 1.5
+                elif "(12 Horas)" in puesto_seleccionado:
+                    base_6h = base_real / 2
+                monto_final = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
+
+            # Puntos de retardo
+            def calcular_puntos(valor):
+                if not valor or ":" in valor or "R1" in valor: return 0
                 mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
-                for clave, valor in mapping.items():
-                    if clave in rango: return valor
+                for clave, pts in mapping.items():
+                    if clave in valor.upper(): return pts
                 return 0
 
-            puntos_m = calcular_puntos(request.POST.get('entrada_matutina'))
-            puntos_v = calcular_puntos(request.POST.get('entrada_vespertina'))
-            total_puntos = puntos_m + puntos_v
+            total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
 
-            if asistencia_id:
+            # Gestión de instancia
+            if asistencia_id and asistencia_id.strip():
                 asistencia = get_object_or_404(Asistencia, id=asistencia_id)
-                msg = "¡Registro FF actualizado!"
             else:
                 asistencia = Asistencia()
                 asistencia.sucursal = "FastFood"
-                msg = "¡Nuevo registro FF capturado!"
 
             asistencia.empleado = Empleado.objects.get(id=empleado_id)
             asistencia.fecha = request.POST.get('fecha')
-            # IMPORTANTE: Guardar en .estatus para que la nómina lo vea
-            asistencia.estatus = request.POST.get('estatus_jornada') 
-            asistencia.horas = float(total_puntos) 
-            asistencia.puesto = request.POST.get('puesto')
+            asistencia.estatus = estatus_jornada
+            asistencia.puesto = puesto_seleccionado
+            asistencia.pago_dia = round(monto_final, 2)
+            asistencia.horas = float(total_puntos)
+            asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
+            asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
+            
             asistencia.bonificacion = float(request.POST.get('bonificacion') or 0)
             asistencia.descuento = float(request.POST.get('descuento') or 0)
+            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
+            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
+            asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
             asistencia.observaciones = request.POST.get('observaciones')
             
             asistencia.save()
-            messages.success(request, msg)
-            return redirect('asistencias_ff')
-        except Exception as e:
-            messages.error(request, f"Error en FastFood: {e}")
-            # Si hay error, regresamos a la vista normal para no devolver None
+            messages.success(request, "¡Registro FF procesado!")
             return redirect('asistenciasff')
 
-    # --- 2. LÓGICA GET (ESTO SIEMPRE SE EJECUTA SI NO ES POST) ---
-    # Asegúrate de que estas líneas estén alineadas al primer nivel de la función
+        except Exception as e:
+            messages.error(request, f"Error: {e}")
+            return redirect('asistenciasff')
+
+    # --- 3. LÓGICA GET ---
     hoy_str = datetime.now().strftime('%Y-%m-%d')
     registros = Asistencia.objects.filter(sucursal="FastFood").order_by('-fecha', '-id')[:20]
-
-    context = {
+    return render(request, 'AttendanceFF.html', {
         'lista_puestos': puestos_salarios_ff.keys(),
         'empleados': Empleado.objects.filter(estatus='Activo'),
         'registros': registros,
         'hoy': hoy_str,
         'puestos_json': json.dumps(puestos_salarios_ff), 
-    }
-    
-    # ESTE ES EL RETURN QUE TE FALTABA O ESTABA MAL IDENTADO
-    return render(request, 'AttendanceFF.html', context)
+    })
 
 @login_required
 def registrar_usuario(request):
@@ -504,6 +623,11 @@ def Borrar_Usuario_View(request, usuario_id):
 
 @login_required
 def calcular_nomina_web(request):
+    from django.db.models import Q
+    from collections import Counter
+    from datetime import datetime, timedelta
+    from .models import Asistencia, Empleado 
+
     fecha_inicio = request.GET.get('inicio')
     fecha_fin = request.GET.get('fin')
     sucursal_filtro = request.GET.get('sucursal')
@@ -512,105 +636,202 @@ def calcular_nomina_web(request):
     resultados_nomina = []
 
     puestos_salarios = {
-        "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
-        "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
-        "Encargado Cocina (Matutino 12 horas)": 504.00, "Encargado de Cocina (JONH)": 519.00,
-        "Cocina y Barra (6 hrs)": 236.50, "Cocina y Barra (9 hrs)": 354.50,
         "Caja (6 horas)": 236.50, "Caja (9 horas)": 354.50,
-        "Barra (6 horas) Entregas": 236.50, "Barra (9 horas) Entregas": 354.50,
-        "Fin de Semana": 473.00, "Encargado Victoria (6 Horas)": 316.00,
-        "Encargado Victoria (12 Horas)": 632.00, "Encargado Sucursales (6 Horas)": 262.00,
-        "Encargado Sucursales (9 Horas)": 393.00, "Freidor (6 horas)": 248.00,
-        "Freidor (9 horas)": 372.00, "Despacho (6 horas)": 236.50,
-        "Despacho (9 horas)": 354.75, "Benny": 171.00
+        "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
+        "Encargado Cocina (Matutino 6 horas)": 252.00,
+        "Encargado Cocina (Matutino 9 horas)": 378.00,
+        "Encargado Cocina (Matutino 12 horas)": 504.00,
+        "Encargado de Cocina (JONH)": 519.00,
+        "Cocina y Barra (6 hrs)": 236.50,
+        "Cocina y Barra (9 hrs)": 354.50,
+        "Barra (6 horas) Entregas": 236.50,
+        "Barra (9 horas) Entregas": 354.50,
+        "Fin de Semana": 473.00,
+        "Produccion": 0.00,
     }
 
-    if fecha_inicio and fecha_fin:
-        filtros_asistencia = Q(fecha__range=[fecha_inicio, fecha_fin])
+    DESCUENTO_UNIFORME_SEMANAL = 181.00
+
+    # --- NUEVA FUNCIÓN HÍBRIDA INTERNA ---
+    def procesar_dato_hibrido(valor, es_entrada, bloque):
+        """
+        Analiza el campo y devuelve (minutos_reloj, retardo_detectado)
+        """
+        if not valor: return None, 0
+        v = str(valor).strip().upper()
         
-        if sucursal_filtro and sucursal_filtro != "TODAS":
-            filtros_asistencia &= Q(sucursal__iexact=sucursal_filtro)
-            
-        if nombre_filtro:
-            filtros_asistencia &= (Q(empleado__nombre__icontains=nombre_filtro) | 
-                                   Q(empleado__apellido_paterno__icontains=nombre_filtro))
-
-        empleados_ids = Asistencia.objects.filter(filtros_asistencia).values_list('empleado_id', flat=True).distinct()
-
-        for emp_id in empleados_ids:
-            empleado = Empleado.objects.get(id=emp_id)
-            
-            # Obtenemos asistencias según el filtro
-            if sucursal_filtro and sucursal_filtro != "TODAS":
-                asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
-            else:
-                asistencias = Asistencia.objects.filter(fecha__range=[fecha_inicio, fecha_fin], empleado=empleado).order_by('fecha')
-
-            puestos_lista = [a.puesto for a in asistencias if a.puesto]
-            puesto_principal = Counter(puestos_lista).most_common(1)[0][0] if puestos_lista else "Sin Puesto"
-            salario_descanso_base = puestos_salarios.get(puesto_principal, empleado.sueldo_base or 0)
-
-            pago_base_acumulado = 0
-            total_retardos = 0
-            total_bonos = 0
-            total_descuentos_manuales = 0
-
-            dias_map = {d: {'horas': 0, 'estatus': '---'} for d in ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]}
-            dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-
-            for reg in asistencias:
-                salario_dia = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
-                # IMPORTANTE: Aseguramos que el estatus no sea None
-                estatus_limpio = reg.estatus.upper() if reg.estatus else ""
+        # 1. Si es una HORA (09:30, 12:00, etc)
+        if ':' in v:
+            try:
+                partes = v.split(':')
+                h = int(partes[0])
+                m = int(partes[1][:2])
+                min_reloj = h * 60 + m
                 
-                # --- 1. LÓGICA DE PAGOS ---
-                if any(x in estatus_limpio for x in ["ACTIVO", "NORMAL"]):
-                    pago_base_acumulado += salario_dia
-                elif "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
-                    pago_base_acumulado += (salario_dia * 2)
-                elif "DESCANSO" in estatus_limpio:
-                    pago_base_acumulado += salario_dia
+                # Calcular retardo automático comparando con hora base
+                retardo = 0
+                if es_entrada:
+                    hora_base = 9 * 60 if bloque == 'M' else 15 * 60
+                    if min_reloj > hora_base:
+                        retardo = (min_reloj - hora_base) / 60 # Convertir a horas
+                return min_reloj, retardo
+            except: pass
 
-                # --- 2. LÓGICA DE RETARDOS (Sincronizada) ---
-                if reg.horas:
-                    total_retardos += int(reg.horas)
+        # 2. Si es un COMBO NUMÉRICO (1, 2, 3)
+        if v.isdigit():
+            retardo_num = int(v)
+            # Convertimos el combo a una "hora ficticia" para que la resta de tiempo funcione
+            if es_entrada:
+                hora_ficticia = (9 + retardo_num) * 60 if bloque == 'M' else (15 + retardo_num) * 60
+            else:
+                hora_ficticia = (15 - retardo_num) * 60 if bloque == 'M' else (21 - retardo_num) * 60
+            return hora_ficticia, retardo_num
 
-                # --- 3. BONOS Y DESCUENTOS ---
-                # Usamos float y manejamos el None para evitar que se rompa el cálculo
-                total_bonos += float(reg.bonificacion or 0)
-                total_descuentos_manuales += float(reg.descuento or 0)
+        # 3. Si es "NORMAL" o texto
+        if "NORMAL" in v:
+            hora_base = (9*60 if es_entrada else 15*60) if bloque == 'M' else (15*60 if es_entrada else 21*60)
+            return hora_base, 0
 
-                # Guardar datos para la tabla HTML
-                nombre_dia = dias_semana_esp[reg.fecha.weekday()]
-                dias_map[nombre_dia] = {
-                    'horas': reg.horas or 0,
-                    'estatus': estatus_limpio
-                }
+        # Fallback original
+        min_default = (9*60 if es_entrada else 15*60) if bloque == 'M' else (15*60 if es_entrada else 21*60)
+        return min_default, 0
 
-            # --- 4. CÁLCULOS FINALES ---
-            # El descuento por retardo se calcula al final de procesar todos los días
-            desc_por_retardos = calcular_descuento_retardos(total_retardos, salario_descanso_base)
+    def calcular_pago_dia_final(base_6h, reg):
+        minutos_trabajados = 0
+        retardo_acumulado = 0
+
+        # Procesar los 4 campos usando la lógica híbrida
+        m_ent_m, r_ent_m = procesar_dato_hibrido(reg.entrada_matutina, True, 'M')
+        m_sal_m, r_sal_m = procesar_dato_hibrido(reg.salida_matutina, False, 'M')
+        m_ent_v, r_ent_v = procesar_dato_hibrido(reg.entrada_vespertina, True, 'V')
+        m_sal_v, r_sal_v = procesar_dato_hibrido(reg.salida_vespertina, False, 'V')
+
+        # Sumar los retardos detectados (ya sea por combo o por hora tarde)
+        retardo_acumulado = r_ent_m + r_sal_m + r_ent_v + r_sal_v
+
+        # Lógica de cálculo de tiempo (Respetando tu original)
+        if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
+            diff = m_sal_v - m_ent_m
+            minutos_trabajados = diff + 1440 if diff < 0 else diff
+        else:
+            if m_ent_m and m_sal_m:
+                diff = m_sal_m - m_ent_m
+                if diff < 0: diff += 720 # Parche 12pm/1pm
+                minutos_trabajados += max(0, diff)
+            elif m_ent_m or m_sal_m: 
+                minutos_trabajados += 360
             
-            # La cuota de uniforme se resta una sola vez por periodo (si aplica)
-            cuota_uniforme = getattr(empleado, 'cuota_uniforme', 0) or 0
+            if m_ent_v and m_sal_v:
+                diff = m_sal_v - m_ent_v
+                if diff < 0: diff += 720 # Parche tarde
+                minutos_trabajados += max(0, diff)
+            elif m_ent_v or m_sal_v: 
+                minutos_trabajados += 360
+                
+        pago = (float(base_6h) / 360) * minutos_trabajados
+        return pago, int(retardo_acumulado)
 
-            # FÓRMULA FINAL: (Base + Bonos) - (Descuentos Manuales + Retardos + Uniforme)
-            total_neto = (pago_base_acumulado + total_bonos) - (total_descuentos_manuales + desc_por_retardos + cuota_uniforme)
+    # --- PROCESAMIENTO DE FECHAS Y BUCLE ---
+    if fecha_inicio and fecha_fin:
+        f_ini_dt = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+        f_fin_dt = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+        intervalos_semanas = []
+        current_start = f_ini_dt
+        while current_start <= f_fin_dt:
+            dias_al_domingo = 6 - current_start.weekday()
+            current_end = min(current_start + timedelta(days=dias_al_domingo), f_fin_dt)
+            intervalos_semanas.append((current_start, current_end))
+            current_start = current_end + timedelta(days=1)
 
-            resultados_nomina.append({
-                'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
-                'puesto_principal': puesto_principal,
-                'dias': [dias_map[d] for d in dias_semana_esp],
-                'pago_base': pago_base_acumulado,
-                'retardos': total_retardos,
-                'desc_retardos': desc_por_retardos,
-                'bonos': total_bonos,
-                'descuentos': total_descuentos_manuales,
-                'uniforme': cuota_uniforme,
-                'total_neto': total_neto,
-            })
+        for sem_inicio, sem_fin in intervalos_semanas:
+            filtros_asistencia = Q(fecha__range=[sem_inicio, sem_fin])
+            if sucursal_filtro and sucursal_filtro != "TODAS":
+                filtros_asistencia &= Q(sucursal__iexact=sucursal_filtro)
+            if nombre_filtro:
+                filtros_asistencia &= (Q(empleado__nombre__icontains=nombre_filtro) | 
+                                       Q(empleado__apellido_paterno__icontains=nombre_filtro))
 
-    return render(request, 'Paysheet.html', {
+            empleados_ids = Asistencia.objects.filter(filtros_asistencia).values_list('empleado_id', flat=True).distinct()
+
+            for emp_id in empleados_ids:
+                empleado = Empleado.objects.get(id=emp_id)
+                asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
+                puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
+                
+                if puestos_semana:
+                    conteo = Counter(puestos_semana)
+                    salario_descanso = sum((puestos_salarios.get(p, 0) * (c / len(puestos_semana))) for p, c in conteo.items())
+                    puesto_principal = conteo.most_common(1)[0][0]
+                else:
+                    salario_descanso = float(empleado.sueldo_base or 0)
+                    puesto_principal = "Sin Puesto"
+
+                pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
+                aplica_uniforme_semanal = False 
+                dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+                dias_map = {d: {'horas': 0, 'estatus': '---', 'pago_dia': 0, 'sucursal': '---', 'puesto': '---'} for d in dias_semana_esp}
+
+                for reg in asistencias:
+                    val_pago_manual = float(reg.pago_dia or 0.0)
+                    val_bono = float(reg.bonificacion or 0.0)
+                    val_desc = float(reg.descuento or 0.0)
+                    if reg.tipo_uniforme and len(str(reg.tipo_uniforme).strip()) > 0:
+                        aplica_uniforme_semanal = True
+                    
+                    estatus_limpio = (reg.estatus or "").upper()
+                    salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
+                    base_calc = float(salario_base_puesto)
+                    
+                    if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
+                    elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
+
+                    if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
+                        salario_dia = salario_descanso
+                        retardo_dia = 0
+                    elif val_pago_manual > 0:
+                        salario_dia = val_pago_manual
+                        retardo_dia = int(reg.horas or 0)
+                    else:
+                        salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
+                        # Si el usuario escribió el retardo a mano en reg.horas, manda ese. Si no, manda el automático.
+                        retardo_dia = int(reg.horas) if reg.horas else retardo_aut
+
+                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
+                        salario_dia *= 2
+
+                    pago_base_total += salario_dia
+                    total_retardos += retardo_dia
+                    total_bonos += val_bono
+                    total_descuentos_manuales += val_desc
+                    
+                    nombre_dia = dias_semana_esp[reg.fecha.weekday()]
+                    dias_map[nombre_dia] = {
+                        'horas': retardo_dia,
+                        'estatus': estatus_limpio,
+                        'pago_dia': round(salario_dia, 2),
+                        'sucursal': reg.sucursal or '---',
+                        'puesto': reg.puesto or '---'
+                    }
+
+                total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
+                desc_retardos = (puestos_salarios.get(puesto_principal, 0) / 6) * total_retardos
+                total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + desc_retardos + total_uniforme)
+
+                resultados_nomina.append({
+                    'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
+                    'puesto_principal': puesto_principal,
+                    'periodo_info': f"{sem_inicio.strftime('%d/%m')} al {sem_fin.strftime('%d/%m')}",
+                    'dias': [dias_map[d] for d in dias_semana_esp],
+                    'pago_base': round(pago_base_total, 2),
+                    'retardos': total_retardos,
+                    'desc_retardos': round(desc_retardos, 2),
+                    'bonos': round(total_bonos, 2),
+                    'descuentos': round(total_descuentos_manuales, 2),
+                    'uniforme': round(total_uniforme, 2),
+                    'total_neto': round(total_neto, 2),
+                })
+
+    return render(request, 'Paysheet.html', {                    
         'nominas': resultados_nomina,
         'inicio': fecha_inicio,
         'fin': fecha_fin,
@@ -619,7 +840,8 @@ def calcular_nomina_web(request):
     })
 
 def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=None):
-    from collections import Counter # Asegúrate de tener esta importación al inicio del archivo
+    from collections import Counter
+    from django.db.models import Q
 
     puestos_salarios = {
         "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
@@ -636,62 +858,81 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
     }
 
     datos_completos = []
-    
-    # Filtro base para obtener empleados
     filtros_base = Q(fecha__range=[inicio, fin])
+    
     if sucursal_sel and sucursal_sel != "TODAS":
         filtros_base &= Q(sucursal__iexact=sucursal_sel)
     if nombre_busqueda:
-        filtros_base &= (Q(empleado__nombre__icontains=nombre_busqueda) | Q(empleado__apellido_paterno__icontains=nombre_busqueda))
+        filtros_base &= (Q(empleado__nombre__icontains=nombre_busqueda) | 
+                         Q(empleado__apellido_paterno__icontains=nombre_busqueda))
 
     empleados_ids = Asistencia.objects.filter(filtros_base).values_list('empleado_id', flat=True).distinct()
 
     for emp_id in empleados_ids:
         empleado = Empleado.objects.get(id=emp_id)
-        
-        # Aplicamos la misma lógica de "ver todo su sueldo" si no hay filtro de sucursal
-        if sucursal_sel and sucursal_sel != "TODAS":
-            asistencias = Asistencia.objects.filter(filtros_base, empleado=empleado).order_by('fecha')
-        else:
-            asistencias = Asistencia.objects.filter(fecha__range=[inicio, fin], empleado=empleado).order_by('fecha')
+        asistencias = Asistencia.objects.filter(filtros_base, empleado=empleado).order_by('fecha')
 
-        # Determinar puesto principal para descuento de retardos
         puestos_lista = [a.puesto for a in asistencias if a.puesto]
         puesto_principal = Counter(puestos_lista).most_common(1)[0][0] if puestos_lista else "Sin Puesto"
-        salario_descanso_base = puestos_salarios.get(puesto_principal, empleado.sueldo_base or 0)
+        salario_base_puesto = puestos_salarios.get(puesto_principal, empleado.sueldo_base or 0)
 
         pago_base_acumulado = 0
         total_retardos = 0
         total_bonos = 0
         total_descuentos_manuales = 0
+        
+        # Mapa de días para el HTML
+        dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        dias_map = {d: {'horas': 0, 'estatus': '---'} for d in dias_semana_esp}
 
         for reg in asistencias:
-            salario_dia = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
+            # --- DETECCIÓN AUTOMÁTICA DE DOBLE TURNO ---
+            # Si hay entrada matutina Y salida vespertina, es doble turno automático
+            sueldo_base_dia = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
+            
+            # Prioridad: Si existe un pago_dia manual (como un bono extra) lo usa, 
+            # si no, calcula por horario.
+            if reg.pago_dia and reg.pago_dia > 0:
+                salario_dia = float(reg.pago_dia)
+            elif reg.entrada_matutina and reg.salida_vespertina:
+                salario_dia = float(sueldo_base_dia) * 2
+            else:
+                salario_dia = float(sueldo_base_dia)
+
             estatus_limpio = reg.estatus.upper() if reg.estatus else ""
             
+            # Sumatoria según estatus
             if any(x in estatus_limpio for x in ["ACTIVO", "NORMAL"]):
                 pago_base_acumulado += salario_dia
             elif "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
                 pago_base_acumulado += (salario_dia * 2)
             elif "DESCANSO" in estatus_limpio:
-                pago_base_acumulado += salario_dia
+                pago_base_acumulado += float(sueldo_base_dia)
 
-            if reg.entrada:
-                total_retardos += obtener_valor_retardo(reg.entrada)
-            
+            # Acumular retardos (usando puntos guardados en reg.horas)
+            total_retardos += int(reg.horas or 0)
             total_bonos += float(reg.bonificacion or 0)
             total_descuentos_manuales += float(reg.descuento or 0)
 
-        desc_por_retardos = calcular_descuento_retardos(total_retardos, salario_descanso_base)
-        total_neto = (pago_base_acumulado + total_bonos) - (total_descuentos_manuales + desc_por_retardos)
+            # Llenar el mapa para el HTML
+            nombre_dia = dias_semana_esp[reg.fecha.weekday()]
+            dias_map[nombre_dia] = {'horas': reg.horas or 0, 'estatus': estatus_limpio}
+
+        # Cálculos finales
+        desc_retardos = calcular_descuento_retardos(total_retardos, salario_base_puesto)
+        cuota_uniforme = getattr(empleado, 'cuota_uniforme', 0) or 0
+        total_neto = (pago_base_acumulado + total_bonos) - (total_descuentos_manuales + desc_retardos + cuota_uniforme)
 
         datos_completos.append({
             'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
             'puesto_principal': puesto_principal,
+            'dias': [dias_map[d] for d in dias_semana_esp],
             'pago_base': pago_base_acumulado,
+            'retardos': total_retardos,
+            'desc_retardos': desc_retardos,
             'bonos': total_bonos,
-            'descuentos': total_descuentos_manuales + desc_por_retardos, # Sumamos ambos tipos de descuento
-            'uniforme': 0,
+            'descuentos': total_descuentos_manuales,
+            'uniforme': cuota_uniforme,
             'total_neto': total_neto
         })
 
@@ -757,39 +998,108 @@ def exportar_pdf_nomina(request):
     return response
 
 def vista_reportes(request):
-    empleados = Empleado.objects.filter(estatus='Activo')
+    empleados = Empleado.objects.filter(estatus='Activo').order_by('nombre')
     context = {'empleados': empleados}
     
     emp_id = request.GET.get('empleado')
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
+    # Diccionario de salarios (Mantenlo idéntico al de tu vista de nómina)
+    puestos_salarios = {
+        "Caja (6 horas)": 236.50, "Caja (9 horas)": 354.50,
+        "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
+        "Encargado Cocina (Matutino 6 horas)": 252.00,
+        "Encargado Cocina (Matutino 9 horas)": 378.00,
+        "Encargado Cocina (Matutino 12 horas)": 504.00,
+        "Encargado de Cocina (JONH)": 519.00,
+        "Cocina y Barra (6 hrs)": 236.50,
+        "Cocina y Barra (9 hrs)": 354.50,
+        "Barra (6 horas) Entregas": 236.50,
+        "Barra (9 horas) Entregas": 354.50,
+        "Fin de Semana": 473.00,
+        "Produccion": 0.00,
+    }
+
+    # --- Funciones de apoyo ---
+    def a_minutos(valor, es_entrada, bloque):
+        if not valor: return None
+        v = str(valor).strip().upper()
+        if ':' in v:
+            try:
+                h, m = map(int, v[:5].split(':'))
+                return h * 60 + m
+            except: pass
+        return (9*60 if es_entrada else 15*60) if bloque == 'M' else (15*60 if es_entrada else 21*60)
+
+    def calcular_pago_dia_final(base_6h, ent_m, sal_m, ent_v, sal_v):
+        minutos = 0
+        if ent_m and sal_v and not sal_m and not ent_v: # Jornada continua
+            m_i, m_f = a_minutos(ent_m, True, 'M'), a_minutos(sal_v, False, 'V')
+            if m_i is not None and m_f is not None:
+                diff = m_f - m_i
+                minutos = diff + 1440 if diff < 0 else diff
+        else: # Por bloques
+            if ent_m and sal_m: minutos += max(0, a_minutos(sal_m, False, 'M') - a_minutos(ent_m, True, 'M'))
+            elif ent_m or sal_m: minutos += 360
+            if ent_v and sal_v: minutos += max(0, a_minutos(sal_v, False, 'V') - a_minutos(ent_v, True, 'V'))
+            elif ent_v or sal_v: minutos += 360
+        return (float(base_6h) / 360) * minutos
+
     if emp_id and f_inicio and f_fin:
+        empleado = Empleado.objects.get(id=emp_id)
         asistencias = Asistencia.objects.filter(
             empleado_id=emp_id, 
             fecha__range=[f_inicio, f_fin]
         ).order_by('fecha')
-        
-        # Lógica de cálculo (resumida del script de Tkinter)
+
+        # 1. Puesto Ponderado para el Descanso
+        puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
+        if puestos_semana:
+            conteo = Counter(puestos_semana)
+            salario_descanso = sum((puestos_salarios.get(p, 0) * (c / len(puestos_semana))) for p, c in conteo.items())
+        else:
+            salario_descanso = float(empleado.sueldo_base or 0)
+
         total_pago = 0
         total_retardos = 0
+        total_bonif = 0
+
         for asis in asistencias:
-            # Aquí aplicarías tus reglas de PUESTOS_SALARIOS
-            # Simplificado para el ejemplo:
-            asis.pago_calculado = 350.00 # Aquí va tu lógica de PUESTOS_SALARIOS.get(...)
-            valor_retardo = getattr(asis, 'retardo', 0)
-            total_pago += asis.pago_calculado
-            total_retardos += asis.retardo if asis.retardo else 0
+            estatus = (asis.estatus or "").upper()
+            sal_puesto = puestos_salarios.get(asis.puesto, empleado.sueldo_base or 0)
+            
+            # Normalizar base a 6 horas para el cálculo de minutos
+            base_calc = float(sal_puesto)
+            if "(9 horas)" in (asis.puesto or ""): base_calc /= 1.5
+            elif "(12 Horas)" in (asis.puesto or ""): base_calc /= 2
+
+            # Lógica de pago por día
+            if "DESCANSO" in estatus and "TRABAJADO" not in estatus:
+                pago_dia = salario_descanso
+            elif asis.pago_dia and float(asis.pago_dia) > 0:
+                pago_dia = float(asis.pago_dia)
+            else:
+                pago_dia = calcular_pago_dia_final(base_calc, asis.entrada_matutina, asis.salida_matutina, asis.entrada_vespertina, asis.salida_vespertina)
+                if "DESCANSO TRABAJADO" in estatus or "FESTIVO TRABAJADO" in estatus:
+                    pago_dia *= 2
+
+            # Inyectamos el valor calculado al objeto para el HTML
+            asis.pago_calculado = round(pago_dia, 2)
+            
+            # Acumuladores
+            total_pago += pago_dia
+            total_retardos += int(asis.horas or 0) # 'horas' es el campo de retardo numérico
+            total_bonif += float(asis.bonificacion or 0)
 
         context.update({
             'asistencias': asistencias,
             'fecha_inicio': f_inicio,
             'fecha_fin': f_fin,
             'resumen': {
-                'total_pagar': total_pago,
+                'total_pagar': round(total_pago, 2),
                 'total_retardos': total_retardos,
-                'total_horas': sum(8 for _ in asistencias), # Ejemplo
-                'total_bonif': 0
+                'total_bonif': round(total_bonif, 2)
             }
         })
 
