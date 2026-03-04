@@ -1038,13 +1038,15 @@ def exportar_pdf_nomina(request):
 
 def vista_reportes(request):
     empleados = Empleado.objects.filter(estatus='Activo').order_by('nombre')
-    context = {'empleados': empleados}
     
-    emp_id = request.GET.get('empleado')
+    # Captura de parámetros
+    emp_id = request.GET.get('empleado_id')
+    nombre_texto = request.GET.get('nombre', '').strip()
+    sucursal_filtro = request.GET.get('sucursal')
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
-    # Diccionario de salarios (Mantenlo idéntico al de tu vista de nómina)
+    # Diccionario de salarios
     puestos_salarios = {
         "Caja (6 horas)": 236.50, "Caja (9 horas)": 354.50,
         "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
@@ -1074,8 +1076,8 @@ def vista_reportes(request):
         "Yommy": 236.50,
         "Rappi": 354.75,
         "Fabrica Crystal": 262.00,
-        "Hamburguesas Momias": 0.00, # Dinámico por cargas
-        "Tuppers": 0.00,             # Dinámico por cargas
+        "Hamburguesas Momias": 0.00, 
+        "Tuppers": 0.00,
         "Benny": 171.00,
     }
 
@@ -1104,37 +1106,43 @@ def vista_reportes(request):
             elif ent_v or sal_v: minutos += 360
         return (float(base_6h) / 360) * minutos
 
-    if emp_id and f_inicio and f_fin:
-        empleado = Empleado.objects.get(id=emp_id)
-        asistencias = Asistencia.objects.filter(
-            empleado_id=emp_id, 
-            fecha__range=[f_inicio, f_fin]
-        ).order_by('fecha')
+    asistencias_query = None
+    resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0}
 
-        # 1. Puesto Ponderado para el Descanso
-        puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
-        if puestos_semana:
-            conteo = Counter(puestos_semana)
-            salario_descanso = sum((puestos_salarios.get(p, 0) * (c / len(puestos_semana))) for p, c in conteo.items())
-        else:
-            salario_descanso = float(empleado.sueldo_base or 0)
+    # Solo procesamos si hay rango de fechas (el reporte empieza vacío)
+    if f_inicio and f_fin:
+        asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
 
-        total_pago = 0
-        total_retardos = 0
-        total_bonif = 0
+        # 1. Filtro por Sucursal
+        if sucursal_filtro:
+            asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
 
-        for asis in asistencias:
+        # 2. Filtro por Persona (Doble opción)
+        if emp_id:
+            asistencias_query = asistencias_query.filter(empleado_id=emp_id)
+        elif nombre_texto:
+            asistencias_query = asistencias_query.filter(
+                Q(empleado__nombre__icontains=nombre_texto) | 
+                Q(empleado__apellido_paterno__icontains=nombre_texto)
+            )
+
+        # Ordenar para que el reporte sea legible
+        asistencias_query = asistencias_query.order_by('empleado__nombre', 'fecha')
+
+        # 3. Procesamiento de Cálculos para cada fila
+        for asis in asistencias_query:
+            emp = asis.empleado
             estatus = (asis.estatus or "").upper()
-            sal_puesto = puestos_salarios.get(asis.puesto, empleado.sueldo_base or 0)
+            sal_puesto = puestos_salarios.get(asis.puesto, emp.sueldo_base or 0)
             
-            # Normalizar base a 6 horas para el cálculo de minutos
+            # Normalizar base a 6 horas
             base_calc = float(sal_puesto)
             if "(9 horas)" in (asis.puesto or ""): base_calc /= 1.5
             elif "(12 Horas)" in (asis.puesto or ""): base_calc /= 2
 
             # Lógica de pago por día
             if "DESCANSO" in estatus and "TRABAJADO" not in estatus:
-                pago_dia = salario_descanso
+                pago_dia = float(emp.sueldo_base or 0)
             elif asis.pago_dia and float(asis.pago_dia) > 0:
                 pago_dia = float(asis.pago_dia)
             else:
@@ -1142,24 +1150,25 @@ def vista_reportes(request):
                 if "DESCANSO TRABAJADO" in estatus or "FESTIVO TRABAJADO" in estatus:
                     pago_dia *= 2
 
-            # Inyectamos el valor calculado al objeto para el HTML
+            # Guardar valor calculado en el objeto para el template
             asis.pago_calculado = round(pago_dia, 2)
             
-            # Acumuladores
-            total_pago += pago_dia
-            total_retardos += int(asis.horas or 0) # 'horas' es el campo de retardo numérico
-            total_bonif += float(asis.bonificacion or 0)
+            # Acumular en el resumen global
+            resumen_global['total_pagar'] += pago_dia
+            resumen_global['total_retardos'] += int(asis.horas or 0)
+            resumen_global['total_bonif'] += float(asis.bonificacion or 0)
 
-        context.update({
-            'asistencias': asistencias,
-            'fecha_inicio': f_inicio,
-            'fecha_fin': f_fin,
-            'resumen': {
-                'total_pagar': round(total_pago, 2),
-                'total_retardos': total_retardos,
-                'total_bonif': round(total_bonif, 2)
-            }
-        })
+    context = {
+        'empleados': empleados,
+        'asistencias': asistencias_query,
+        'fecha_inicio': f_inicio,
+        'fecha_fin': f_fin,
+        'resumen': {
+            'total_pagar': round(resumen_global['total_pagar'], 2),
+            'total_retardos': resumen_global['total_retardos'],
+            'total_bonif': round(resumen_global['total_bonif'], 2)
+        }
+    }
 
     return render(request, 'Reports.html', context)
 
