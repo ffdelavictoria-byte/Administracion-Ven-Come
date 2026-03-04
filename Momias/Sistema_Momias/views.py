@@ -300,6 +300,14 @@ def Asistencias_view(request):
         "Freidor (9 horas)": 372.00, 
         "Despacho (6 horas)": 236.50,
         "Despacho (9 horas)": 354.75, 
+        "Aderezos": 236.50,
+        "Cocina": 248.00,
+        "Fabrica": 236.50,
+        "Perrioni": 236.50,
+        "PP": 236.50,
+        "Yommy": 236.50,
+        "Rappi": 354.75,
+        "Fabrica Crystal": 262.00,
         "Hamburguesas Momias": 0.00, # Dinámico por cargas
         "Tuppers": 0.00,             # Dinámico por cargas
     }
@@ -648,6 +656,26 @@ def calcular_nomina_web(request):
         "Barra (9 horas) Entregas": 354.50,
         "Fin de Semana": 473.00,
         "Produccion": 0.00,
+        "Encargado Victoria (6 Horas)": 316.00,
+        "Encargado Victoria (12 Horas)": 632.00, 
+        "Encargado Sucursales (6 Horas)": 262.00,
+        "Encargado Sucursales (9 Horas)": 393.00, 
+        "Freidor (6 horas)": 248.00,
+        "Freidor (9 horas)": 372.00, 
+        "Despacho (6 horas)": 236.50,
+        "Despacho (9 horas)": 354.75, 
+        "Aderezos": 236.50,
+        "Cocina": 248.00,
+        "Fabrica": 236.50,
+        "Perrioni": 236.50,
+        "PP": 236.50,
+        "Yommy": 236.50,
+        "Rappi": 354.75,
+        "Fabrica Crystal": 262.00,
+        "Hamburguesas Momias": 0.00, # Dinámico por cargas
+        "Tuppers": 0.00,             # Dinámico por cargas
+        "Benny": 171.00,
+    
     }
 
     DESCUENTO_UNIFORME_SEMANAL = 181.00
@@ -854,7 +882,18 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "Encargado Victoria (12 Horas)": 632.00, "Encargado Sucursales (6 Horas)": 262.00,
         "Encargado Sucursales (9 Horas)": 393.00, "Freidor (6 horas)": 248.00,
         "Freidor (9 horas)": 372.00, "Despacho (6 horas)": 236.50,
-        "Despacho (9 horas)": 354.75, "Benny": 171.00
+        "Despacho (9 horas)": 354.75, "Benny": 171.00,
+        "Aderezos": 236.50,
+        "Cocina": 248.00,
+        "Fabrica": 236.50,
+        "Perrioni": 236.50,
+        "PP": 236.50,
+        "Yommy": 236.50,
+        "Rappi": 354.75,
+        "Fabrica Crystal": 262.00,
+        "Hamburguesas Momias": 0.00, # Dinámico por cargas
+        "Tuppers": 0.00,             # Dinámico por cargas
+    
     }
 
     datos_completos = []
@@ -1019,6 +1058,25 @@ def vista_reportes(request):
         "Barra (9 horas) Entregas": 354.50,
         "Fin de Semana": 473.00,
         "Produccion": 0.00,
+        "Encargado Victoria (6 Horas)": 316.00,
+        "Encargado Victoria (12 Horas)": 632.00, 
+        "Encargado Sucursales (6 Horas)": 262.00,
+        "Encargado Sucursales (9 Horas)": 393.00, 
+        "Freidor (6 horas)": 248.00,
+        "Freidor (9 horas)": 372.00, 
+        "Despacho (6 horas)": 236.50,
+        "Despacho (9 horas)": 354.75, 
+        "Aderezos": 236.50,
+        "Cocina": 248.00,
+        "Fabrica": 236.50,
+        "Perrioni": 236.50,
+        "PP": 236.50,
+        "Yommy": 236.50,
+        "Rappi": 354.75,
+        "Fabrica Crystal": 262.00,
+        "Hamburguesas Momias": 0.00, # Dinámico por cargas
+        "Tuppers": 0.00,             # Dinámico por cargas
+        "Benny": 171.00,
     }
 
     # --- Funciones de apoyo ---
