@@ -130,7 +130,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-bold small text-uppercase">Empleado:</label>
-                    <input type="text" name="nombre" class="form-control" placeholder="Nombre..." value="{{ nombre_busqueda }}">
+                    <input type="text" name="nombre" class="form-control" placeholder="Nombre..." value="{{ nombre_busqueda|default_if_none:'' }}">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-bold small text-uppercase">Sucursal:</label>
