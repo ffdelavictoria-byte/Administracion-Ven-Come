@@ -87,27 +87,62 @@
         <h2>REPORTE DETALLADO DE ASISTENCIAS</h2>
         
         <form method="GET" class="filters">
-            <select name="empleado" required>
-                <option value="">Selecciona Empleado...</option>
-                {% for e in empleados %}
-                <option value="{{ e.id }}" {% if request.GET.empleado == e.id|stringformat:"i" %}selected{% endif %}>
-                    {{ e.nombre }} {{ e.apellido_paterno }}
-                </option>
-                {% endfor %}
-            </select>
+            <div style="display: flex; flex-direction: column;">
+                <label style="font-size: 0.8rem; font-weight: bold;">BUSCAR POR NOMBRE:</label>
+                <input type="text" name="nombre" placeholder="Escribe nombre..." 
+                    value="{{ request.GET.nombre|default_if_none:'' }}">
+            </div>
+
+            <div style="display: flex; flex-direction: column;">
+                <label style="font-size: 0.8rem; font-weight: bold;">O SELECCIONA:</label>
+                <select name="empleado_id">
+                    <option value="">--- Todos ---</option>
+                    {% for e in empleados %}
+                    <option value="{{ e.id }}" {% if request.GET.empleado_id == e.id|stringformat:"i" %}selected{% endif %}>
+                        {{ e.nombre }} {{ e.apellido_paterno }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: flex; flex-direction: column;">
+                <label style="font-size: 0.8rem; font-weight: bold;">SUCURSAL:</label>
+                <select name="sucursal">
+                    <option value="">--- Todas ---</option>
+                    <option value="Momias 1" {% if request.GET.sucursal == "Momias 1" %}selected{% endif %}>Momias 1</option>
+                    <option value="Momias 2" {% if request.GET.sucursal == "Momias 2" %}selected{% endif %}>Momias 2</option>
+                    <option value="Momias 3" {% if request.GET.sucursal == "Momias 3" %}selected{% endif %}>Momias 3</option>
+                    <option value="Momias 4" {% if request.GET.sucursal == "Momias 4" %}selected{% endif %}>Momias 4</option>
+                    <option value="Momias 5" {% if request.GET.sucursal == "Momias 5" %}selected{% endif %}>Momias 5</option>
+                    <option value="Momias 6" {% if request.GET.sucursal == "Momias 6" %}selected{% endif %}>Momias 6</option>
+                    <option value="FastFood" {% if request.GET.sucursal == "FastFood" %}selected{% endif %}>FAST FOOD</option>
+                </select>
+            </div>
             
-            <input type="date" name="fecha_inicio" value="{{ fecha_inicio }}">
-            <input type="date" name="fecha_fin" value="{{ fecha_fin }}">
+            <div style="display: flex; flex-direction: column;">
+                <label style="font-size: 0.8rem; font-weight: bold;">DESDE:</label>
+                <input type="date" name="fecha_inicio" value="{{ fecha_inicio }}">
+            </div>
+
+            <div style="display: flex; flex-direction: column;">
+                <label style="font-size: 0.8rem; font-weight: bold;">HASTA:</label>
+                <input type="date" name="fecha_fin" value="{{ fecha_fin }}">
+            </div>
             
-            <button type="submit" class="btn-action btn-generate">GENERAR</button>
-            <button type="button" onclick="window.print()" class="btn-action btn-export">IMPRIMIR PDF</button>
+            <button type="submit" class="btn-action btn-generate" style="align-self: flex-end;">GENERAR</button>
+            <button type="button" onclick="window.print()" class="btn-action btn-export" style="align-self: flex-end;">IMPRIMIR PDF</button>
+            <div style="display: flex; flex-direction: column;">
+</div>
+        
+        
+        
         </form>
 
         {% if asistencias %}
         <table>
             <thead>
                 <tr>
-                    <th>Fecha</th>
+                    <th>Empleado</th> <th>Fecha</th>
                     <th>Sucursal</th>
                     <th>Puesto</th>
                     <th>Entrada</th>
@@ -121,10 +156,11 @@
             <tbody>
                 {% for a in asistencias %}
                 <tr>
+                    <td style="font-weight: bold; text-align: left;">{{ a.empleado.nombre }} {{ a.empleado.apellido_paterno }}</td>
+                    
                     <td>{{ a.fecha|date:"d/m/Y" }}</td>
                     <td style="font-weight: bold;">{{ a.sucursal|default:"--" }}</td>
                     <td>{{ a.puesto }}</td>
-                    {# Usamos los campos reales para mostrar Combo o Manual según corresponda #}
                     <td>{{ a.entrada_matutina|default:a.entrada_vespertina|default:"---" }}</td>
                     <td>{{ a.salida_vespertina|default:a.salida_matutina|default:"---" }}</td>
                     <td class="{% if a.horas > 0 %}retardo-celda{% endif %}">
