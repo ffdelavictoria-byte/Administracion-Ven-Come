@@ -636,6 +636,7 @@ def calcular_nomina_web(request):
     from datetime import datetime, timedelta
     from .models import Asistencia, Empleado 
 
+    # ... (tus filtros de fecha y sucursal se mantienen igual) ...
     fecha_inicio = request.GET.get('inicio')
     fecha_fin = request.GET.get('fin')
     sucursal_filtro = request.GET.get('sucursal')
@@ -644,6 +645,7 @@ def calcular_nomina_web(request):
     resultados_nomina = []
 
     puestos_salarios = {
+        # ... (tu diccionario de puestos se mantiene igual) ...
         "Caja (6 horas)": 236.50, "Caja (9 horas)": 354.50,
         "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
@@ -672,94 +674,68 @@ def calcular_nomina_web(request):
         "Yommy": 236.50,
         "Rappi": 354.75,
         "Fabrica Crystal": 262.00,
-        "Hamburguesas Momias": 0.00, # Dinámico por cargas
-        "Tuppers": 0.00,             # Dinámico por cargas
+        "Hamburguesas Momias": 0.00,
+        "Tuppers": 0.00,
         "Benny": 171.00,
-    
     }
 
     DESCUENTO_UNIFORME_SEMANAL = 181.00
 
-    # --- NUEVA FUNCIÓN HÍBRIDA INTERNA ---
+    # ... (tus funciones procesar_dato_hibrido y calcular_pago_dia_final se mantienen igual) ...
     def procesar_dato_hibrido(valor, es_entrada, bloque):
-        """
-        Analiza el campo y devuelve (minutos_reloj, retardo_detectado)
-        """
         if not valor: return None, 0
         v = str(valor).strip().upper()
-        
-        # 1. Si es una HORA (09:30, 12:00, etc)
         if ':' in v:
             try:
                 partes = v.split(':')
                 h = int(partes[0])
                 m = int(partes[1][:2])
                 min_reloj = h * 60 + m
-                
-                # Calcular retardo automático comparando con hora base
                 retardo = 0
                 if es_entrada:
                     hora_base = 9 * 60 if bloque == 'M' else 15 * 60
                     if min_reloj > hora_base:
-                        retardo = (min_reloj - hora_base) / 60 # Convertir a horas
+                        retardo = (min_reloj - hora_base) / 60 
                 return min_reloj, retardo
             except: pass
-
-        # 2. Si es un COMBO NUMÉRICO (1, 2, 3)
         if v.isdigit():
             retardo_num = int(v)
-            # Convertimos el combo a una "hora ficticia" para que la resta de tiempo funcione
             if es_entrada:
                 hora_ficticia = (9 + retardo_num) * 60 if bloque == 'M' else (15 + retardo_num) * 60
             else:
                 hora_ficticia = (15 - retardo_num) * 60 if bloque == 'M' else (21 - retardo_num) * 60
             return hora_ficticia, retardo_num
-
-        # 3. Si es "NORMAL" o texto
         if "NORMAL" in v:
             hora_base = (9*60 if es_entrada else 15*60) if bloque == 'M' else (15*60 if es_entrada else 21*60)
             return hora_base, 0
-
-        # Fallback original
         min_default = (9*60 if es_entrada else 15*60) if bloque == 'M' else (15*60 if es_entrada else 21*60)
         return min_default, 0
 
     def calcular_pago_dia_final(base_6h, reg):
         minutos_trabajados = 0
-        retardo_acumulado = 0
-
-        # Procesar los 4 campos usando la lógica híbrida
         m_ent_m, r_ent_m = procesar_dato_hibrido(reg.entrada_matutina, True, 'M')
         m_sal_m, r_sal_m = procesar_dato_hibrido(reg.salida_matutina, False, 'M')
         m_ent_v, r_ent_v = procesar_dato_hibrido(reg.entrada_vespertina, True, 'V')
         m_sal_v, r_sal_v = procesar_dato_hibrido(reg.salida_vespertina, False, 'V')
-
-        # Sumar los retardos detectados (ya sea por combo o por hora tarde)
         retardo_acumulado = r_ent_m + r_sal_m + r_ent_v + r_sal_v
-
-        # Lógica de cálculo de tiempo (Respetando tu original)
         if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
             diff = m_sal_v - m_ent_m
             minutos_trabajados = diff + 1440 if diff < 0 else diff
         else:
             if m_ent_m and m_sal_m:
                 diff = m_sal_m - m_ent_m
-                if diff < 0: diff += 720 # Parche 12pm/1pm
+                if diff < 0: diff += 720
                 minutos_trabajados += max(0, diff)
-            elif m_ent_m or m_sal_m: 
-                minutos_trabajados += 360
-            
+            elif m_ent_m or m_sal_m: minutos_trabajados += 360
             if m_ent_v and m_sal_v:
                 diff = m_sal_v - m_ent_v
-                if diff < 0: diff += 720 # Parche tarde
+                if diff < 0: diff += 720
                 minutos_trabajados += max(0, diff)
-            elif m_ent_v or m_sal_v: 
-                minutos_trabajados += 360
-                
+            elif m_ent_v or m_sal_v: minutos_trabajados += 360
         pago = (float(base_6h) / 360) * minutos_trabajados
         return pago, int(retardo_acumulado)
 
-    # --- PROCESAMIENTO DE FECHAS Y BUCLE ---
+    # --- INICIO DEL PROCESAMIENTO ---
     if fecha_inicio and fecha_fin:
         f_ini_dt = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
         f_fin_dt = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
@@ -794,7 +770,9 @@ def calcular_nomina_web(request):
                     salario_descanso = float(empleado.sueldo_base or 0)
                     puesto_principal = "Sin Puesto"
 
+                # Variables acumuladoras
                 pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
+                total_desc_retardos_semanal = 0.0 # <--- NUEVA VARIABLE
                 aplica_uniforme_semanal = False 
                 dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
                 dias_map = {d: {'horas': 0, 'estatus': '---', 'pago_dia': 0, 'sucursal': '---', 'puesto': '---'} for d in dias_semana_esp}
@@ -810,25 +788,34 @@ def calcular_nomina_web(request):
                     salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
                     base_calc = float(salario_base_puesto)
                     
+                    # Guardamos el salario base del puesto antes de normalizar a 6h para el descuento
+                    salario_puesto_full = base_calc 
+
                     if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
                     elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
 
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
                         salario_dia = salario_descanso
                         retardo_dia = 0
+                        descuento_retardo_dia = 0 # No hay descuentos en descanso
                     elif val_pago_manual > 0:
                         salario_dia = val_pago_manual
                         retardo_dia = int(reg.horas or 0)
+                        # Si es manual, usamos el salario manual para el cálculo de retardo
+                        descuento_retardo_dia = (val_pago_manual / 6) * retardo_dia
                     else:
                         salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
-                        # Si el usuario escribió el retardo a mano en reg.horas, manda ese. Si no, manda el automático.
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
+                        # CALCULO ESPECÍFICO POR PUESTO DEL DIA
+                        # Según tu regla: (Salario del puesto del día / 6) * retardos del día
+                        descuento_retardo_dia = (float(salario_puesto_full) / 6) * retardo_dia
 
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
                         salario_dia *= 2
 
                     pago_base_total += salario_dia
                     total_retardos += retardo_dia
+                    total_desc_retardos_semanal += descuento_retardo_dia # Acumulamos el descuento real
                     total_bonos += val_bono
                     total_descuentos_manuales += val_desc
                     
@@ -838,12 +825,16 @@ def calcular_nomina_web(request):
                         'estatus': estatus_limpio,
                         'pago_dia': round(salario_dia, 2),
                         'sucursal': reg.sucursal or '---',
-                        'puesto': reg.puesto or '---'
+                        'puesto': reg.puesto or '---',
+                        # --- ESTA ES LA LÍNEA QUE FALTA ---
+                        'descuento_retardo': round(descuento_retardo_dia, 2), 
+                        'descuento_aplicado': round(val_desc, 2) # Para que coincida con la plantilla
                     }
 
                 total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
-                desc_retardos = (puestos_salarios.get(puesto_principal, 0) / 6) * total_retardos
-                total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + desc_retardos + total_uniforme)
+                
+                # TOTAL NETO ajustado con la nueva lógica
+                total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
 
                 resultados_nomina.append({
                     'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
@@ -852,7 +843,7 @@ def calcular_nomina_web(request):
                     'dias': [dias_map[d] for d in dias_semana_esp],
                     'pago_base': round(pago_base_total, 2),
                     'retardos': total_retardos,
-                    'desc_retardos': round(desc_retardos, 2),
+                    'desc_retardos': round(total_desc_retardos_semanal, 2), # <--- Mostramos el acumulado por día
                     'bonos': round(total_bonos, 2),
                     'descuentos': round(total_descuentos_manuales, 2),
                     'uniforme': round(total_uniforme, 2),
@@ -883,17 +874,10 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "Encargado Sucursales (9 Horas)": 393.00, "Freidor (6 horas)": 248.00,
         "Freidor (9 horas)": 372.00, "Despacho (6 horas)": 236.50,
         "Despacho (9 horas)": 354.75, "Benny": 171.00,
-        "Aderezos": 236.50,
-        "Cocina": 248.00,
-        "Fabrica": 236.50,
-        "Perrioni": 236.50,
-        "PP": 236.50,
-        "Yommy": 236.50,
-        "Rappi": 354.75,
-        "Fabrica Crystal": 262.00,
-        "Hamburguesas Momias": 0.00, # Dinámico por cargas
-        "Tuppers": 0.00,             # Dinámico por cargas
-    
+        "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50,
+        "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
+        "Rappi": 354.75, "Fabrica Crystal": 262.00,
+        "Hamburguesas Momias": 0.00, "Tuppers": 0.00, 
     }
 
     datos_completos = []
@@ -913,66 +897,94 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
 
         puestos_lista = [a.puesto for a in asistencias if a.puesto]
         puesto_principal = Counter(puestos_lista).most_common(1)[0][0] if puestos_lista else "Sin Puesto"
-        salario_base_puesto = puestos_salarios.get(puesto_principal, empleado.sueldo_base or 0)
 
         pago_base_acumulado = 0
         total_retardos = 0
         total_bonos = 0
         total_descuentos_manuales = 0
+        total_descuento_retardos_acumulado = 0 # Para el cálculo final neto
         
-        # Mapa de días para el HTML
         dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-        dias_map = {d: {'horas': 0, 'estatus': '---'} for d in dias_semana_esp}
+        # Mapa inicializado con la nueva llave 'descuento_retardo'
+        dias_map = {d: {
+            'horas': 0, 'estatus': '---', 'sucursal': '', 'puesto': '', 
+            'pago_dia': 0, 'descuento_aplicado': 0, 'descuento_retardo': 0
+        } for d in dias_semana_esp}
 
         for reg in asistencias:
-            # --- DETECCIÓN AUTOMÁTICA DE DOBLE TURNO ---
-            # Si hay entrada matutina Y salida vespertina, es doble turno automático
-            sueldo_base_dia = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
+            # 1. Obtener salario base del puesto del día
+            sueldo_base_puesto_dia = float(puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0))
             
-            # Prioridad: Si existe un pago_dia manual (como un bono extra) lo usa, 
-            # si no, calcula por horario.
-            if reg.pago_dia and reg.pago_dia > 0:
-                salario_dia = float(reg.pago_dia)
+            # 2. Lógica de Salario (Doble si es turno completo)
+            if reg.pago_dia and float(reg.pago_dia) > 0:
+                salario_dia_calculado = float(reg.pago_dia)
             elif reg.entrada_matutina and reg.salida_vespertina:
-                salario_dia = float(sueldo_base_dia) * 2
+                salario_dia_calculado = sueldo_base_puesto_dia * 2
             else:
-                salario_dia = float(sueldo_base_dia)
+                salario_dia_calculado = sueldo_base_puesto_dia
 
             estatus_limpio = reg.estatus.upper() if reg.estatus else ""
             
-            # Sumatoria según estatus
+            # 3. Multiplicadores por estatus
             if any(x in estatus_limpio for x in ["ACTIVO", "NORMAL"]):
-                pago_base_acumulado += salario_dia
+                pago_final_dia = salario_dia_calculado
             elif "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
-                pago_base_acumulado += (salario_dia * 2)
+                pago_final_dia = (salario_dia_calculado * 2)
             elif "DESCANSO" in estatus_limpio:
-                pago_base_acumulado += float(sueldo_base_dia)
+                pago_final_dia = sueldo_base_puesto_dia
+            else:
+                pago_final_dia = 0
 
-            # Acumular retardos (usando puntos guardados en reg.horas)
-            total_retardos += int(reg.horas or 0)
+            # 4. Cálculo de Descuento por Retardo (Específico de este día/puesto)
+            # Regla: (Salario Puesto / 6) * horas de retardo
+            horas_retardo = int(reg.horas or 0)
+            desc_retardo_dia = (sueldo_base_puesto_dia / 6) * horas_retardo if "DESCANSO" not in estatus_limpio else 0
+            
+            # 5. Descuento manual (el que escriben en el campo descuento)
+            desc_manual_dia = float(reg.descuento or 0)
+            
+            # 6. Sueldo neto del día (lo que se ve en la celda)
+            # Nota: El pago_dia en la tabla suele mostrar el ingreso antes de descuentos, 
+            # o el neto diario. Aquí lo dejamos como neto diario (Pago - Descuento Manual - Retardo)
+            sueldo_neto_diario = pago_final_dia - desc_manual_dia - desc_retardo_dia
+
+            # Acumuladores semanales
+            pago_base_acumulado += pago_final_dia
+            total_retardos += horas_retardo
             total_bonos += float(reg.bonificacion or 0)
-            total_descuentos_manuales += float(reg.descuento or 0)
+            total_descuentos_manuales += desc_manual_dia
+            total_descuento_retardos_acumulado += desc_retardo_dia
 
-            # Llenar el mapa para el HTML
+            # --- LLENAR EL MAPA PARA EL HTML ---
             nombre_dia = dias_semana_esp[reg.fecha.weekday()]
-            dias_map[nombre_dia] = {'horas': reg.horas or 0, 'estatus': estatus_limpio}
+            dias_map[nombre_dia] = {
+                'horas': horas_retardo,
+                'estatus': estatus_limpio,
+                'sucursal': reg.sucursal,
+                'puesto': reg.puesto,
+                'pago_dia': round(sueldo_neto_diario, 2),
+                'descuento_aplicado': round(desc_manual_dia, 2),
+                'descuento_retardo': round(desc_retardo_dia, 2) # <--- NUEVO DATO PARA EL HTML
+            }
 
-        # Cálculos finales
-        desc_retardos = calcular_descuento_retardos(total_retardos, salario_base_puesto)
-        cuota_uniforme = getattr(empleado, 'cuota_uniforme', 0) or 0
-        total_neto = (pago_base_acumulado + total_bonos) - (total_descuentos_manuales + desc_retardos + cuota_uniforme)
+        # Cálculos finales globales
+        cuota_uniforme = float(getattr(empleado, 'cuota_uniforme', 0) or 0)
+        
+        # El neto final resta: descuentos manuales, descuentos por retardo y uniforme
+        total_neto = (pago_base_acumulado + total_bonos) - (total_descuentos_manuales + total_descuento_retardos_acumulado + cuota_uniforme)
 
         datos_completos.append({
             'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
             'puesto_principal': puesto_principal,
+            'periodo_info': f"{inicio} al {fin}",
             'dias': [dias_map[d] for d in dias_semana_esp],
-            'pago_base': pago_base_acumulado,
+            'pago_base': round(pago_base_acumulado, 2),
             'retardos': total_retardos,
-            'desc_retardos': desc_retardos,
-            'bonos': total_bonos,
-            'descuentos': total_descuentos_manuales,
-            'uniforme': cuota_uniforme,
-            'total_neto': total_neto
+            'desc_retardos': round(total_descuento_retardos_acumulado, 2),
+            'bonos': round(total_bonos, 2),
+            'descuentos': round(total_descuentos_manuales, 2),
+            'uniforme': round(cuota_uniforme, 2),
+            'total_neto': round(total_neto, 2)
         })
 
     return datos_completos
