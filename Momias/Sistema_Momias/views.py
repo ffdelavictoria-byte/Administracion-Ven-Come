@@ -914,20 +914,17 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         total_retardos = 0
         total_bonos = 0
         total_descuentos_manuales = 0
-        total_descuento_retardos_acumulado = 0 # Para el cálculo final neto
+        total_descuento_retardos_acumulado = 0 
         
         dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-        # Mapa inicializado con la nueva llave 'descuento_retardo'
         dias_map = {d: {
             'horas': 0, 'estatus': '---', 'sucursal': '', 'puesto': '', 
             'pago_dia': 0, 'descuento_aplicado': 0, 'descuento_retardo': 0
         } for d in dias_semana_esp}
 
         for reg in asistencias:
-            # 1. Obtener salario base del puesto del día
             sueldo_base_puesto_dia = float(puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0))
             
-            # 2. Lógica de Salario (Doble si es turno completo)
             if reg.pago_dia and float(reg.pago_dia) > 0:
                 salario_dia_calculado = float(reg.pago_dia)
             elif reg.entrada_matutina and reg.salida_vespertina:
@@ -937,7 +934,6 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
 
             estatus_limpio = reg.estatus.upper() if reg.estatus else ""
             
-            # 3. Multiplicadores por estatus
             if any(x in estatus_limpio for x in ["ACTIVO", "NORMAL"]):
                 pago_final_dia = salario_dia_calculado
             elif "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
@@ -947,27 +943,18 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             else:
                 pago_final_dia = 0
 
-            # 4. Cálculo de Descuento por Retardo (Específico de este día/puesto)
-            # Regla: (Salario Puesto / 6) * horas de retardo
             horas_retardo = int(reg.horas or 0)
             desc_retardo_dia = (sueldo_base_puesto_dia / 6) * horas_retardo if "DESCANSO" not in estatus_limpio else 0
-            
-            # 5. Descuento manual (el que escriben en el campo descuento)
             desc_manual_dia = float(reg.descuento or 0)
             
-            # 6. Sueldo neto del día (lo que se ve en la celda)
-            # Nota: El pago_dia en la tabla suele mostrar el ingreso antes de descuentos, 
-            # o el neto diario. Aquí lo dejamos como neto diario (Pago - Descuento Manual - Retardo)
             sueldo_neto_diario = pago_final_dia - desc_manual_dia - desc_retardo_dia
 
-            # Acumuladores semanales
             pago_base_acumulado += pago_final_dia
             total_retardos += horas_retardo
             total_bonos += float(reg.bonificacion or 0)
             total_descuentos_manuales += desc_manual_dia
             total_descuento_retardos_acumulado += desc_retardo_dia
 
-            # --- LLENAR EL MAPA PARA EL HTML ---
             nombre_dia = dias_semana_esp[reg.fecha.weekday()]
             dias_map[nombre_dia] = {
                 'horas': horas_retardo,
@@ -976,13 +963,10 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
                 'puesto': reg.puesto,
                 'pago_dia': round(sueldo_neto_diario, 2),
                 'descuento_aplicado': round(desc_manual_dia, 2),
-                'descuento_retardo': round(desc_retardo_dia, 2) # <--- NUEVO DATO PARA EL HTML
+                'descuento_retardo': round(desc_retardo_dia, 2)
             }
 
-        # Cálculos finales globales
         cuota_uniforme = float(getattr(empleado, 'cuota_uniforme', 0) or 0)
-        
-        # El neto final resta: descuentos manuales, descuentos por retardo y uniforme
         total_neto = (pago_base_acumulado + total_bonos) - (total_descuentos_manuales + total_descuento_retardos_acumulado + cuota_uniforme)
 
         datos_completos.append({
@@ -998,6 +982,9 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             'uniforme': round(cuota_uniforme, 2),
             'total_neto': round(total_neto, 2)
         })
+
+    # ORDENAR POR NOMBRE ALFABÉTICAMENTE ANTES DE RETORNAR
+    datos_completos = sorted(datos_completos, key=lambda x: x['nombre'].lower())
 
     return datos_completos
 
