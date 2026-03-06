@@ -292,6 +292,9 @@ def Asistencias_view(request):
     puestos_salarios = {
         "Caja (6 horas)": 236.50, 
         "Caja (9 horas)": 354.50,
+        "Caja Capacitacion": 236.50,
+        "Freidor Capacitacion": 236.50,
+        "Encargado Capacitacion": 248.00,
         "Encargado Victoria (6 Horas)": 316.00,
         "Encargado Victoria (12 Horas)": 632.00, 
         "Encargado Sucursales (6 Horas)": 262.00,
@@ -679,6 +682,9 @@ def calcular_nomina_web(request):
         "Hamburguesas Momias": 0.00,
         "Tuppers": 0.00,
         "Benny": 171.00,
+        "Caja Capacitacion": 236.50,
+        "Freidor Capacitacion": 236.50,
+        "Encargado Capacitacion": 248.00,
     }
 
     DESCUENTO_UNIFORME_SEMANAL = 181.00
@@ -880,7 +886,9 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
         "Rappi": 354.75, "Fabrica Crystal": 262.00,
         "Hamburguesas Momias": 0.00, "Tuppers": 0.00, 
-        "PM": 236.50,
+        "PM": 236.50, "Caja Capacitacion": 236.50,
+        "Freidor Capacitacion": 236.50,
+        "Encargado Capacitacion": 248.00,
     }
 
     datos_completos = []
@@ -1095,6 +1103,9 @@ def vista_reportes(request):
         "Hamburguesas Momias": 0.00, 
         "Tuppers": 0.00,
         "Benny": 171.00,
+        "Caja Capacitacion": 236.50,
+        "Freidor Capacitacion": 236.50,
+        "Encargado Capacitacion": 248.00,
     }
 
     # --- Funciones de apoyo ---
