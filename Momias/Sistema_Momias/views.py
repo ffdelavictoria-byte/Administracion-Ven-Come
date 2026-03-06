@@ -305,6 +305,7 @@ def Asistencias_view(request):
         "Fabrica": 236.50,
         "Perrioni": 236.50,
         "PP": 236.50,
+        "PM": 236.50,
         "Yommy": 236.50,
         "Rappi": 354.75,
         "Fabrica Crystal": 262.00,
@@ -672,6 +673,7 @@ def calcular_nomina_web(request):
         "Perrioni": 236.50,
         "PP": 236.50,
         "Yommy": 236.50,
+        "PM": 236.50,
         "Rappi": 354.75,
         "Fabrica Crystal": 262.00,
         "Hamburguesas Momias": 0.00,
@@ -878,6 +880,7 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
         "Rappi": 354.75, "Fabrica Crystal": 262.00,
         "Hamburguesas Momias": 0.00, "Tuppers": 0.00, 
+        "PM": 236.50,
     }
 
     datos_completos = []
@@ -1086,6 +1089,7 @@ def vista_reportes(request):
         "Perrioni": 236.50,
         "PP": 236.50,
         "Yommy": 236.50,
+        "PM": 236.50,
         "Rappi": 354.75,
         "Fabrica Crystal": 262.00,
         "Hamburguesas Momias": 0.00, 
