@@ -516,7 +516,6 @@
                 if (hMat !== null) total += (base / 6) * hMat;
                 if (hVes !== null) total += (base / 6) * hVes;
                 inputMonto.value = total.toFixed(2);
-                sueldoMsg.innerHTML = `<b style="color: green;">Sueldo Sugerido: $${total.toFixed(2)}</b>`;
             } else {
                 inputMonto.value = base.toFixed(2);
                 sueldoMsg.innerHTML = base > 0 ? `Sueldo Base: $${base.toFixed(2)}` : "Esperando horarios...";
