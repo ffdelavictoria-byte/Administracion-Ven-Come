@@ -310,17 +310,23 @@
     </form>
 
 <div class="comic-container" style="margin-bottom: 20px; padding: 15px;">
-    <form method="GET" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+    <form method="GET" id="filtroForm" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
         <div class="form-group">
             <label>Filtrar por Fecha:</label>
             <input type="date" name="fecha_filtro" value="{{ fecha_filtro }}">
         </div>
         <div class="form-group">
             <label>Buscar Empleado:</label>
-            <input type="text" name="q" placeholder="Nombre o código..." value="{{ query }}">
+            <input type="text" name="q" id="input_filtro_tabla" placeholder="Nombre o código..." 
+                   value="{{ query }}" list="lista_busqueda_tabla" autocomplete="off">
+            
+            <datalist id="lista_busqueda_tabla">
+                {% for emp in empleados %}
+                    <option value="{{ emp.nombre }} {{ emp.apellido_paterno }}">
+                {% endfor %}
+            </datalist>
         </div>
         <button type="submit" class="btn-comic btn-clear" style="padding: 10px 20px;">FILTRAR</button>
-        
         <a href="{% url 'asistencias' %}" class="btn-comic btn-delete" style="padding: 10px 20px;">LIMPIAR</a>
     </form>
 </div>
@@ -429,6 +435,22 @@
             }
         }
     });
+
+    const inputFiltro = document.getElementById('input_filtro_tabla');
+    const datalistFiltro = document.getElementById('lista_busqueda_tabla');
+
+    if (inputFiltro && datalistFiltro) {
+        inputFiltro.addEventListener('input', function() {
+            const val = this.value;
+            const options = datalistFiltro.options;
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].value === val) {
+                    this.form.submit(); // Filtra automáticamente al seleccionar
+                    break;
+                }
+            }
+        });
+    }
 
     // --- LÓGICA DE HORARIOS PERSONALIZADOS (Estilo FF) ---
     function manejarHorarioPersonalizado(selectId) {
