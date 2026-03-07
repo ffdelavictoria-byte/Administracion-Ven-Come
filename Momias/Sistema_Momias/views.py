@@ -289,7 +289,7 @@ def lista_empleados(request):
     return render(request, 'Employe.html', {'empleados': empleados})
 
 def Asistencias_view(request):
-    # 1. Diccionario de salarios base (Momias)
+    # ... [Tu diccionario puestos_salarios y funciones internas permanecen igual] ...
     puestos_salarios = {
         "Caja (6 horas)": 236.50, 
         "Caja (9 horas)": 354.50,
@@ -317,7 +317,6 @@ def Asistencias_view(request):
         "Tuppers": 0.00,             # Dinámico por cargas
     }
 
-    # --- MOTOR DE CÁLCULO HOMOLOGADO (Estilo FF) ---
     def obtener_monto_bloque(base_puesto, entrada, salida):
         if not entrada or not salida:
             return 0.0
@@ -443,17 +442,41 @@ def Asistencias_view(request):
         except Exception as e:
             messages.error(request, f"Error al procesar: {e}")
             return redirect('asistencias')
+        
 
-    # --- LÓGICA GET ---
-    registros = Asistencia.objects.all().order_by('-fecha', '-id')[:20]
+    # --- LÓGICA GET CON FILTROS Y PAGINACIÓN ---
+    # Captura de parámetros de filtro desde el URL
+    fecha_filtro = request.GET.get('fecha_filtro')
+    query = request.GET.get('q')
+
+    # Base del QuerySet ordenado
+    registros_qs = Asistencia.objects.all().order_by('-fecha', '-id')
+
+    # Aplicación de filtros
+    if fecha_filtro:
+        registros_qs = registros_qs.filter(fecha=fecha_filtro)
+    
+    if query:
+        registros_qs = registros_qs.filter(
+            Q(empleado__nombre__icontains=query) | 
+            Q(empleado__apellido_paterno__icontains=query) |
+            Q(empleado__codigo_empleado__icontains=query)
+        )
+
+    # Paginación: 20 registros por página para mantener fluidez
+    paginator = Paginator(registros_qs, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'Attendance.html', {
         'lista_puestos': puestos_salarios.keys(),
         'empleados': Empleado.objects.filter(estatus='Activo'),
-        'registros': registros,
+        'registros': page_obj, # Ahora enviamos el objeto de página
         'hoy': datetime.now().strftime('%Y-%m-%d'),
-        'puestos_json': json.dumps(puestos_salarios), 
+        'puestos_json': json.dumps(puestos_salarios),
+        'fecha_filtro': fecha_filtro, # Para mantener el valor en el input
+        'query': query,               # Para mantener el valor en el input
     })
-
 from datetime import datetime, timedelta
 
 def Asistencias_FF_view(request):
