@@ -481,7 +481,6 @@ def Asistencias_view(request):
 from datetime import datetime, timedelta
 
 def Asistencias_FF_view(request):
-    # 1. Diccionario de puestos (Sin cambios)
     puestos_salarios_ff = {
         "Caja (6 horas)": 236.50, 
         "Caja (9 horas)": 354.50,
@@ -503,7 +502,6 @@ def Asistencias_FF_view(request):
         "Tuppers": 0.00,
     }
 
-    # Función auxiliar (Sin cambios)
     def obtener_monto_bloque(base_puesto, entrada, salida):
         if not entrada or not salida: return 0.0
         ent_str, sal_str = entrada.strip().upper(), salida.strip().upper()
@@ -516,9 +514,10 @@ def Asistencias_FF_view(request):
             hrs = (fin - inicio).total_seconds() / 3600
             if hrs < 0: hrs += 24
             return (float(base_puesto) / 6) * hrs
-        except: return float(base_puesto)
+        except (ValueError, ZeroDivisionError):
+            return float(base_puesto)
 
-    # --- 1. LÓGICA DE ELIMINACIÓN (IGUAL QUE EN MOMIAS) ---
+    # --- 1. LÓGICA DE ELIMINACIÓN ---
     if request.method == 'POST' and 'eliminar_id' in request.POST:
         asistencia = get_object_or_404(Asistencia, id=request.POST.get('eliminar_id'))
         asistencia.delete()
@@ -532,11 +531,8 @@ def Asistencias_FF_view(request):
             empleado_id = request.POST.get('empleado')
             puesto_seleccionado = (request.POST.get('puesto') or "").strip()
             estatus_jornada = request.POST.get('estatus_jornada')
-            
-            ent_m = (request.POST.get('entrada_matutina') or "").strip()
-            sal_m = (request.POST.get('salida_matutina') or "").strip()
-            ent_v = (request.POST.get('entrada_vespertina') or "").strip()
-            sal_v = (request.POST.get('salida_vespertina') or "").strip()
+            ent_m, sal_m = (request.POST.get('entrada_matutina') or "").strip(), (request.POST.get('salida_matutina') or "").strip()
+            ent_v, sal_v = (request.POST.get('entrada_vespertina') or "").strip(), (request.POST.get('salida_vespertina') or "").strip()
 
             monto_final = 0.0
             DESCANSO_ESPECIFICO = 138.00
@@ -558,7 +554,7 @@ def Asistencias_FF_view(request):
                     base_6h = base_real / 2
                 monto_final = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
 
-            # Puntos de retardo
+            # Puntos de retardo y descuento
             def calcular_puntos(valor):
                 if not valor or ":" in valor or "R1" in valor: return 0
                 mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
@@ -567,8 +563,9 @@ def Asistencias_FF_view(request):
                 return 0
 
             total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
+            monto_final = max(0, monto_final - (total_puntos * 10.00)) # Ajusta 10.00 si es necesario
 
-            # Gestión de instancia
+            # Guardado
             if asistencia_id and asistencia_id.strip():
                 asistencia = get_object_or_404(Asistencia, id=asistencia_id)
             else:
@@ -583,31 +580,45 @@ def Asistencias_FF_view(request):
             asistencia.horas = float(total_puntos)
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
-            
             asistencia.bonificacion = float(request.POST.get('bonificacion') or 0)
             asistencia.descuento = float(request.POST.get('descuento') or 0)
             asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
             asistencia.motivo_descuento = request.POST.get('motivo_descuento')
             asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
             asistencia.observaciones = request.POST.get('observaciones')
-            
             asistencia.save()
             messages.success(request, "¡Registro FF procesado!")
             return redirect('asistenciasff')
-
         except Exception as e:
             messages.error(request, f"Error: {e}")
             return redirect('asistenciasff')
 
-    # --- 3. LÓGICA GET ---
-    hoy_str = datetime.now().strftime('%Y-%m-%d')
-    registros = Asistencia.objects.filter(sucursal="FastFood").order_by('-fecha', '-id')[:20]
+    # --- 3. LÓGICA GET CON FILTROS Y PAGINACIÓN ---
+    fecha_filtro = request.GET.get('fecha_filtro')
+    query = request.GET.get('q')
+
+    # Filtrar solo sucursal FastFood
+    registros_qs = Asistencia.objects.filter(sucursal="FastFood").order_by('-fecha', '-id')
+
+    if fecha_filtro: registros_qs = registros_qs.filter(fecha=fecha_filtro)
+    if query:
+        registros_qs = registros_qs.filter(
+            Q(empleado__nombre__icontains=query) | 
+            Q(empleado__apellido_paterno__icontains=query) |
+            Q(empleado__codigo_empleado__icontains=query)
+        )
+
+    paginator = Paginator(registros_qs, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
     return render(request, 'AttendanceFF.html', {
         'lista_puestos': puestos_salarios_ff.keys(),
         'empleados': Empleado.objects.filter(estatus='Activo'),
-        'registros': registros,
-        'hoy': hoy_str,
-        'puestos_json': json.dumps(puestos_salarios_ff), 
+        'registros': page_obj,
+        'hoy': datetime.now().strftime('%Y-%m-%d'),
+        'puestos_json': json.dumps(puestos_salarios_ff),
+        'fecha_filtro': fecha_filtro,
+        'query': query,
     })
 
 @login_required
