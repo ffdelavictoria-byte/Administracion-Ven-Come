@@ -311,6 +311,7 @@
 
 <div class="comic-container" style="margin-bottom: 20px; padding: 15px;">
     <form method="GET" action="{% url 'asistencias' %}" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+        
         <div class="form-group">
             <label>Filtrar por Fecha:</label>
             <input type="date" name="fecha_filtro" value="{{ fecha_filtro }}">
@@ -318,11 +319,19 @@
         
         <div class="form-group">
             <label>Buscar Empleado:</label>
-            <input type="text" name="q" value="{{ query }}" placeholder="Nombre o código..." autocomplete="off">
+            <input type="text" name="q" id="input_filtro_tabla" 
+                   placeholder="Nombre o código..." value="{{ query }}" 
+                   list="lista_busqueda_tabla" autocomplete="off">
+            
+            <datalist id="lista_busqueda_tabla">
+                {% for emp in empleados %}
+                    <option value="{{ emp.nombre }} {{ emp.apellido_paterno }}"></option>
+                {% endfor %}
+            </datalist>
         </div>
         
-        <button type="submit" class="btn-comic btn-clear">FILTRAR</button>
-        <a href="{% url 'asistencias' %}" class="btn-comic btn-delete">LIMPIAR</a>
+        <button type="submit" class="btn-comic btn-clear" style="padding: 10px 20px;">FILTRAR</button>
+        <a href="{% url 'asistencias' %}" class="btn-comic btn-delete" style="padding: 10px 20px;">LIMPIAR</a>
     </form>
 </div>
 
