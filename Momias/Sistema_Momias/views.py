@@ -454,9 +454,11 @@ def Asistencias_view(request):
     
     # Filtro por Nombre o Código de Empleado (Independiente)
     if query:
-        registros_qs = registros_qs.filter(
-            Q(empleado__nombre__icontains=query) | 
-            Q(empleado__apellido_paterno__icontains=query) |
+        # Creamos un campo temporal 'nombre_completo' para buscar en él
+        registros_qs = registros_qs.annotate(
+            nombre_completo=Concat('empleado__nombre', Value(' '), 'empleado__apellido_paterno', output_field=CharField())
+        ).filter(
+            Q(nombre_completo__icontains=query) | 
             Q(empleado__codigo_empleado__icontains=query)
         )
     
