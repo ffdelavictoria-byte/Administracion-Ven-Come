@@ -442,39 +442,39 @@ def Asistencias_view(request):
         
 
             # --- 3. LÓGICA GET (MOMIAS) ---
-        fecha_filtro = request.GET.get('fecha_filtro')
-        query = request.GET.get('q')
-        
-        # Filtrar para EXCLUIR FastFood y ver solo registros de Momias (1-6)
-        # Usamos .exclude() para asegurar que este módulo no se mezcle con el otro
-        registros_qs = Asistencia.objects.exclude(sucursal="FastFood").order_by('-fecha', '-id')
-        
-        # Filtro por Fecha (Independiente)
-        if fecha_filtro:
-            registros_qs = registros_qs.filter(fecha=fecha_filtro)
-        
-        # Filtro por Nombre o Código de Empleado (Independiente)
-        if query:
-            registros_qs = registros_qs.filter(
-                Q(empleado__nombre__icontains=query) | 
-                Q(empleado__apellido_paterno__icontains=query) |
-                Q(empleado__codigo_empleado__icontains=query)
-            )
-        
-        # Paginación de 20 registros
-        paginator = Paginator(registros_qs, 20)
-        page_obj = paginator.get_page(request.GET.get('page'))
-        
-        # Renderizado con los datos de Momias
-        return render(request, 'Attendance.html', { # Asegúrate de que este sea tu template de Momias
-            'lista_puestos': puestos_salarios.keys(), # Diccionario general de Momias
-            'empleados': Empleado.objects.filter(estatus='Activo'),
-            'registros': page_obj,
-            'hoy': datetime.now().strftime('%Y-%m-%d'),
-            'puestos_json': json.dumps(puestos_salarios),
-            'fecha_filtro': fecha_filtro or '', # Evita el "None" en el input
-            'query': query or '',               # Evita el "None" en el input
-        })
+    fecha_filtro = request.GET.get('fecha_filtro')
+    query = request.GET.get('q')
+    
+    # Filtrar para EXCLUIR FastFood y ver solo registros de Momias (1-6)
+    # Usamos .exclude() para asegurar que este módulo no se mezcle con el otro
+    registros_qs = Asistencia.objects.exclude(sucursal="FastFood").order_by('-fecha', '-id')
+    
+    # Filtro por Fecha (Independiente)
+    if fecha_filtro:
+        registros_qs = registros_qs.filter(fecha=fecha_filtro)
+    
+    # Filtro por Nombre o Código de Empleado (Independiente)
+    if query:
+        registros_qs = registros_qs.filter(
+            Q(empleado__nombre__icontains=query) | 
+            Q(empleado__apellido_paterno__icontains=query) |
+            Q(empleado__codigo_empleado__icontains=query)
+        )
+    
+    # Paginación de 20 registros
+    paginator = Paginator(registros_qs, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    # Renderizado con los datos de Momias
+    return render(request, 'Attendance.html', { # Asegúrate de que este sea tu template de Momias
+        'lista_puestos': puestos_salarios.keys(), # Diccionario general de Momias
+        'empleados': Empleado.objects.filter(estatus='Activo'),
+        'registros': page_obj,
+        'hoy': datetime.now().strftime('%Y-%m-%d'),
+        'puestos_json': json.dumps(puestos_salarios),
+        'fecha_filtro': fecha_filtro or '', # Evita el "None" en el input
+        'query': query or '',               # Evita el "None" en el input
+    })
 
 
 from datetime import datetime, timedelta
