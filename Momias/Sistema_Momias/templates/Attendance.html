@@ -531,7 +531,6 @@
                 if (hVes !== null) totalCalculado += (base / 6) * hVes;
                 
                 inputMonto.value = totalCalculado.toFixed(2);
-                sueldoMsg.innerHTML = `<b style="color: green;">Sueldo Sugerido: $${totalCalculado.toFixed(2)}</b>`;
             } else {
                 // Si no hay horarios pero el estatus es normal, mostrar base
                 inputMonto.value = base.toFixed(2);
