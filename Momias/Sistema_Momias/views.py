@@ -592,32 +592,36 @@ def Asistencias_FF_view(request):
             messages.error(request, f"Error: {e}")
             return redirect('asistenciasff')
 
-    # --- 3. LÓGICA GET CON FILTROS Y PAGINACIÓN ---
+        # --- 3. LÓGICA GET ---
     fecha_filtro = request.GET.get('fecha_filtro')
     query = request.GET.get('q')
-
-    # Filtrar solo sucursal FastFood
+    
+    # Filtrar SOLO por la sucursal de este módulo
     registros_qs = Asistencia.objects.filter(sucursal="FastFood").order_by('-fecha', '-id')
-
-    if fecha_filtro: registros_qs = registros_qs.filter(fecha=fecha_filtro)
+    
+    # Filtro por Fecha (Independiente)
+    if fecha_filtro:
+        registros_qs = registros_qs.filter(fecha=fecha_filtro)
+    
+    # Filtro por Nombre/Código (Independiente)
     if query:
         registros_qs = registros_qs.filter(
             Q(empleado__nombre__icontains=query) | 
             Q(empleado__apellido_paterno__icontains=query) |
             Q(empleado__codigo_empleado__icontains=query)
         )
-
+    
     paginator = Paginator(registros_qs, 20)
     page_obj = paginator.get_page(request.GET.get('page'))
-
+    
     return render(request, 'AttendanceFF.html', {
         'lista_puestos': puestos_salarios_ff.keys(),
         'empleados': Empleado.objects.filter(estatus='Activo'),
         'registros': page_obj,
         'hoy': datetime.now().strftime('%Y-%m-%d'),
         'puestos_json': json.dumps(puestos_salarios_ff),
-        'fecha_filtro': fecha_filtro,
-        'query': query,
+        'fecha_filtro': fecha_filtro or '', # Enviamos cadena vacía si es None
+        'query': query or '',               # Enviamos cadena vacía si es None
     })
 
 @login_required
