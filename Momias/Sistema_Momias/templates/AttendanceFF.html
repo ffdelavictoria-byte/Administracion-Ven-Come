@@ -172,6 +172,15 @@
                 <input type="number" step="0.1" name="cantidad_cargas" id="cantidad_cargas" value="0" oninput="verificarTodo()">
             </div>
 
+                        <div class="form-group">
+                <label id="label_monto">Salario Base del Día</label>
+                <input type="number" step="0.01" name="monto_dia" id="monto_dia" readonly>
+                <small id="helper_produccion" style="display:none; color: var(--puebla-magenta);">
+                    * Puede ajustar el monto manualmente para este puesto.
+                </small>
+            </div>
+
+
             <div class="form-group">
                 <label>Entrada Matutina:</label>
                 <select name="entrada_matutina" id="entrada_matutina">
