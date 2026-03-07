@@ -292,7 +292,7 @@ def lista_empleados(request):
 def Asistencias_view(request):
     # ... [Tu diccionario puestos_salarios y funciones internas permanecen igual] ...
     puestos_salarios = {
-        "Caja (6 horas)": 236.50, 
+        "Caja (6 horas)": 248.00, 
         "Caja Capacitacion": 236.50,
         "Freidor Capacitacion": 236.50,
         "Encargado Capacitacion": 248.00,
@@ -481,7 +481,7 @@ from datetime import datetime, timedelta
 
 def Asistencias_FF_view(request):
     puestos_salarios_ff = {
-        "Caja (6 horas)": 236.50, 
+        "Caja (6 horas)": 248.00,  
         "Caja (9 horas)": 354.50,
         "Gerente (12 Horas)": 600.00, 
         "Chef de Línea": 531.57,
@@ -689,7 +689,7 @@ def calcular_nomina_web(request):
 
     puestos_salarios = {
         # ... (tu diccionario de puestos se mantiene igual) ...
-        "Caja (6 horas)": 236.50, "Caja (9 horas)": 354.50,
+        "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
         "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
         "Encargado Cocina (Matutino 9 horas)": 378.00,
@@ -911,7 +911,7 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
         "Encargado Cocina (Matutino 12 horas)": 504.00, "Encargado de Cocina (JONH)": 519.00,
         "Cocina y Barra (6 hrs)": 236.50, "Cocina y Barra (9 hrs)": 354.50,
-        "Caja (6 horas)": 236.50, "Caja (9 horas)": 354.50,
+        "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
         "Barra (6 horas) Entregas": 236.50, "Barra (9 horas) Entregas": 354.50,
         "Fin de Semana": 473.00, "Encargado Victoria (6 Horas)": 316.00,
         "Encargado Sucursales (6 Horas)": 262.00,
@@ -1094,7 +1094,7 @@ def vista_reportes(request):
 
     # Diccionario de salarios
     puestos_salarios = {
-        "Caja (6 horas)": 236.50, "Caja (9 horas)": 354.50,
+        "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
         "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
         "Encargado Cocina (Matutino 9 horas)": 378.00,
