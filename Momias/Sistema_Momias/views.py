@@ -441,28 +441,27 @@ def Asistencias_view(request):
         
 
             # --- 3. LÓGICA GET (MOMIAS) ---
+        # --- LÓGICA GET (MOMIAS) ---
     fecha_filtro = request.GET.get('fecha_filtro')
-    query = request.GET.get('q')
-    
-    # Filtrar para EXCLUIR FastFood y ver solo registros de Momias (1-6)
-    # Usamos .exclude() para asegurar que este módulo no se mezcle con el otro
+    query = request.GET.get('q', '').strip() # Aseguramos limpiar espacios
+        
+    # Registro base
     registros_qs = Asistencia.objects.exclude(sucursal="FastFood").order_by('-fecha', '-id')
-    
+        
     # Filtro por Fecha (Independiente)
     if fecha_filtro:
         registros_qs = registros_qs.filter(fecha=fecha_filtro)
-    
-    # Filtro por Nombre o Código de Empleado (Independiente)
+        
+    # Filtro por Nombre o Código
     if query:
-        # Creamos un campo temporal 'nombre_completo' para buscar en él
-        registros_qs = registros_qs.annotate(
-            nombre_completo=Concat('empleado__nombre', Value(' '), 'empleado__apellido_paterno', output_field=CharField())
-        ).filter(
-            Q(nombre_completo__icontains=query) | 
+        # Usamos Q objects para ser más eficientes sin depender solo de la anotación
+        registros_qs = registros_qs.filter(
+            Q(empleado__nombre__icontains=query) | 
+            Q(empleado__apellido_paterno__icontains=query) |
             Q(empleado__codigo_empleado__icontains=query)
         )
-    
-    # Paginación de 20 registros
+        
+    # Paginación
     paginator = Paginator(registros_qs, 20)
     page_obj = paginator.get_page(request.GET.get('page'))
     
