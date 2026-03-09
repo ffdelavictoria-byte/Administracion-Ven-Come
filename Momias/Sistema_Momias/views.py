@@ -844,9 +844,9 @@ def calcular_nomina_web(request):
                 total_desc_retardos_semanal = 0.0 # <--- NUEVA VARIABLE
                 aplica_uniforme_semanal = False 
                 dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-                dias_map = {d: {'horas': 0, 'estatus': '---', 'pago_dia': 0, 'sucursal': '---', 'puesto': '---'} for d in dias_semana_esp}
+                dias_map = {d: [] for d in dias_semana_esp}
 
-                for reg in asistencias:
+               for reg in asistencias:
                     val_pago_manual = float(reg.pago_dia or 0.0)
                     val_bono = float(reg.bonificacion or 0.0)
                     val_desc = float(reg.descuento or 0.0)
@@ -866,17 +866,14 @@ def calcular_nomina_web(request):
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
                         salario_dia = salario_descanso
                         retardo_dia = 0
-                        descuento_retardo_dia = 0 # No hay descuentos en descanso
+                        descuento_retardo_dia = 0 
                     elif val_pago_manual > 0:
                         salario_dia = val_pago_manual
                         retardo_dia = int(reg.horas or 0)
-                        # Si es manual, usamos el salario manual para el cálculo de retardo
                         descuento_retardo_dia = (val_pago_manual / 6) * retardo_dia
                     else:
                         salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
-                        # CALCULO ESPECÍFICO POR PUESTO DEL DIA
-                        # Según tu regla: (Salario del puesto del día / 6) * retardos del día
                         descuento_retardo_dia = (float(salario_puesto_full) / 6) * retardo_dia
 
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
@@ -884,40 +881,22 @@ def calcular_nomina_web(request):
 
                     pago_base_total += salario_dia
                     total_retardos += retardo_dia
-                    total_desc_retardos_semanal += descuento_retardo_dia # Acumulamos el descuento real
+                    total_desc_retardos_semanal += descuento_retardo_dia 
                     total_bonos += val_bono
                     total_descuentos_manuales += val_desc
                     
                     nombre_dia = dias_semana_esp[reg.fecha.weekday()]
-                    dias_map[nombre_dia] = {
+                    
+                    # AHORA AGREGAMOS EL TURNO A LA LISTA DEL DÍA
+                    dias_map[nombre_dia].append({
                         'horas': retardo_dia,
                         'estatus': estatus_limpio,
                         'pago_dia': round(salario_dia, 2),
                         'sucursal': reg.sucursal or '---',
                         'puesto': reg.puesto or '---',
-                        # --- ESTA ES LA LÍNEA QUE FALTA ---
                         'descuento_retardo': round(descuento_retardo_dia, 2), 
-                        'descuento_aplicado': round(val_desc, 2) # Para que coincida con la plantilla
-                    }
-
-                total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
-                
-                # TOTAL NETO ajustado con la nueva lógica
-                total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
-
-                resultados_nomina.append({
-                    'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
-                    'puesto_principal': puesto_principal,
-                    'periodo_info': f"{sem_inicio.strftime('%d/%m')} al {sem_fin.strftime('%d/%m')}",
-                    'dias': [dias_map[d] for d in dias_semana_esp],
-                    'pago_base': round(pago_base_total, 2),
-                    'retardos': total_retardos,
-                    'desc_retardos': round(total_desc_retardos_semanal, 2), # <--- Mostramos el acumulado por día
-                    'bonos': round(total_bonos, 2),
-                    'descuentos': round(total_descuentos_manuales, 2),
-                    'uniforme': round(total_uniforme, 2),
-                    'total_neto': round(total_neto, 2),
-                })
+                        'descuento_aplicado': round(val_desc, 2)
+                    })
 
     return render(request, 'Paysheet.html', {                    
         'nominas': resultados_nomina,
