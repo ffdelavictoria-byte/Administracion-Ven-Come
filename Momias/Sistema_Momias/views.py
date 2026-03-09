@@ -407,21 +407,31 @@ def Asistencias_view(request):
             total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
 
             # 3. Guardado en Base de Datos con Validación Estricta
+            # 3. Guardado en Base de Datos con Lógica de Doble Turno
             fecha_captura = request.POST.get('fecha')
             empleado_obj = Empleado.objects.get(id=empleado_id)
             
-            # Buscamos si ya existe alguien con ese empleado y esa fecha
-            asistencia_existente = Asistencia.objects.filter(
-                empleado=empleado_obj, 
-                fecha=fecha_captura
-            ).exclude(id=asistencia_id or -1).first() # Excluimos el ID actual si es edición
+            # Determinamos si el registro actual tiene datos matutinos o vespertinos
+            # Consideramos que tiene turno si los campos NO están vacíos
+            es_matutino = bool(ent_m and sal_m)
+            es_vespertino = bool(ent_v and sal_v)
 
-            if asistencia_existente:
-                # Si encontramos un duplicado, NO guardamos, lanzamos un error
-                messages.error(request, f"¡ERROR! Ya existe un registro para {empleado_obj.nombre} el día {fecha_captura}. Por favor, edita el registro existente desde la tabla.")
+            # Buscamos duplicados específicos por turno
+            asistencia_existente = None
+            
+            # Filtramos registros del mismo empleado y fecha
+            registros_dia = Asistencia.objects.filter(empleado=empleado_obj, fecha=fecha_captura).exclude(id=asistencia_id or -1)
+
+            # Validamos si ya existe registro para el turno que intenta guardar
+            if es_matutino and registros_dia.filter(entrada_matutina__isnull=False).exclude(entrada_matutina='').exists():
+                messages.error(request, "¡ERROR! Ya existe un registro para el TURNO MATUTINO de este empleado en esta fecha.")
+                return redirect('asistencias')
+            
+            if es_vespertino and registros_dia.filter(entrada_vespertina__isnull=False).exclude(entrada_vespertina='').exists():
+                messages.error(request, "¡ERROR! Ya existe un registro para el TURNO VESPERTINO de este empleado en esta fecha.")
                 return redirect('asistencias')
 
-            # Si no existe, procedemos a crear o actualizar
+            # Si no hay conflicto de turno, procedemos a crear o actualizar
             if asistencia_id and asistencia_id.strip():
                 asistencia = get_object_or_404(Asistencia, id=asistencia_id)
             else:
@@ -429,7 +439,7 @@ def Asistencias_view(request):
                 asistencia.empleado = empleado_obj
                 asistencia.fecha = fecha_captura
 
-            # Asignación de campos...
+            # Asignación de campos
             asistencia.estatus = estatus
             asistencia.puesto = puesto_seleccionado
             asistencia.sucursal = request.POST.get('sucursal', 'Victoria')
@@ -440,7 +450,13 @@ def Asistencias_view(request):
             asistencia.salida_matutina = sal_m
             asistencia.entrada_vespertina = ent_v
             asistencia.salida_vespertina = sal_v
-            # ... resto de campos ...
+
+            asistencia.bonificacion = float(request.POST.get('bonificacion') or 0)
+            asistencia.descuento = float(request.POST.get('descuento') or 0)
+            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
+            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
+            asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
+            asistencia.observaciones = request.POST.get('observaciones')
             
             asistencia.save()
             messages.success(request, "¡Registro guardado con éxito!")
