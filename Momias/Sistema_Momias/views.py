@@ -307,6 +307,7 @@ def Asistencias_view(request):
         "PP": 236.50,
         "PM": 236.50,
         "Yommy": 236.50,
+        "Benny": 171.00,
         "Rappi": 354.75,
         "Fabrica Crystal": 262.00,
         "Hamburguesas Momias": 0.00, # Dinámico por cargas
@@ -496,7 +497,6 @@ def Asistencias_FF_view(request):
         "Fin de Semana": 473.00,
         "Aux Produccion": 177.00,
         "Produccion": 370.00,
-        "Benny": 171.00,
         "Hamburguesas FF": 0.00,
         "Tuppers": 0.00,
     }
