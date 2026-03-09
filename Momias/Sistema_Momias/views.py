@@ -406,14 +406,30 @@ def Asistencias_view(request):
 
             total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
 
-            # 3. Guardado en Base de Datos
+            # 3. Guardado en Base de Datos con Seguridad Anti-Duplicados
+            fecha_captura = request.POST.get('fecha')
+            asistencia_existente = None
+
             if asistencia_id and asistencia_id.strip():
+                # Si venimos de una edición explícita (clic en el botón editar de la tabla)
                 asistencia = get_object_or_404(Asistencia, id=asistencia_id)
             else:
-                asistencia = Asistencia()
+                # Si es un registro "nuevo", verificamos que no exista ya para este empleado y fecha
+                asistencia_existente = Asistencia.objects.filter(
+                    empleado_id=empleado_id, 
+                    fecha=fecha_captura
+                ).first()
 
+                if asistencia_existente:
+                    # Si ya existe, asignamos ese registro para sobreescribirlo
+                    asistencia = asistencia_existente
+                else:
+                    # Si no existe, creamos una instancia nueva
+                    asistencia = Asistencia()
+
+            # Asignación de campos (común para nuevo o actualización)
             asistencia.empleado = Empleado.objects.get(id=empleado_id)
-            asistencia.fecha = request.POST.get('fecha')
+            asistencia.fecha = fecha_captura
             asistencia.estatus = estatus
             asistencia.puesto = puesto_seleccionado
             asistencia.sucursal = request.POST.get('sucursal', 'Victoria')
@@ -433,7 +449,13 @@ def Asistencias_view(request):
             asistencia.observaciones = request.POST.get('observaciones')
 
             asistencia.save()
-            messages.success(request, "¡Registro guardado con éxito!")
+
+            # Mensajes informativos según la acción realizada
+            if not asistencia_id and asistencia_existente:
+                messages.info(request, f"Se actualizó el registro existente para {asistencia.empleado} el día {fecha_captura} (evitando duplicado).")
+            else:
+                messages.success(request, "¡Registro guardado con éxito!")
+            
             return redirect('asistencias')
 
         except Exception as e:
