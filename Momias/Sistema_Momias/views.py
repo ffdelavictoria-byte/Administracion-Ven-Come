@@ -702,9 +702,9 @@ def calcular_nomina_web(request):
     from django.db.models import Q
     from collections import Counter
     from datetime import datetime, timedelta
-    from .models import Asistencia, Empleado 
+    from .models import Asistencia, Empleado
+    from django.shortcuts import render
 
-    # ... (tus filtros de fecha y sucursal se mantienen igual) ...
     fecha_inicio = request.GET.get('inicio')
     fecha_fin = request.GET.get('fin')
     sucursal_filtro = request.GET.get('sucursal')
@@ -713,7 +713,6 @@ def calcular_nomina_web(request):
     resultados_nomina = []
 
     puestos_salarios = {
-        # ... (tu diccionario de puestos se mantiene igual) ...
         "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
         "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
@@ -750,7 +749,6 @@ def calcular_nomina_web(request):
 
     DESCUENTO_UNIFORME_SEMANAL = 181.00
 
-    # ... (tus funciones procesar_dato_hibrido y calcular_pago_dia_final se mantienen igual) ...
     def procesar_dato_hibrido(valor, es_entrada, bloque):
         if not valor: return None, 0
         v = str(valor).strip().upper()
@@ -804,7 +802,6 @@ def calcular_nomina_web(request):
         pago = (float(base_6h) / 360) * minutos_trabajados
         return pago, int(retardo_acumulado)
 
-    # --- INICIO DEL PROCESAMIENTO ---
     if fecha_inicio and fecha_fin:
         f_ini_dt = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
         f_fin_dt = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
@@ -839,14 +836,13 @@ def calcular_nomina_web(request):
                     salario_descanso = float(empleado.sueldo_base or 0)
                     puesto_principal = "Sin Puesto"
     
-                # Variables acumuladoras
                 pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
-                total_desc_retardos_semanal = 0.0 # <--- NUEVA VARIABLE
+                total_desc_retardos_semanal = 0.0
                 aplica_uniforme_semanal = False 
                 dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
                 dias_map = {d: [] for d in dias_semana_esp}
     
-               for reg in asistencias:
+                for reg in asistencias:
                     val_pago_manual = float(reg.pago_dia or 0.0)
                     val_bono = float(reg.bonificacion or 0.0)
                     val_desc = float(reg.descuento or 0.0)
@@ -856,13 +852,11 @@ def calcular_nomina_web(request):
                     estatus_limpio = (reg.estatus or "").upper()
                     salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
                     base_calc = float(salario_base_puesto)
-                    
-                    # Guardamos el salario base del puesto antes de normalizar a 6h para el descuento
                     salario_puesto_full = base_calc 
-    
+
                     if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
                     elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
-    
+
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
                         salario_dia = salario_descanso
                         retardo_dia = 0
@@ -885,31 +879,42 @@ def calcular_nomina_web(request):
                     total_bonos += val_bono
                     total_descuentos_manuales += val_desc
                     
-                    total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
-                    total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
-    
-                    # 2. Agrega el resultado a la lista principal
-                    resultados_nomina.append({
-                        'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
-                        'puesto_principal': puesto_principal,
-                        'periodo_info': f"{sem_inicio.strftime('%d/%m')} al {sem_fin.strftime('%d/%m')}",
-                        'dias': [dias_map[d] for d in dias_semana_esp],
-                        'pago_base': round(pago_base_total, 2),
-                        'retardos': total_retardos,
-                        'desc_retardos': round(total_desc_retardos_semanal, 2),
-                        'bonos': round(total_bonos, 2),
-                        'descuentos': round(total_descuentos_manuales, 2),
-                        'uniforme': round(total_uniforme, 2),
-                        'total_neto': round(total_neto, 2),
+                    nombre_dia = dias_semana_esp[reg.fecha.weekday()]
+                    dias_map[nombre_dia].append({
+                        'horas': retardo_dia,
+                        'estatus': estatus_limpio,
+                        'pago_dia': round(salario_dia, 2),
+                        'sucursal': reg.sucursal or '---',
+                        'puesto': reg.puesto or '---',
+                        'descuento_retardo': round(descuento_retardo_dia, 2), 
+                        'descuento_aplicado': round(val_desc, 2)
                     })
-    return render(request, 'Paysheet.html', {                    
+
+                # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
+                total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
+                total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
+
+                resultados_nomina.append({
+                    'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
+                    'puesto_principal': puesto_principal,
+                    'periodo_info': f"{sem_inicio.strftime('%d/%m')} al {sem_fin.strftime('%d/%m')}",
+                    'dias': [dias_map[d] for d in dias_semana_esp],
+                    'pago_base': round(pago_base_total, 2),
+                    'retardos': total_retardos,
+                    'desc_retardos': round(total_desc_retardos_semanal, 2),
+                    'bonos': round(total_bonos, 2),
+                    'descuentos': round(total_descuentos_manuales, 2),
+                    'uniforme': round(total_uniforme, 2),
+                    'total_neto': round(total_neto, 2),
+                })
+
+    return render(request, 'Paysheet.html', { 
         'nominas': resultados_nomina,
         'inicio': fecha_inicio,
         'fin': fecha_fin,
         'sucursal_seleccionada': sucursal_filtro,
         'nombre_busqueda': nombre_filtro
     })
-
 def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=None):
     from collections import Counter
     from django.db.models import Q
