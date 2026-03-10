@@ -885,19 +885,23 @@ def calcular_nomina_web(request):
                     total_bonos += val_bono
                     total_descuentos_manuales += val_desc
                     
-                    nombre_dia = dias_semana_esp[reg.fecha.weekday()]
-                    
-                    # AHORA AGREGAMOS EL TURNO A LA LISTA DEL DÍA
-                    dias_map[nombre_dia].append({
-                        'horas': retardo_dia,
-                        'estatus': estatus_limpio,
-                        'pago_dia': round(salario_dia, 2),
-                        'sucursal': reg.sucursal or '---',
-                        'puesto': reg.puesto or '---',
-                        'descuento_retardo': round(descuento_retardo_dia, 2), 
-                        'descuento_aplicado': round(val_desc, 2)
+                    total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
+                    total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
+    
+                    # 2. Agrega el resultado a la lista principal
+                    resultados_nomina.append({
+                        'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
+                        'puesto_principal': puesto_principal,
+                        'periodo_info': f"{sem_inicio.strftime('%d/%m')} al {sem_fin.strftime('%d/%m')}",
+                        'dias': [dias_map[d] for d in dias_semana_esp],
+                        'pago_base': round(pago_base_total, 2),
+                        'retardos': total_retardos,
+                        'desc_retardos': round(total_desc_retardos_semanal, 2),
+                        'bonos': round(total_bonos, 2),
+                        'descuentos': round(total_descuentos_manuales, 2),
+                        'uniforme': round(total_uniforme, 2),
+                        'total_neto': round(total_neto, 2),
                     })
-        
     return render(request, 'Paysheet.html', {                    
         'nominas': resultados_nomina,
         'inicio': fecha_inicio,
