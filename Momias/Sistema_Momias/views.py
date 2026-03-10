@@ -898,13 +898,13 @@ def calcular_nomina_web(request):
                         'descuento_aplicado': round(val_desc, 2)
                     })
         
-        return render(request, 'Paysheet.html', {                    
-            'nominas': resultados_nomina,
-            'inicio': fecha_inicio,
-            'fin': fecha_fin,
-            'sucursal_seleccionada': sucursal_filtro,
-            'nombre_busqueda': nombre_filtro
-        })
+    return render(request, 'Paysheet.html', {                    
+        'nominas': resultados_nomina,
+        'inicio': fecha_inicio,
+        'fin': fecha_fin,
+        'sucursal_seleccionada': sucursal_filtro,
+        'nombre_busqueda': nombre_filtro
+    })
 
 def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=None):
     from collections import Counter
