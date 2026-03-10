@@ -826,25 +826,25 @@ def calcular_nomina_web(request):
 
             empleados_ids = Asistencia.objects.filter(filtros_asistencia).values_list('empleado_id', flat=True).distinct()
 
-            for emp_id in empleados_ids:
-                empleado = Empleado.objects.get(id=emp_id)
-                asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
-                puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
-                
-                if puestos_semana:
-                    conteo = Counter(puestos_semana)
-                    salario_descanso = sum((puestos_salarios.get(p, 0) * (c / len(puestos_semana))) for p, c in conteo.items())
-                    puesto_principal = conteo.most_common(1)[0][0]
-                else:
-                    salario_descanso = float(empleado.sueldo_base or 0)
-                    puesto_principal = "Sin Puesto"
+        for emp_id in empleados_ids:
+            empleado = Empleado.objects.get(id=emp_id)
+            asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
+            puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
+            
+            if puestos_semana:
+                conteo = Counter(puestos_semana)
+                salario_descanso = sum((puestos_salarios.get(p, 0) * (c / len(puestos_semana))) for p, c in conteo.items())
+                puesto_principal = conteo.most_common(1)[0][0]
+            else:
+                salario_descanso = float(empleado.sueldo_base or 0)
+                puesto_principal = "Sin Puesto"
 
-                # Variables acumuladoras
-                pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
-                total_desc_retardos_semanal = 0.0 # <--- NUEVA VARIABLE
-                aplica_uniforme_semanal = False 
-                dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-                dias_map = {d: [] for d in dias_semana_esp}
+            # Variables acumuladoras
+            pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
+            total_desc_retardos_semanal = 0.0 # <--- NUEVA VARIABLE
+            aplica_uniforme_semanal = False 
+            dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+            dias_map = {d: [] for d in dias_semana_esp}
 
            for reg in asistencias:
                 val_pago_manual = float(reg.pago_dia or 0.0)
