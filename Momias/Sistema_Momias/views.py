@@ -816,95 +816,95 @@ def calcular_nomina_web(request):
             intervalos_semanas.append((current_start, current_end))
             current_start = current_end + timedelta(days=1)
 
-            for sem_inicio, sem_fin in intervalos_semanas:
-                filtros_asistencia = Q(fecha__range=[sem_inicio, sem_fin])
-                if sucursal_filtro and sucursal_filtro != "TODAS":
-                    filtros_asistencia &= Q(sucursal__iexact=sucursal_filtro)
-                if nombre_filtro:
-                    filtros_asistencia &= (Q(empleado__nombre__icontains=nombre_filtro) | 
-                                           Q(empleado__apellido_paterno__icontains=nombre_filtro))
-    
-                empleados_ids = Asistencia.objects.filter(filtros_asistencia).values_list('empleado_id', flat=True).distinct()
+        for sem_inicio, sem_fin in intervalos_semanas:
+            filtros_asistencia = Q(fecha__range=[sem_inicio, sem_fin])
+            if sucursal_filtro and sucursal_filtro != "TODAS":
+                filtros_asistencia &= Q(sucursal__iexact=sucursal_filtro)
+            if nombre_filtro:
+                filtros_asistencia &= (Q(empleado__nombre__icontains=nombre_filtro) | 
+                                       Q(empleado__apellido_paterno__icontains=nombre_filtro))
 
-                for emp_id in empleados_ids:
-                    empleado = Empleado.objects.get(id=emp_id)
-                    asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
-                    puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
+            empleados_ids = Asistencia.objects.filter(filtros_asistencia).values_list('empleado_id', flat=True).distinct()
+
+            for emp_id in empleados_ids:
+                empleado = Empleado.objects.get(id=emp_id)
+                asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
+                puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
+                
+                if puestos_semana:
+                    conteo = Counter(puestos_semana)
+                    salario_descanso = sum((puestos_salarios.get(p, 0) * (c / len(puestos_semana))) for p, c in conteo.items())
+                    puesto_principal = conteo.most_common(1)[0][0]
+                else:
+                    salario_descanso = float(empleado.sueldo_base or 0)
+                    puesto_principal = "Sin Puesto"
+    
+                # Variables acumuladoras
+                pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
+                total_desc_retardos_semanal = 0.0 # <--- NUEVA VARIABLE
+                aplica_uniforme_semanal = False 
+                dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+                dias_map = {d: [] for d in dias_semana_esp}
+    
+               for reg in asistencias:
+                    val_pago_manual = float(reg.pago_dia or 0.0)
+                    val_bono = float(reg.bonificacion or 0.0)
+                    val_desc = float(reg.descuento or 0.0)
+                    if reg.tipo_uniforme and len(str(reg.tipo_uniforme).strip()) > 0:
+                        aplica_uniforme_semanal = True
                     
-                    if puestos_semana:
-                        conteo = Counter(puestos_semana)
-                        salario_descanso = sum((puestos_salarios.get(p, 0) * (c / len(puestos_semana))) for p, c in conteo.items())
-                        puesto_principal = conteo.most_common(1)[0][0]
+                    estatus_limpio = (reg.estatus or "").upper()
+                    salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
+                    base_calc = float(salario_base_puesto)
+                    
+                    # Guardamos el salario base del puesto antes de normalizar a 6h para el descuento
+                    salario_puesto_full = base_calc 
+    
+                    if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
+                    elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
+    
+                    if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
+                        salario_dia = salario_descanso
+                        retardo_dia = 0
+                        descuento_retardo_dia = 0 
+                    elif val_pago_manual > 0:
+                        salario_dia = val_pago_manual
+                        retardo_dia = int(reg.horas or 0)
+                        descuento_retardo_dia = (val_pago_manual / 6) * retardo_dia
                     else:
-                        salario_descanso = float(empleado.sueldo_base or 0)
-                        puesto_principal = "Sin Puesto"
+                        salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
+                        retardo_dia = int(reg.horas) if reg.horas else retardo_aut
+                        descuento_retardo_dia = (float(salario_puesto_full) / 6) * retardo_dia
+    
+                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
+                        salario_dia *= 2
+    
+                    pago_base_total += salario_dia
+                    total_retardos += retardo_dia
+                    total_desc_retardos_semanal += descuento_retardo_dia 
+                    total_bonos += val_bono
+                    total_descuentos_manuales += val_desc
+                    
+                    nombre_dia = dias_semana_esp[reg.fecha.weekday()]
+                    
+                    # AHORA AGREGAMOS EL TURNO A LA LISTA DEL DÍA
+                    dias_map[nombre_dia].append({
+                        'horas': retardo_dia,
+                        'estatus': estatus_limpio,
+                        'pago_dia': round(salario_dia, 2),
+                        'sucursal': reg.sucursal or '---',
+                        'puesto': reg.puesto or '---',
+                        'descuento_retardo': round(descuento_retardo_dia, 2), 
+                        'descuento_aplicado': round(val_desc, 2)
+                    })
         
-                    # Variables acumuladoras
-                    pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
-                    total_desc_retardos_semanal = 0.0 # <--- NUEVA VARIABLE
-                    aplica_uniforme_semanal = False 
-                    dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-                    dias_map = {d: [] for d in dias_semana_esp}
-        
-                   for reg in asistencias:
-                        val_pago_manual = float(reg.pago_dia or 0.0)
-                        val_bono = float(reg.bonificacion or 0.0)
-                        val_desc = float(reg.descuento or 0.0)
-                        if reg.tipo_uniforme and len(str(reg.tipo_uniforme).strip()) > 0:
-                            aplica_uniforme_semanal = True
-                        
-                        estatus_limpio = (reg.estatus or "").upper()
-                        salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
-                        base_calc = float(salario_base_puesto)
-                        
-                        # Guardamos el salario base del puesto antes de normalizar a 6h para el descuento
-                        salario_puesto_full = base_calc 
-        
-                        if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
-                        elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
-        
-                        if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-                            salario_dia = salario_descanso
-                            retardo_dia = 0
-                            descuento_retardo_dia = 0 
-                        elif val_pago_manual > 0:
-                            salario_dia = val_pago_manual
-                            retardo_dia = int(reg.horas or 0)
-                            descuento_retardo_dia = (val_pago_manual / 6) * retardo_dia
-                        else:
-                            salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
-                            retardo_dia = int(reg.horas) if reg.horas else retardo_aut
-                            descuento_retardo_dia = (float(salario_puesto_full) / 6) * retardo_dia
-        
-                        if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
-                            salario_dia *= 2
-        
-                        pago_base_total += salario_dia
-                        total_retardos += retardo_dia
-                        total_desc_retardos_semanal += descuento_retardo_dia 
-                        total_bonos += val_bono
-                        total_descuentos_manuales += val_desc
-                        
-                        nombre_dia = dias_semana_esp[reg.fecha.weekday()]
-                        
-                        # AHORA AGREGAMOS EL TURNO A LA LISTA DEL DÍA
-                        dias_map[nombre_dia].append({
-                            'horas': retardo_dia,
-                            'estatus': estatus_limpio,
-                            'pago_dia': round(salario_dia, 2),
-                            'sucursal': reg.sucursal or '---',
-                            'puesto': reg.puesto or '---',
-                            'descuento_retardo': round(descuento_retardo_dia, 2), 
-                            'descuento_aplicado': round(val_desc, 2)
-                        })
-        
-    return render(request, 'Paysheet.html', {                    
-        'nominas': resultados_nomina,
-        'inicio': fecha_inicio,
-        'fin': fecha_fin,
-        'sucursal_seleccionada': sucursal_filtro,
-        'nombre_busqueda': nombre_filtro
-    })
+        return render(request, 'Paysheet.html', {                    
+            'nominas': resultados_nomina,
+            'inicio': fecha_inicio,
+            'fin': fecha_fin,
+            'sucursal_seleccionada': sucursal_filtro,
+            'nombre_busqueda': nombre_filtro
+        })
 
 def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=None):
     from collections import Counter
