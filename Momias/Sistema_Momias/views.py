@@ -354,6 +354,7 @@ def Asistencias_view(request):
             puesto_seleccionado = (request.POST.get('puesto') or "").strip()
             estatus = request.POST.get('estatus_jornada')
             
+            
             ent_m = (request.POST.get('entrada_matutina') or "").strip()
             sal_m = (request.POST.get('salida_matutina') or "").strip()
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
@@ -438,6 +439,14 @@ def Asistencias_view(request):
                 asistencia = Asistencia()
                 asistencia.empleado = empleado_obj
                 asistencia.fecha = fecha_captura
+
+            motivo_sel = request.POST.get('motivo_descuento')
+            motivo_personalizado = request.POST.get('motivo_otro_texto', '').strip()
+
+            if motivo_sel == "Otro" and motivo_personalizado:
+                asistencia.motivo_descuento = f"Otro: {motivo_personalizado}"
+            else:
+                asistencia.motivo_descuento = motivo_sel
 
             # Asignación de campos
             asistencia.estatus = estatus
