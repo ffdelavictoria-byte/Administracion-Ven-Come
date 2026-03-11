@@ -28,6 +28,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+import json
 
 
 HORAS_POR_PUESTO = {
