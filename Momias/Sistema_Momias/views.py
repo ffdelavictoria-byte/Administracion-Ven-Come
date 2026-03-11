@@ -461,6 +461,139 @@ def Asistencias_view(request):
         'query': query or '',               # Evita el "None" en el input
     })
 
+def Asistencias_FF_view(request):
+    # 1. Diccionario de puestos (Sin cambios)
+    puestos_salarios_ff = {
+        "Caja (6 horas)": 236.50, 
+        "Caja (9 horas)": 354.50,
+        "Gerente (12 Horas)": 600.00, 
+        "Chef de Línea": 531.57,
+        "Encargado Cocina (Matutino 6 horas)": 252.00,
+        "Encargado Cocina (Matutino 9 horas)": 378.00,
+        "Encargado Cocina (Matutino 12 horas)": 504.00,
+        "Encargado de Cocina (JONH)": 519.00,
+        "Cocina y Barra (6 hrs)": 236.50,
+        "Cocina y Barra (9 hrs)": 354.50,
+        "Barra (6 horas) Entregas": 236.50,
+        "Barra (9 horas) Entregas": 354.50,
+        "Fin de Semana": 473.00,
+        "Aux Produccion": 177.00,
+        "Produccion": 370.00,
+        "Benny": 171.00,
+        "Hamburguesas FF": 0.00,
+        "Tuppers": 0.00,
+    }
+
+    # Función auxiliar (Sin cambios)
+    def obtener_monto_bloque(base_puesto, entrada, salida):
+        if not entrada or not salida: return 0.0
+        ent_str, sal_str = entrada.strip().upper(), salida.strip().upper()
+        if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
+            return float(base_puesto)
+        try:
+            fmt = '%H:%M'
+            inicio = datetime.strptime(ent_str[:5], fmt)
+            fin = datetime.strptime(sal_str[:5], fmt)
+            hrs = (fin - inicio).total_seconds() / 3600
+            if hrs < 0: hrs += 24
+            return (float(base_puesto) / 6) * hrs
+        except: return float(base_puesto)
+
+    # --- 1. LÓGICA DE ELIMINACIÓN (IGUAL QUE EN MOMIAS) ---
+    if request.method == 'POST' and 'eliminar_id' in request.POST:
+        asistencia = get_object_or_404(Asistencia, id=request.POST.get('eliminar_id'))
+        asistencia.delete()
+        messages.success(request, "¡Registro eliminado de FF!")
+        return redirect('asistenciasff')
+
+    # --- 2. LÓGICA DE GUARDADO / MODIFICACIÓN ---
+    if request.method == 'POST':
+        try:
+            asistencia_id = request.POST.get('asistencia_id')
+            empleado_id = request.POST.get('empleado')
+            puesto_seleccionado = (request.POST.get('puesto') or "").strip()
+            estatus_jornada = request.POST.get('estatus_jornada')
+            
+            ent_m = (request.POST.get('entrada_matutina') or "").strip()
+            sal_m = (request.POST.get('salida_matutina') or "").strip()
+            ent_v = (request.POST.get('entrada_vespertina') or "").strip()
+            sal_v = (request.POST.get('salida_vespertina') or "").strip()
+
+            monto_final = 0.0
+            DESCANSO_ESPECIFICO = 138.00
+
+            if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
+                monto_final = 0.0
+            elif estatus_jornada == "Descanso":
+                monto_final = DESCANSO_ESPECIFICO if puesto_seleccionado in ["Hamburguesas FF", "Tuppers"] else 0.0
+            elif puesto_seleccionado == "Hamburguesas FF":
+                monto_final = float(request.POST.get('cantidad_cargas') or 0) * 62.00
+            elif puesto_seleccionado == "Tuppers":
+                monto_final = float(request.POST.get('cantidad_cargas') or 0) * 46.50
+            else:
+                base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
+                base_6h = base_real
+                if "(9 horas)" in puesto_seleccionado or "(9 hrs)" in puesto_seleccionado:
+                    base_6h = base_real / 1.5
+                elif "(12 Horas)" in puesto_seleccionado:
+                    base_6h = base_real / 2
+                monto_final = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
+
+            # Puntos de retardo
+            def calcular_puntos(valor):
+                if not valor or ":" in valor or "R1" in valor: return 0
+                mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
+                for clave, pts in mapping.items():
+                    if clave in valor.upper(): return pts
+                return 0
+
+            total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
+
+            # Gestión de instancia
+            if asistencia_id and asistencia_id.strip():
+                asistencia = get_object_or_404(Asistencia, id=asistencia_id)
+            else:
+                asistencia = Asistencia()
+                asistencia.sucursal = "FastFood"
+
+            asistencia.empleado = Empleado.objects.get(id=empleado_id)
+            asistencia.fecha = request.POST.get('fecha')
+            asistencia.estatus = estatus_jornada
+            asistencia.puesto = puesto_seleccionado
+            asistencia.pago_dia = round(monto_final, 2)
+            asistencia.horas = float(total_puntos)
+            asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
+            asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
+            
+            asistencia.bonificacion = float(request.POST.get('bonificacion') or 0)
+            asistencia.descuento = float(request.POST.get('descuento') or 0)
+            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
+            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
+            asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
+            asistencia.observaciones = request.POST.get('observaciones')
+            
+            asistencia.save()
+            messages.success(request, "¡Registro FF procesado!")
+            return redirect('asistenciasff')
+
+        except Exception as e:
+            messages.error(request, f"Error: {e}")
+            return redirect('asistenciasff')
+
+    # --- 3. LÓGICA GET ---
+    hoy_str = datetime.now().strftime('%Y-%m-%d')
+    registros = Asistencia.objects.filter(sucursal="FastFood").order_by('-fecha', '-id')[:20]
+    return render(request, 'AttendanceFF.html', {
+        'lista_puestos': puestos_salarios_ff.keys(),
+        'empleados': Empleado.objects.filter(estatus='Activo'),
+        'registros': registros,
+        'hoy': hoy_str,
+        'puestos_json': json.dumps(puestos_salarios_ff), 
+    })
+
+
+
+
 @login_required
 def registrar_usuario(request):
     # SEGURIDAD: Solo el jefe (superuser) entra aquí
