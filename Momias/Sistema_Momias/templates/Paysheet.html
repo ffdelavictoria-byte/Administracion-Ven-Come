@@ -365,7 +365,7 @@
             {% for turno in dia_list %}
             <div class="mb-2 p-1 border-bottom">
                 <div class="fw-bold mb-1" style="font-size: 0.65rem; background: rgba(0,0,0,0.05);">{{ turno.fecha_dia }}</div>
-                <div class="fw-bold mb-1" style="font-size: 0.7rem;">{{ turno.horas_retardo|default:"0" }}h - {{ turno.estatus|default:"N/A" }}</div>
+                <div class="fw-bold mb-1" style="font-size: 0.7rem;">{{ turno.horas|default:"0" }}h - {{ turno.estatus|default:"N/A" }}</div>
                 <div style="line-height: 1.1; margin-bottom: 4px;">
                     <span class="text-primary fw-bold" style="font-size: 0.65rem;">{{ turno.sucursal|default:"---" }}</span><br>
                     <span class="text-magenta" style="font-size: 0.6rem;">{{ turno.puesto|default:"---" }}</span>
@@ -381,12 +381,10 @@
                 </div>
                 {% endif %}
             </div>
-            {% empty %}
-            <div class="text-muted" style="font-size: 0.6rem;">---</div>
             {% endfor %}
         </td>
         {% endfor %}
-
+        
         <td class="text-center fw-bold">{{ n.retardos }}</td>
         <td class="text-end px-2">${{ n.pago_base|floatformat:2 }}</td>
         <td class="text-end px-2 text-success">+${{ n.bonos|floatformat:2 }}</td>
