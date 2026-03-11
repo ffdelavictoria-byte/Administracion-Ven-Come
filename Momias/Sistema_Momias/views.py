@@ -463,7 +463,6 @@ def Asistencias_view(request):
             asistencia.bonificacion = float(request.POST.get('bonificacion') or 0)
             asistencia.descuento = float(request.POST.get('descuento') or 0)
             asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
-            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
             asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
             asistencia.observaciones = request.POST.get('observaciones')
             
