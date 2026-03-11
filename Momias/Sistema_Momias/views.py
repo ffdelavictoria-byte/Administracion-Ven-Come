@@ -836,58 +836,91 @@ def calcular_nomina_web(request):
                     salario_descanso = float(empleado.sueldo_base or 0)
                     puesto_principal = "Sin Puesto"
     
+                # --- PRE-CALCULO DE RETARDOS PARA APLICAR ESCALA ---
+                # Identificamos qué días tienen realmente un retardo
+                lista_detalles_asistencia = []
+                total_retardos_semanales = 0
+                
+                for reg in asistencias:
+                    # Calculamos el retardo individual
+                    estatus_limpio = (reg.estatus or "").upper()
+                    salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
+                    base_calc = float(salario_base_puesto)
+                    
+                    if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
+                    elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
+
+                    if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
+                        retardo_dia = 0
+                        salario_dia = salario_descanso
+                    elif float(reg.pago_dia or 0.0) > 0:
+                        retardo_dia = int(reg.horas or 0)
+                        salario_dia = float(reg.pago_dia)
+                    else:
+                        salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
+                        retardo_dia = int(reg.horas) if reg.horas else retardo_aut
+                    
+                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
+                        salario_dia *= 2
+                    
+                    if retardo_dia > 0: total_retardos_semanales += 1
+                    
+                    lista_detalles_asistencia.append({
+                        'reg': reg, 'retardo_dia': retardo_dia, 'salario_dia': salario_dia,
+                        'salario_puesto_full': base_calc, 'estatus': estatus_limpio
+                    })
+
+                # --- ESCALA DE DESCUENTOS ---
+                def obtener_multiplicador(n):
+                    if n <= 1: return 0
+                    if n <= 3: return 0.5
+                    if n <= 5: return 1.0
+                    if n <= 7: return 1.5
+                    if n <= 9: return 2.0
+                    if n <= 11: return 2.5
+                    return 3.0 # 12 o más
+
+                multiplicador_total = obtener_multiplicador(total_retardos_semanales)
+                
+                # --- PROCESAMIENTO FINAL ---
                 pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
                 total_desc_retardos_semanal = 0.0
                 aplica_uniforme_semanal = False 
                 dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
                 dias_map = {d: [] for d in dias_semana_esp}
-    
-                for reg in asistencias:
-                    val_pago_manual = float(reg.pago_dia or 0.0)
+
+                for item in lista_detalles_asistencia:
+                    reg = item['reg']
+                    retardo_dia = item['retardo_dia']
+                    salario_dia = item['salario_dia']
+                    
+                    # Cálculo del descuento distribuido proporcionalmente
+                    desc_retardo_dia = 0.0
+                    if retardo_dia > 0 and total_retardos_semanales > 1:
+                        # Se toma el sueldo de 1 día (base 6h) multiplicado por el castigo total, dividido entre los días con retardo
+                        monto_castigo_total = multiplicador_total * (item['salario_puesto_full'] / 6)
+                        desc_retardo_dia = monto_castigo_total / total_retardos_semanales
+
                     val_bono = float(reg.bonificacion or 0.0)
                     val_desc = float(reg.descuento or 0.0)
                     if reg.tipo_uniforme and len(str(reg.tipo_uniforme).strip()) > 0:
                         aplica_uniforme_semanal = True
                     
-                    estatus_limpio = (reg.estatus or "").upper()
-                    salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
-                    base_calc = float(salario_base_puesto)
-                    salario_puesto_full = base_calc 
-
-                    if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
-                    elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
-
-                    if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-                        salario_dia = salario_descanso
-                        retardo_dia = 0
-                        descuento_retardo_dia = 0 
-                    elif val_pago_manual > 0:
-                        salario_dia = val_pago_manual
-                        retardo_dia = int(reg.horas or 0)
-                        descuento_retardo_dia = (val_pago_manual / 6) * retardo_dia
-                    else:
-                        salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
-                        retardo_dia = int(reg.horas) if reg.horas else retardo_aut
-                        descuento_retardo_dia = (float(salario_puesto_full) / 6) * retardo_dia
-    
-                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
-                        salario_dia *= 2
-    
                     pago_base_total += salario_dia
                     total_retardos += retardo_dia
-                    total_desc_retardos_semanal += descuento_retardo_dia 
+                    total_desc_retardos_semanal += desc_retardo_dia 
                     total_bonos += val_bono
                     total_descuentos_manuales += val_desc
                     
                     nombre_dia = dias_semana_esp[reg.fecha.weekday()]
                     dias_map[nombre_dia].append({
-                        'fecha_dia': reg.fecha.strftime('%d/%m/%y'),  # <--- AGREGA ESTA LÍNEA
+                        'fecha_dia': reg.fecha.strftime('%d/%m/%y'),
                         'horas': retardo_dia,
-                        'estatus': estatus_limpio,
+                        'estatus': item['estatus'],
                         'pago_dia': round(salario_dia, 2),
                         'sucursal': reg.sucursal or '---',
                         'puesto': reg.puesto or '---',
-                        'descuento_retardo': round(descuento_retardo_dia, 2), 
+                        'descuento_retardo': round(desc_retardo_dia, 2), 
                         'descuento_aplicado': round(val_desc, 2)
                     })
 
