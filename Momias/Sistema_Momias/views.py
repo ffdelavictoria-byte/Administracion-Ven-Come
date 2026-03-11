@@ -919,7 +919,7 @@ def calcular_nomina_web(request):
                     'dias': [dias_map[d] for d in dias_semana_esp],
                     'pago_base': round(pago_base_total, 2),
                     'retardos': total_retardos,
-                    'desc_retardos': round(total_desc_retardos_semanal, 2),
+                    'descuento_retardo': round(desc_retardo_dia, 2), # <--- Esta es la clave para el descuento
                     'bonos': round(total_bonos, 2),
                     'descuentos': round(total_descuentos_manuales, 2),
                     'uniforme': round(total_uniforme, 2),
