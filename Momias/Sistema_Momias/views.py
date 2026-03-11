@@ -290,7 +290,6 @@ def lista_empleados(request):
     return render(request, 'Employe.html', {'empleados': empleados})
 
 def Asistencias_view(request):
-    # ... [Tu diccionario puestos_salarios y funciones internas permanecen igual] ...
     puestos_salarios = {
         "Caja (6 horas)": 248.00, 
         "Caja Capacitacion": 236.50,
@@ -310,31 +309,24 @@ def Asistencias_view(request):
         "Benny": 171.00,
         "Rappi": 354.75,
         "Fabrica Crystal": 262.00,
-        "Hamburguesas Momias": 0.00, # Dinámico por cargas
-        "Tuppers": 0.00,             # Dinámico por cargas
+        "Hamburguesas Momias": 0.00,
+        "Tuppers": 0.00,
     }
 
     def obtener_monto_bloque(base_puesto, entrada, salida):
         if not entrada or not salida:
             return 0.0
-        
         ent_str = entrada.strip().upper()
         sal_str = salida.strip().upper()
-
-        # Si es un código de retardo (R1, R2...) pagamos el bloque completo
         if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
             return float(base_puesto)
-
         try:
             fmt = '%H:%M'
             inicio = datetime.strptime(ent_str[:5], fmt)
             fin = datetime.strptime(sal_str[:5], fmt)
-            
             diferencia = fin - inicio
             hrs = diferencia.total_seconds() / 3600
-            if hrs < 0: hrs += 24 # Soporte para cruce de medianoche
-            
-            # Cálculo proporcional basado en bloque estándar de 6 horas
+            if hrs < 0: hrs += 24
             return (float(base_puesto) / 6) * hrs
         except (ValueError, ZeroDivisionError):
             return float(base_puesto)
@@ -347,20 +339,17 @@ def Asistencias_view(request):
         return redirect('asistencias')
 
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
-    # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
             puesto_seleccionado = (request.POST.get('puesto') or "").strip()
             estatus = request.POST.get('estatus_jornada')
-            
             ent_m = (request.POST.get('entrada_matutina') or "").strip()
             sal_m = (request.POST.get('salida_matutina') or "").strip()
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
             sal_v = (request.POST.get('salida_vespertina') or "").strip()
 
-            # 1. Cálculo de monto final
             monto_final = 0.0
             DESCANSO_DESTAJO = 138.00
 
@@ -381,7 +370,6 @@ def Asistencias_view(request):
                     base_6h = salario_real / 2
                 monto_final = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
 
-            # 2. Puntos de Retardo
             def calcular_puntos(valor):
                 if not valor or ":" in valor or "R1" in valor: return 0
                 mapping = {f"R{i}": i-1 for i in range(2, 13)}
@@ -389,9 +377,8 @@ def Asistencias_view(request):
 
             total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
 
-            # 3. Guardado
             fecha_captura = request.POST.get('fecha')
-            empleado_obj = Empleado.objects.get(id=empleado_id)
+            empleado_obj = get_object_or_404(Empleado, id=empleado_id)
             es_matutino, es_vespertino = bool(ent_m and sal_m), bool(ent_v and sal_v)
             registros_dia = Asistencia.objects.filter(empleado=empleado_obj, fecha=fecha_captura).exclude(id=asistencia_id or -1)
 
@@ -403,13 +390,10 @@ def Asistencias_view(request):
                 return redirect('asistencias')
 
             asistencia = get_object_or_404(Asistencia, id=asistencia_id) if asistencia_id and asistencia_id.strip() else Asistencia(empleado=empleado_obj, fecha=fecha_captura)
-
-            # Lógica de Motivo Descuento (Corregida)
             motivo_sel = request.POST.get('motivo_descuento')
             motivo_personalizado = request.POST.get('motivo_otro_texto', '').strip()
             asistencia.motivo_descuento = f"Otro: {motivo_personalizado}" if motivo_sel == "Otro" and motivo_personalizado else motivo_sel
 
-            # Asignación final
             asistencia.estatus, asistencia.puesto, asistencia.sucursal = estatus, puesto_seleccionado, request.POST.get('sucursal', 'Victoria')
             asistencia.pago_dia, asistencia.horas = round(monto_final, 2), float(total_puntos)
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
@@ -424,42 +408,34 @@ def Asistencias_view(request):
         except Exception as e:
             messages.error(request, f"Error: {e}")
             return redirect('asistencias')
-        
 
-            # --- 3. LÓGICA GET (MOMIAS) ---
-        # --- LÓGICA GET (MOMIAS) ---
+    # --- LÓGICA GET (AHORA FUERA DEL IF POST) ---
     fecha_filtro = request.GET.get('fecha_filtro')
-    query = request.GET.get('q', '').strip() # Aseguramos limpiar espacios
+    query = request.GET.get('q', '').strip()
         
-    # Registro base
     registros_qs = Asistencia.objects.exclude(sucursal="FastFood").order_by('-fecha', '-id')
         
-    # Filtro por Fecha (Independiente)
     if fecha_filtro:
         registros_qs = registros_qs.filter(fecha=fecha_filtro)
         
-    # Filtro por Nombre o Código
     if query:
-        # Usamos Q objects para ser más eficientes sin depender solo de la anotación
         registros_qs = registros_qs.filter(
             Q(empleado__nombre__icontains=query) | 
             Q(empleado__apellido_paterno__icontains=query) |
             Q(empleado__codigo_empleado__icontains=query)
         )
         
-    # Paginación
     paginator = Paginator(registros_qs, 20)
     page_obj = paginator.get_page(request.GET.get('page'))
     
-    # Renderizado con los datos de Momias
-    return render(request, 'Attendance.html', { # Asegúrate de que este sea tu template de Momias
-        'lista_puestos': puestos_salarios.keys(), # Diccionario general de Momias
+    return render(request, 'Attendance.html', {
+        'lista_puestos': puestos_salarios.keys(),
         'empleados': Empleado.objects.filter(estatus='Activo'),
         'registros': page_obj,
         'hoy': datetime.now().strftime('%Y-%m-%d'),
         'puestos_json': json.dumps(puestos_salarios),
-        'fecha_filtro': fecha_filtro or '', # Evita el "None" en el input
-        'query': query or '',               # Evita el "None" en el input
+        'fecha_filtro': fecha_filtro or '',
+        'query': query or '',
     })
 
 
