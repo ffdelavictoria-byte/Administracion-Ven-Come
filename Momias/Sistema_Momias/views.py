@@ -859,21 +859,16 @@ def calcular_nomina_web(request):
                     10: 2.5, 11: 2.5,
                     12: 3.0
                 }
-                
 
                 # --- PROCESAMIENTO FINAL ---
                 pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
                 total_desc_retardos_semanal = 0.0
-                
-                # ¡ERROR ESTABA AQUÍ! Debes inicializarla antes del bucle
                 total_retardos_acumulados = 0 
-                
                 aplica_uniforme_semanal = False 
                 dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
                 dias_map = {d: [] for d in dias_semana_esp}
 
                 for item in lista_detalles_asistencia:
-                    # ... resto del código ...
                     reg = item['reg']
                     retardo_dia = item['retardo_dia']
                     salario_dia = item['salario_dia']
@@ -883,12 +878,15 @@ def calcular_nomina_web(request):
                     
                     # Si hubo retardo en este día, aplicamos la regla según el acumulado
                     if retardo_dia > 0:
-                        total_retardos_acumulados += 1
-                        # Obtenemos el factor de la tabla (si > 12, usamos 3.0)
-                        factor = TABLA_CASTIGOS.get(total_retardos_acumulados, 3.0 if total_retardos_acumulados >= 12 else 0)
-                        # El descuento es: Factor * Salario base del puesto ese día
+                        # Sumamos los retardos del día al acumulado total
+                        total_retardos_acumulados += retardo_dia
+                        
+                        # Buscamos el factor en la tabla. Si excede 12, usamos 3.0
+                        factor = TABLA_CASTIGOS.get(min(total_retardos_acumulados, 12), 3.0 if total_retardos_acumulados > 12 else 0.0)
+                        
+                        # Calculamos el descuento proporcional al salario del puesto del día
                         desc_retardo_dia = factor * base_salario_dia
-                
+
                     val_bono = float(reg.bonificacion or 0.0)
                     val_desc = float(reg.descuento or 0.0)
                     if reg.tipo_uniforme and len(str(reg.tipo_uniforme).strip()) > 0:
