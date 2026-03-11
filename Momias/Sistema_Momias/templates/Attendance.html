@@ -276,13 +276,16 @@
                 <label>Descuento ($):</label>
                 <div class="flex-row">
                     <input type="number" name="descuento" id="descuento" step="0.01" value="0">
-                    <select name="motivo_descuento" id="motivo_descuento">
+                    <select name="motivo_descuento" id="motivo_descuento" onchange="toggleOtroDescuento(this.value)">
                         <option value="">Motivo...</option>
                         <option value="Error en nómina">Error en nómina</option>
                         <option value="Falta de uniforme">Falta de uniforme</option>
                         <option value="Otro">Otro</option>
                     </select>
                 </div>
+                <input type="text" name="motivo_otro_texto" id="motivo_otro_texto" 
+                       placeholder="Especificar otro motivo..." 
+                       style="display:none; margin-top: 10px; width: 100%;">
             </div>
 
             <div class="form-group">
@@ -587,44 +590,58 @@
 
     // --- PREPARAR EDICIÓN ---
     function prepararEdicion(boton) {
-        const d = boton.dataset;
-        asistenciaIdInput.value = d.id;
-        empleadoHidden.value = d.emp;
+    const d = boton.dataset;
+    asistenciaIdInput.value = d.id;
+    empleadoHidden.value = d.emp;
 
-        const opciones = datalist.options;
-        for (let i = 0; i < opciones.length; i++) {
-            if (opciones[i].getAttribute('data-id') == d.emp) {
-                empleadoSearch.value = opciones[i].value;
-                break;
-            }
+    const opciones = datalist.options;
+    for (let i = 0; i < opciones.length; i++) {
+        if (opciones[i].getAttribute('data-id') == d.emp) {
+            empleadoSearch.value = opciones[i].value;
+            break;
         }
-
-        document.getElementById('fecha').value = d.fec;
-        puestoSelect.value = d.pue;
-        document.getElementById('sucursal').value = d.suc;
-        
-        entMat.value = d.mat || "";
-        entVes.value = d.ves || "";
-        salMat.value = d.salmat || "";
-        salVes.value = d.salves || "";
-
-        if (inputCargas) inputCargas.value = d.car || 0;
-
-        estatusJornada.value = d.est;
-        document.getElementById('bonificacion').value = d.bon;
-        document.getElementById('motivo_bonificacion').value = d.mbon || "";
-        document.getElementById('descuento').value = d.des;
-        document.getElementById('motivo_descuento').value = d.mdes || "";
-        document.getElementById('tipo_uniforme').value = d.uni || "";
-        document.getElementById('observaciones').value = d.obs;
-
-        btnPrincipal.innerText = "CORREGIR REGISTRO";
-        btnPrincipal.style.background = "#FFC107";
-        btnPrincipal.style.color = "black";
-        
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        actualizarTodo();
     }
+
+    document.getElementById('fecha').value = d.fec;
+    puestoSelect.value = d.pue;
+    document.getElementById('sucursal').value = d.suc;
+    
+    entMat.value = d.mat || "";
+    entVes.value = d.ves || "";
+    salMat.value = d.salmat || "";
+    salVes.value = d.salves || "";
+
+    if (inputCargas) inputCargas.value = d.car || 0;
+
+    estatusJornada.value = d.est;
+    document.getElementById('bonificacion').value = d.bon;
+    document.getElementById('motivo_bonificacion').value = d.mbon || "";
+    
+    // --- Lógica para Descuento y Motivo Personalizado ---
+    const mDes = d.mdes || "";
+    const campoOtroDescuento = document.getElementById('motivo_otro_texto');
+    
+    if (mDes.startsWith("Otro: ")) {
+        document.getElementById('motivo_descuento').value = "Otro";
+        campoOtroDescuento.style.display = "block";
+        campoOtroDescuento.value = mDes.replace("Otro: ", "");
+    } else {
+        document.getElementById('motivo_descuento').value = mDes;
+        campoOtroDescuento.style.display = "none";
+        campoOtroDescuento.value = "";
+    }
+    
+    document.getElementById('descuento').value = d.des;
+    document.getElementById('tipo_uniforme').value = d.uni || "";
+    document.getElementById('observaciones').value = d.obs;
+
+    btnPrincipal.innerText = "CORREGIR REGISTRO";
+    btnPrincipal.style.background = "#FFC107";
+    btnPrincipal.style.color = "black";
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    actualizarTodo();
+}
 
     function limpiarFormularioYTabla() {
     // 1. Reset básico del formulario
@@ -703,6 +720,18 @@
     // Escuchar cambios en fecha o empleado
     document.getElementById('fecha').addEventListener('change', verificarDuplicidad);
     document.getElementById('empleado_search').addEventListener('change', verificarDuplicidad);
+
+    function toggleOtroDescuento(valor) {
+    const campoOtro = document.getElementById('motivo_otro_texto');
+    if (valor === "Otro") {
+        campoOtro.style.display = "block";
+        campoOtro.required = true; // Opcional: lo hace obligatorio si seleccionan "Otro"
+    } else {
+        campoOtro.style.display = "none";
+        campoOtro.value = ""; // Limpia el texto si cambian de opinión
+        campoOtro.required = false;
+    }
+}
 
     window.onload = actualizarTodo;
 </script>
