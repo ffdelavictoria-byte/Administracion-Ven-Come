@@ -807,10 +807,24 @@ def calcular_nomina_web(request):
                 asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
                 puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
                 
-                if puestos_semana:
-                    conteo = Counter(puestos_semana)
-                    salario_descanso = sum((puestos_salarios.get(p, 0) * (c / len(puestos_semana))) for p, c in conteo.items())
-                    puesto_principal = conteo.most_common(1)[0][0]
+                asistencias_trabajadas = [a for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
+
+                if asistencias_trabajadas:
+                    total_dias_trabajados = len(asistencias_trabajadas)
+                    conteo_puestos = Counter([a.puesto for a in asistencias_trabajadas])
+                    
+                    # 1. Detectar turnos de 12 horas (asumiendo que el nombre del puesto contiene "(12 Horas)")
+                    dias_dobles = sum(1 for a in asistencias_trabajadas if "(12 Horas)" in (a.puesto or ""))
+                    
+                    # 2. Calcular base proporcional según frecuencia de puestos
+                    salario_descanso = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
+                                           for p, c in conteo_puestos.items())
+                    
+                    # 3. Aplicar regla de turno doble: si trabajó > 5 días en turno doble, el descanso es doble
+                    if dias_dobles > 5:
+                        salario_descanso *= 2
+                        
+                    puesto_principal = conteo_puestos.most_common(1)[0][0]
                 else:
                     salario_descanso = float(empleado.sueldo_base or 0)
                     puesto_principal = "Sin Puesto"
