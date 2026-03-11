@@ -860,14 +860,20 @@ def calcular_nomina_web(request):
                     12: 3.0
                 }
                 
+
                 # --- PROCESAMIENTO FINAL ---
                 pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
                 total_desc_retardos_semanal = 0.0
+                
+                # ¡ERROR ESTABA AQUÍ! Debes inicializarla antes del bucle
+                total_retardos_acumulados = 0 
+                
                 aplica_uniforme_semanal = False 
                 dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
                 dias_map = {d: [] for d in dias_semana_esp}
 
                 for item in lista_detalles_asistencia:
+                    # ... resto del código ...
                     reg = item['reg']
                     retardo_dia = item['retardo_dia']
                     salario_dia = item['salario_dia']
