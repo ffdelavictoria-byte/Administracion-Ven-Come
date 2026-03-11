@@ -49,6 +49,7 @@ class Asistencia(models.Model):
     motivo_descuento = models.CharField(max_length=255, blank=True, null=True)
     tipo_uniforme = models.CharField(max_length=100, blank=True, null=True)
     observaciones = models.TextField(blank=True, null=True)
+    motivo_personalizado = request.POST.get('motivo_otro_texto') # Nuevo campo del formulario
 
     def __str__(self):
         return f"{self.fecha} - {self.empleado.nombre} ({self.sucursal})"
