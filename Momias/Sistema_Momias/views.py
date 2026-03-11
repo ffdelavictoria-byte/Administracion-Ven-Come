@@ -912,6 +912,7 @@ def calcular_nomina_web(request):
                 total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
                 total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
 
+                # --- EN TU BUCLE DE RESULTADOS_NOMINA.APPEND ---
                 resultados_nomina.append({
                     'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
                     'puesto_principal': puesto_principal,
@@ -919,7 +920,8 @@ def calcular_nomina_web(request):
                     'dias': [dias_map[d] for d in dias_semana_esp],
                     'pago_base': round(pago_base_total, 2),
                     'retardos': total_retardos,
-                    'descuento_retardo': round(desc_retardo_dia, 2), # <--- Esta es la clave para el descuento
+                    # CORRECCIÓN: Usa la variable acumulada semanal, no la del último día
+                    'desc_retardos': round(total_desc_retardos_semanal, 2), 
                     'bonos': round(total_bonos, 2),
                     'descuentos': round(total_descuentos_manuales, 2),
                     'uniforme': round(total_uniforme, 2),
