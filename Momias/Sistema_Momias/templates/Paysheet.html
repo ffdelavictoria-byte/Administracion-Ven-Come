@@ -395,60 +395,36 @@
                     <td class="text-center p-1" style="min-width: 100px;">
 
                         {% for turno in dia_list %}
-
-                        <div class="mb-1 p-1 {% if 'FALTA' in turno.estatus %}table-danger{% elif 'DESCANSO' in turno.estatus %}table-warning{% elif 'ACTIVO' in turno.estatus %}table-success{% endif %}">
-
-                            <div class="fw-bold text-dark mb-1" style="font-size: 0.65rem; background: rgba(0,0,0,0.08); border-radius: 2px;">
-
-                                {{ turno.fecha_dia }}
-
-                            </div>
-
-                            <div class="fw-bold border-bottom mb-1" style="font-size: 0.7rem;">
-
-                                {{ turno.horas|default:"0" }}h - {{ turno.estatus }}
-
-                            </div>
-
-                            <div style="line-height: 1; margin-bottom: 2px;">
-
-                                <span class="text-primary fw-bold" style="font-size: 0.65rem;">{{ turno.sucursal|default:"---" }}</span><br>
-
-                                <span class="text-magenta" style="font-size: 0.6rem;">{{ turno.puesto|default:"---" }}</span>
-
-                            </div>
-
-
-
-                            {% if turno.horas_retardo > 0 or turno.descuento_retardo > 0 %}
-
-                            <div style="font-size: 0.55rem; background: #fff3f3; border: 1px solid #ffcdd2; margin: 2px 0; padding: 2px;">
-
-                                {% if turno.horas_retardo > 0 %}
-
-                                    <span class="fw-bold text-danger">R: {{ turno.horas_retardo }}h</span>
-
-                                {% endif %}
-
-                                {% if turno.descuento_retardo > 0 %}
-
-                                    <span class="fw-bold text-danger">| D: -${{ turno.descuento_retardo|floatformat:2 }}</span>
-
-                                {% endif %}
-
-                            </div>
-
-                            {% endif %}
-
-                
-
-                            <div class="text-success fw-bold mt-1" style="border-top: 1px dashed #bbb; font-size: 0.7rem;">
-
-                                ${{ turno.pago_dia|default:"0.00"|floatformat:2 }}
-
-                            </div>
-
-                        </div>
+                         <div class="mb-2 p-1 border-bottom">
+                             <div class="fw-bold mb-1" style="font-size: 0.65rem; background: rgba(0,0,0,0.05);">
+                                 {{ turno.fecha_dia }}
+                             </div>
+                             
+                             <div class="fw-bold mb-1" style="font-size: 0.7rem;">
+                                 {{ turno.horas|default:"0" }}h - {{ turno.estatus|default:"N/A" }}
+                             </div>
+                             
+                             <div style="line-height: 1.1; margin-bottom: 4px;">
+                                 <span class="text-primary fw-bold" style="font-size: 0.65rem;">{{ turno.sucursal|default:"---" }}</span><br>
+                                 <span class="text-magenta" style="font-size: 0.6rem;">{{ turno.puesto|default:"---" }}</span>
+                             </div>
+                         
+                             {% if turno.horas_retardo > 0 or turno.descuento_retardo > 0 %}
+                             <div style="font-size: 0.55rem; background: #fff3f3; border: 1px solid #ffcdd2; padding: 2px; margin-bottom: 2px;">
+                                 {% if turno.horas_retardo > 0 %}
+                                     <span class="fw-bold text-danger">R: {{ turno.horas_retardo }}h</span>
+                                 {% endif %}
+                                 {% if turno.descuento_retardo > 0 %}
+                                     <span class="fw-bold text-danger">| D: -${{ turno.descuento_retardo|floatformat:2 }}</span>
+                                 {% endif %}
+                             </div>
+                             {% endif %}
+                         
+                             <div class="text-success fw-bold" style="font-size: 0.75rem;">
+                                 ${{ turno.pago_dia|default:"0.00"|floatformat:2 }}
+                             </div>
+                         </div>
+                         {% endfor %}
 
                         {% empty %}
 
