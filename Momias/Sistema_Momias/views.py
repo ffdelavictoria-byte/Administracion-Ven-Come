@@ -881,6 +881,7 @@ def calcular_nomina_web(request):
                     
                     nombre_dia = dias_semana_esp[reg.fecha.weekday()]
                     dias_map[nombre_dia].append({
+                        'fecha_dia': reg.fecha.strftime('%d/%m/%y'),  # <--- AGREGA ESTA LÍNEA
                         'horas': retardo_dia,
                         'estatus': estatus_limpio,
                         'pago_dia': round(salario_dia, 2),
