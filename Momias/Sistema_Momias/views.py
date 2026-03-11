@@ -347,13 +347,13 @@ def Asistencias_view(request):
         return redirect('asistencias')
 
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
+    # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
             puesto_seleccionado = (request.POST.get('puesto') or "").strip()
             estatus = request.POST.get('estatus_jornada')
-            
             
             ent_m = (request.POST.get('entrada_matutina') or "").strip()
             sal_m = (request.POST.get('salida_matutina') or "").strip()
@@ -366,111 +366,63 @@ def Asistencias_view(request):
 
             if estatus in ["Falta", "Permiso", "Vacaciones"]:
                 monto_final = 0.0
-            
             elif estatus == "Descanso":
-                # Lógica específica para puestos de destajo
-                if puesto_seleccionado in ["Hamburguesas Momias", "Tuppers"]:
-                    monto_final = DESCANSO_DESTAJO
-                else:
-                    monto_final = 0.0
-
+                monto_final = DESCANSO_DESTAJO if puesto_seleccionado in ["Hamburguesas Momias", "Tuppers"] else 0.0
             elif puesto_seleccionado == "Hamburguesas Momias":
-                cargas = float(request.POST.get('cantidad_cargas') or 0)
-                monto_final = cargas * 51.50
-            
+                monto_final = float(request.POST.get('cantidad_cargas') or 0) * 51.50
             elif puesto_seleccionado == "Tuppers":
-                cargas = float(request.POST.get('cantidad_cargas') or 0)
-                monto_final = cargas * 46.50
-
+                monto_final = float(request.POST.get('cantidad_cargas') or 0) * 46.50
             else:
-                # Lógica proporcional para puestos con horario
                 salario_real = float(puestos_salarios.get(puesto_seleccionado, 0))
-                
-                # Normalizar a base 6h según el nombre del puesto
                 base_6h = salario_real
-                if "(9 horas)" in puesto_seleccionado or "(9 Horas)" in puesto_seleccionado:
+                if "(9 horas)" in puesto_seleccionado.lower():
                     base_6h = salario_real / 1.5
                 elif "(12 Horas)" in puesto_seleccionado:
                     base_6h = salario_real / 2
+                monto_final = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
 
-                pago_m = obtener_monto_bloque(base_6h, ent_m, sal_m)
-                pago_v = obtener_monto_bloque(base_6h, ent_v, sal_v)
-                monto_final = pago_m + pago_v
-
-            # 2. Puntos de Retardo (Referencia en campo horas)
+            # 2. Puntos de Retardo
             def calcular_puntos(valor):
                 if not valor or ":" in valor or "R1" in valor: return 0
-                mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
-                for clave, pts in mapping.items():
-                    if clave in valor.upper(): return pts
-                return 0
+                mapping = {f"R{i}": i-1 for i in range(2, 13)}
+                return mapping.get(valor.upper(), 0)
 
             total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
 
-            # 3. Guardado en Base de Datos con Validación Estricta
-            # 3. Guardado en Base de Datos con Lógica de Doble Turno
+            # 3. Guardado
             fecha_captura = request.POST.get('fecha')
             empleado_obj = Empleado.objects.get(id=empleado_id)
-            
-            # Determinamos si el registro actual tiene datos matutinos o vespertinos
-            # Consideramos que tiene turno si los campos NO están vacíos
-            es_matutino = bool(ent_m and sal_m)
-            es_vespertino = bool(ent_v and sal_v)
-
-            # Buscamos duplicados específicos por turno
-            asistencia_existente = None
-            
-            # Filtramos registros del mismo empleado y fecha
+            es_matutino, es_vespertino = bool(ent_m and sal_m), bool(ent_v and sal_v)
             registros_dia = Asistencia.objects.filter(empleado=empleado_obj, fecha=fecha_captura).exclude(id=asistencia_id or -1)
 
-            # Validamos si ya existe registro para el turno que intenta guardar
             if es_matutino and registros_dia.filter(entrada_matutina__isnull=False).exclude(entrada_matutina='').exists():
-                messages.error(request, "¡ERROR! Ya existe un registro para el TURNO MATUTINO de este empleado en esta fecha.")
+                messages.error(request, "Error: Ya existe registro MATUTINO.")
                 return redirect('asistencias')
-            
             if es_vespertino and registros_dia.filter(entrada_vespertina__isnull=False).exclude(entrada_vespertina='').exists():
-                messages.error(request, "¡ERROR! Ya existe un registro para el TURNO VESPERTINO de este empleado en esta fecha.")
+                messages.error(request, "Error: Ya existe registro VESPERTINO.")
                 return redirect('asistencias')
 
-            # Si no hay conflicto de turno, procedemos a crear o actualizar
-            if asistencia_id and asistencia_id.strip():
-                asistencia = get_object_or_404(Asistencia, id=asistencia_id)
-            else:
-                asistencia = Asistencia()
-                asistencia.empleado = empleado_obj
-                asistencia.fecha = fecha_captura
+            asistencia = get_object_or_404(Asistencia, id=asistencia_id) if asistencia_id and asistencia_id.strip() else Asistencia(empleado=empleado_obj, fecha=fecha_captura)
 
+            # Lógica de Motivo Descuento (Corregida)
             motivo_sel = request.POST.get('motivo_descuento')
             motivo_personalizado = request.POST.get('motivo_otro_texto', '').strip()
+            asistencia.motivo_descuento = f"Otro: {motivo_personalizado}" if motivo_sel == "Otro" and motivo_personalizado else motivo_sel
 
-            if motivo_sel == "Otro" and motivo_personalizado:
-                asistencia.motivo_descuento = f"Otro: {motivo_personalizado}"
-            else:
-                asistencia.motivo_descuento = motivo_sel
-
-            # Asignación de campos
-            asistencia.estatus = estatus
-            asistencia.puesto = puesto_seleccionado
-            asistencia.sucursal = request.POST.get('sucursal', 'Victoria')
-            asistencia.pago_dia = round(monto_final, 2)
-            asistencia.horas = float(total_puntos)
-            
-            asistencia.entrada_matutina = ent_m
-            asistencia.salida_matutina = sal_m
-            asistencia.entrada_vespertina = ent_v
-            asistencia.salida_vespertina = sal_v
-
+            # Asignación final
+            asistencia.estatus, asistencia.puesto, asistencia.sucursal = estatus, puesto_seleccionado, request.POST.get('sucursal', 'Victoria')
+            asistencia.pago_dia, asistencia.horas = round(monto_final, 2), float(total_puntos)
+            asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
+            asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
             asistencia.bonificacion = float(request.POST.get('bonificacion') or 0)
             asistencia.descuento = float(request.POST.get('descuento') or 0)
-            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
-            asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
-            asistencia.observaciones = request.POST.get('observaciones')
+            asistencia.motivo_bonificacion, asistencia.tipo_uniforme, asistencia.observaciones = request.POST.get('motivo_bonificacion'), request.POST.get('tipo_uniforme'), request.POST.get('observaciones')
             
             asistencia.save()
-            messages.success(request, "¡Registro guardado con éxito!")
+            messages.success(request, "¡Registro guardado!")
             return redirect('asistencias')
         except Exception as e:
-            messages.error(request, f"Error al procesar: {e}")
+            messages.error(request, f"Error: {e}")
             return redirect('asistencias')
         
 
