@@ -426,19 +426,20 @@
 
 
 
-                                {% if turno.horas > 0 %}
-
-                                <div style="font-size: 0.55rem; color: #555;">
-
+                                {% if turno.horas_retardo > 0 or turno.descuento_retardo > 0 %}
+                                <div style="font-size: 0.55rem; background: #fff3f3; border: 1px solid #ffcdd2; margin: 2px 0; padding: 2px;">
                                     {% if turno.horas_retardo > 0 %}
-
-                                        <span class="fw-bold text-danger">R: {{ turno.horas_retardo }}</span>
-
+                                        <span class="fw-bold text-danger">R: {{ turno.horas_retardo }}h</span>
                                     {% endif %}
-
                                     {% if turno.descuento_retardo > 0 %}
-
-                                        <span class="ms-1 fw-bold text-danger">Desc: ${{ turno.descuento_retardo|floatformat:2 }}</span>
+                                        <span class="fw-bold text-danger">| D: -${{ turno.descuento_retardo|floatformat:2 }}</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                    
+                                <div class="text-success fw-bold mt-1" style="border-top: 1px dashed #bbb; font-size: 0.7rem;">
+                                    ${{ turno.pago_dia|default:"0.00"|floatformat:2 }}
+                                </div>
 
                                     {% endif %}
 
