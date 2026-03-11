@@ -850,7 +850,7 @@ def calcular_nomina_web(request):
                     })
 
                 # --- ESCALA DE DESCUENTOS ---
-                TABLA_CASTIGOS = {
+                TABLA_CASTIGOS_DIARIA = {
                     1: 0.0,
                     2: 0.5, 3: 0.5,
                     4: 1.0, 5: 1.0,
@@ -859,32 +859,30 @@ def calcular_nomina_web(request):
                     10: 2.5, 11: 2.5,
                     12: 3.0
                 }
-
+                
                 # --- PROCESAMIENTO FINAL ---
                 pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
                 total_desc_retardos_semanal = 0.0
-                total_retardos_acumulados = 0 
+                # Eliminamos total_retardos_acumulados_semanal
                 aplica_uniforme_semanal = False 
                 dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
                 dias_map = {d: [] for d in dias_semana_esp}
-
+                
                 for item in lista_detalles_asistencia:
                     reg = item['reg']
-                    retardo_dia = item['retardo_dia']
+                    retardo_dia = item['retardo_dia'] # Aquí ya tienes los retardos de ESE DÍA específico
                     salario_dia = item['salario_dia']
                     base_salario_dia = item['salario_puesto_full']
                     
                     desc_retardo_dia = 0.0
                     
-                    # Si hubo retardo en este día, aplicamos la regla según el acumulado
+                    # CALCULAMOS EL CASTIGO BASADO SOLO EN LOS RETARDOS DE ESTE DÍA
                     if retardo_dia > 0:
-                        # Sumamos los retardos del día al acumulado total
-                        total_retardos_acumulados += retardo_dia
+                        # Si retardo_dia es 3, buscamos en la tabla qué castigo le corresponde
+                        # Usamos min(retardo_dia, 12) para no salirnos de la tabla
+                        factor = TABLA_CASTIGOS_DIARIA.get(min(retardo_dia, 12), 3.0 if retardo_dia > 12 else 0.0)
                         
-                        # Buscamos el factor en la tabla. Si excede 12, usamos 3.0
-                        factor = TABLA_CASTIGOS.get(min(total_retardos_acumulados, 12), 3.0 if total_retardos_acumulados > 12 else 0.0)
-                        
-                        # Calculamos el descuento proporcional al salario del puesto del día
+                        # El descuento se aplica solo al puesto de este día
                         desc_retardo_dia = factor * base_salario_dia
 
                     val_bono = float(reg.bonificacion or 0.0)
