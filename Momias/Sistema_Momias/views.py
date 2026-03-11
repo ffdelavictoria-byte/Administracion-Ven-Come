@@ -875,10 +875,15 @@ def calcular_nomina_web(request):
                     
                     # Cálculo del descuento distribuido proporcionalmente
                     desc_retardo_dia = 0.0
-                    if retardo_dia > 0 and total_retardos_semanales > 1:
-                        # Se toma el sueldo de 1 día (base 6h) multiplicado por el castigo total, dividido entre los días con retardo
+                    # La regla: Solo si hay más de 1 retardo en la semana
+                    if total_retardos_semanales > 1:
+                        # Calculamos basándonos en el salario del PUESTO DE ESE DÍA ESPECÍFICO
+                        # (item['salario_puesto_full'] es la base de 6h del puesto registrado)
                         monto_castigo_total = multiplicador_total * (item['salario_puesto_full'] / 6)
-                        desc_retardo_dia = monto_castigo_total / total_retardos_semanales
+                        
+                        # Si el retardo ocurrió en este turno, le asignamos la parte proporcional
+                        if retardo_dia > 0:
+                            desc_retardo_dia = monto_castigo_total / total_retardos_semanales
 
                     val_bono = float(reg.bonificacion or 0.0)
                     val_desc = float(reg.descuento or 0.0)
