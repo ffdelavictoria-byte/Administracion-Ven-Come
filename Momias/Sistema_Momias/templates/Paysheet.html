@@ -211,12 +211,22 @@
                                     <span class="text-primary fw-bold" style="font-size: 0.65rem;">{{ turno.sucursal|default:"---" }}</span><br>
                                     <span class="text-magenta" style="font-size: 0.6rem;">{{ turno.puesto|default:"---" }}</span>
                                 </div>
+
+                                {% if turno.horas > 0 %}
+                                <div style="font-size: 0.55rem; color: #555;">
+                                    {% if turno.horas_retardo > 0 %}
+                                        <span class="fw-bold text-danger">R: {{ turno.horas_retardo }}</span>
+                                    {% endif %}
+                                    {% if turno.descuento_retardo > 0 %}
+                                        <span class="ms-1 fw-bold text-danger">Desc: ${{ turno.descuento_retardo|floatformat:2 }}</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
                     
                                 <div class="text-success fw-bold mt-1" style="border-top: 1px dashed #bbb; font-size: 0.7rem;">
                                     ${{ turno.pago_dia|default:"0.00"|floatformat:2 }}
                                 </div>
-                                
-                                </div>
+                            </div>
                         {% empty %}
                             <div class="text-muted" style="font-size: 0.6rem;">---</div>
                         {% endfor %}
@@ -279,21 +289,18 @@
                                         <span class="text-magenta">{{ turno.puesto|default:"--" }}</span>
                                     </div>
 
+                                    <div style="font-size: 0.55rem; margin-top: 2px;">
+                                        {% if turno.horas_retardo > 0 %}
+                                            <span class="fw-bold text-danger">R: {{ turno.horas_retardo }}</span>
+                                        {% endif %}
+                                        {% if turno.descuento_retardo > 0 %}
+                                            <span class="ms-1 fw-bold text-danger">D: -${{ turno.descuento_retardo|floatformat:2 }}</span>
+                                        {% endif %}
+                                    </div>
+
                                     <div class="mt-1 fw-bold text-success" style="font-size: 0.75rem; border-top: 1px dashed #ccc; padding-top: 2px;">
                                         ${{ turno.pago_dia|default:"0.00"|floatformat:2 }}
                                     </div>
-
-                                    {% if turno.descuento_retardo > 0 %}
-                                    <div style="font-size: 0.55rem; color: #c62828; font-weight: bold;">
-                                        R: -${{ turno.descuento_retardo|floatformat:2 }}
-                                    </div>
-                                    {% endif %}
-
-                                    {% if turno.descuento_aplicado > 0 %}
-                                    <div style="font-size: 0.6rem; color: #c62828; font-weight: bold;">
-                                        D: -${{ turno.descuento_aplicado|floatformat:2 }}
-                                    </div>
-                                    {% endif %}
                                 </div>
                             {% empty %}
                                 <div class="text-muted" style="font-size: 0.6rem;">---</div>
