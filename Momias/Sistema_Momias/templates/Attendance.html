@@ -680,14 +680,20 @@ function limpiarFormularioYTabla() {
     }
 
     // Reset de horarios
-    [entMat, entVes, salMat, salVes].forEach(el => {
-        el.style.display = "block";
-        const customInput = document.getElementById('custom_' + el.id);
-        if (customInput) {
-            customInput.style.display = "none";
-            customInput.value = "";
+[entMat, entVes, salMat, salVes].forEach(el => {
+    el.addEventListener('change', () => {
+        // Autocompletado inteligente
+        if (el.id === 'entrada_matutina' && el.value !== "" && salMat.value === "") {
+            salMat.value = "15:00";
         }
+        if (el.id === 'entrada_vespertina' && el.value !== "" && salVes.value === "") {
+            salVes.value = "21:00";
+        }
+        
+        manejarHorarioPersonalizado(el.id);
+        actualizarTodo(); // Aseguramos que el botón se recalcule siempre
     });
+});
 
     asistenciaIdInput.value = "";
     empleadoHidden.value = "";
@@ -699,33 +705,27 @@ function limpiarFormularioYTabla() {
 }
     // --- ALERTA DE DUPLICIDAD EN TIEMPO REAL ---
     async function verificarDuplicidad() {
-        const fecha = document.getElementById('fecha').value;
-        const empId = document.getElementById('empleado_id_hidden').value;
-        const asistenciaId = document.getElementById('asistencia_id').value;
+    const fecha = document.getElementById('fecha').value;
+    const empId = document.getElementById('empleado_id_hidden').value;
     
-        if (fecha && empId) {
-            // Hacemos una llamada al servidor para consultar si existe el registro
-            // Nota: Asegúrate de tener una URL o vista que devuelva esto. 
-            // Si no, puedes simplificarlo buscando en los datos de la tabla que ya tienes cargada en el HTML.
-            const filas = document.querySelectorAll('#tabla-asistencias-body tr');
-            let existe = false;
-            
-            // Buscamos en la tabla renderizada (si el registro está en la página actual)
-            filas.forEach(fila => {
-                // Lógica simple de comparación de fecha y empleado en el texto de la tabla
-                // (Si usas paginación, lo ideal es una consulta AJAX real a una vista)
-            });
-    
-            // Alternativa: Si el usuario selecciona fecha/empleado, cambiamos el color del botón
-            if (existe) {
-                btnPrincipal.style.background = "#FF5722"; // Naranja rojizo de alerta
-                btnPrincipal.innerText = "¡ADVERTENCIA: REGISTRO EXISTENTE!";
-            } else {
-                btnPrincipal.style.background = "#4CAF50"; // Verde original
-                btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
-            }
+    // Si estamos editando, NO hacemos la validación de duplicidad
+    if (form.dataset.modo === "editando") return;
+
+    if (fecha && empId) {
+        const filas = document.querySelectorAll('#tabla-asistencias-body tr');
+        let existe = false;
+        // Aquí iría tu lógica de búsqueda...
+        
+        if (existe) {
+            btnPrincipal.style.background = "#FF5722";
+            btnPrincipal.innerText = "¡ADVERTENCIA: REGISTRO EXISTENTE!";
+        } else {
+            // Solo devolvemos a verde si NO estamos en modo edición
+            btnPrincipal.style.background = "#4CAF50";
+            btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
         }
     }
+}
     
     // Escuchar cambios en fecha o empleado
     document.getElementById('fecha').addEventListener('change', verificarDuplicidad);
