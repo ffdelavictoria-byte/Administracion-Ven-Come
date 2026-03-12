@@ -606,132 +606,73 @@
     // --- FUNCIÓN MAESTRA: ACTUALIZAR TODO ---
 
     function actualizarTodo() {
-
-        const puesto = puestoSelect.value.trim();
-
-        const estatus = estatusJornada.value;
-
-        const cargas = parseFloat(inputCargas.value) || 0;
-
-
-
-        // 1. Visibilidad de Cargas
-
-        if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
-
-            divCargas.style.display = "block";
-
-            labelCargas.innerText = (puesto === "Hamburguesas Momias") 
-
-                ? "Cantidad de Cargas ($51.50 c/u):" 
-
-                : "Cantidad de Tuppers ($46.50 c/u):";
-
-        } else {
-
-            divCargas.style.display = "none";
-
-            if (asistenciaIdInput.value === "") inputCargas.value = 0; 
-
-        }
-
-
-
-        // 2. Lógica de Sueldos
-
-        const estatusSinPago = ["Falta", "Vacaciones", "Permiso"];
-
-        
-
-        if (estatusSinPago.includes(estatus)) {
-
-            inputMonto.value = "0.00";
-
-            sueldoMsg.innerHTML = `<span style="color: gray;">Sin pago por ${estatus}</span>`;
-
-        } 
-
-        else if (estatus === "Descanso") {
-
-            if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
-
-                inputMonto.value = "138.00";
-
-                sueldoMsg.innerHTML = `<b style="color: blue;">Descanso Pagado: $138.00</b>`;
-
-            } else {
-
-                inputMonto.value = "0.00";
-
-                sueldoMsg.innerHTML = "Descanso No Pagado";
-
-            }
-
-        }
-
-        else if (puesto === "Hamburguesas Momias") {
-
-            let total = (cargas * 51.50).toFixed(2);
-
-            inputMonto.value = total;
-
-            sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
-
-        } 
-
-        else if (puesto === "Tuppers") {
-
-            let total = (cargas * 46.50).toFixed(2);
-
-            inputMonto.value = total;
-
-            sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
-
-        } 
-
-        else {
-
-            // Sueldo Proporcional (Estilo FF)
-
-            let base = parseFloat(salarios[puesto]) || 0;
-
-            let totalCalculado = 0;
-
-            
-
-            let hMat = calcularHorasTrabajadas(entMat.value, salMat.value);
-
-            let hVes = calcularHorasTrabajadas(entVes.value, salVes.value);
-
-
-
-            // Si hay algún horario definido
-
-            if (hMat !== null || hVes !== null) {
-
-                // Cálculo: (Sueldo base / 6 horas de jornada estándar) * horas reales
-
-                if (hMat !== null) totalCalculado += (base / 6) * hMat;
-
-                if (hVes !== null) totalCalculado += (base / 6) * hVes;
-
-                
-
-                inputMonto.value = totalCalculado.toFixed(2);
-
-            } else {
-
-                // Si no hay horarios pero el estatus es normal, mostrar base
-
-                inputMonto.value = base.toFixed(2);
-
-                sueldoMsg.innerText = base > 0 ? `Sueldo Base: $${base.toFixed(2)}` : "";
-
-            }
-
-        }
-
+    const puesto = puestoSelect.value.trim();
+    const estatus = estatusJornada.value;
+    const cargas = parseFloat(inputCargas.value) || 0;
+    
+    // --- ESTADO DEL BOTÓN (La clave está aquí) ---
+    const esModoEdicion = asistenciaIdInput.value !== ""; 
+    
+    if (esModoEdicion) {
+        btnPrincipal.innerText = "CORREGIR REGISTRO";
+        btnPrincipal.style.background = "#FFC107"; // Amarillo
+        btnPrincipal.style.color = "black";
+    } else {
+        btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
+        btnPrincipal.style.background = "#4CAF50"; // Verde
+        btnPrincipal.style.color = "white";
     }
+
+    // 1. Visibilidad de Cargas
+    if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
+        divCargas.style.display = "block";
+        labelCargas.innerText = (puesto === "Hamburguesas Momias") 
+            ? "Cantidad de Cargas ($51.50 c/u):" 
+            : "Cantidad de Tuppers ($46.50 c/u):";
+    } else {
+        divCargas.style.display = "none";
+        // Solo reseteamos si NO estamos editando
+        if (!esModoEdicion) inputCargas.value = 0; 
+    }
+
+    // 2. Lógica de Sueldos (resto de tu código...)
+    const estatusSinPago = ["Falta", "Vacaciones", "Permiso"];
+    if (estatusSinPago.includes(estatus)) {
+        inputMonto.value = "0.00";
+        sueldoMsg.innerHTML = `<span style="color: gray;">Sin pago por ${estatus}</span>`;
+    } 
+    else if (estatus === "Descanso") {
+        if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
+            inputMonto.value = "138.00";
+            sueldoMsg.innerHTML = `<b style="color: blue;">Descanso Pagado: $138.00</b>`;
+        } else {
+            inputMonto.value = "0.00";
+            sueldoMsg.innerHTML = "Descanso No Pagado";
+        }
+    }
+    else if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
+        let precio = (puesto === "Hamburguesas Momias") ? 51.50 : 46.50;
+        let total = (cargas * precio).toFixed(2);
+        inputMonto.value = total;
+        sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
+    }
+    else {
+        let base = parseFloat(salarios[puesto]) || 0;
+        let hMat = calcularHorasTrabajadas(entMat.value, salMat.value);
+        let hVes = calcularHorasTrabajadas(entVes.value, salVes.value);
+        let totalCalculado = 0;
+        
+        if (hMat !== null || hVes !== null) {
+            if (hMat !== null) totalCalculado += (base / 6) * hMat;
+            if (hVes !== null) totalCalculado += (base / 6) * hVes;
+            inputMonto.value = totalCalculado.toFixed(2);
+            sueldoMsg.innerText = `Sueldo Sugerido: $${totalCalculado.toFixed(2)}`;
+        } else {
+            inputMonto.value = base.toFixed(2);
+            sueldoMsg.innerText = base > 0 ? `Sueldo Base: $${base.toFixed(2)}` : "";
+        }
+    }
+}
 
 
 
