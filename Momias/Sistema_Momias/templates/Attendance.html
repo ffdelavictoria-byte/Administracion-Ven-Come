@@ -565,8 +565,7 @@ function actualizarTodo() {
         }
     }
 
-    // 3. GESTIÓN DEL BOTÓN (El "Candado" de estado)
-    // Siempre verificamos el modo actual del formulario antes de tocar el botón
+    // 3. Gestión del Botón (Centralizada)
     if (form.dataset.modo === "editando") {
         btnPrincipal.innerText = "CORREGIR REGISTRO";
         btnPrincipal.style.background = "#FFC107"; // Amarillo
@@ -577,19 +576,6 @@ function actualizarTodo() {
         btnPrincipal.style.color = "white";
     }
 }
-
-        // --- 3. CANDADO DE ESTADO DEL BOTÓN ---
-        // Esto evita que el botón cambie a verde si estamos editando
-        if (form.dataset.modo === "editando") {
-            btnPrincipal.innerText = "CORREGIR REGISTRO";
-            btnPrincipal.style.background = "#FFC107";
-            btnPrincipal.style.color = "black";
-        } else {
-            btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
-            btnPrincipal.style.background = "#4CAF50";
-            btnPrincipal.style.color = "white";
-        }
-    }
 
     // --- EVENTOS ---
     [entMat, entVes, salMat, salVes].forEach(el => {
@@ -670,30 +656,25 @@ function prepararEdicion(boton) {
 
 // --- LIMPIAR FORMULARIO ---
 function limpiarFormularioYTabla() {
+    // 1. Reseteo del formulario
     form.reset();
     form.dataset.modo = "captura"; // Regresamos al modo original
 
-    // Limpieza visual
+    // 2. Limpieza visual de la tabla
     const tablaBody = document.getElementById('tabla-asistencias-body');
     if (tablaBody && !document.querySelector('form[method="GET"] input[name="q"]')?.value) {
         tablaBody.innerHTML = '<tr id="fila-vacia"><td colspan="6">No hay registros visualizados.</td></tr>';
     }
 
-    // Reset de horarios
-[entMat, entVes, salMat, salVes].forEach(el => {
-    el.addEventListener('change', () => {
-        // Autocompletado inteligente
-        if (el.id === 'entrada_matutina' && el.value !== "" && salMat.value === "") {
-            salMat.value = "15:00";
-        }
-        if (el.id === 'entrada_vespertina' && el.value !== "" && salVes.value === "") {
-            salVes.value = "21:00";
-        }
-        
-        manejarHorarioPersonalizado(el.id);
-        actualizarTodo(); // Aseguramos que el botón se recalcule siempre
-    });
-});
+    // 3. Limpieza de campos ocultos y mensajes
+    asistenciaIdInput.value = "";
+    empleadoHidden.value = "";
+    empleadoSearch.value = "";
+    if (sueldoMsg) sueldoMsg.innerHTML = "";
+
+    // 4. Forzar actualización para restaurar el estado del botón y cálculos
+    actualizarTodo();
+}
 
     asistenciaIdInput.value = "";
     empleadoHidden.value = "";
