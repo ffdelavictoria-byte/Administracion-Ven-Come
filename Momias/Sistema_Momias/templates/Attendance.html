@@ -502,7 +502,7 @@
         return diferenciaMins > 0 ? diferenciaMins / 60 : 0;
     }
 
-    // --- FUNCIÓN MAESTRA: ACTUALIZAR TODO ---
+// --- FUNCIÓN MAESTRA: ACTUALIZAR TODO ---
     function actualizarTodo() {
         const puesto = puestoSelect.value.trim();
         const estatus = estatusJornada.value;
@@ -546,25 +546,34 @@
             sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
         } 
         else {
-            // Sueldo Proporcional (Estilo FF)
+            // Sueldo Proporcional
             let base = parseFloat(salarios[puesto]) || 0;
             let totalCalculado = 0;
             
             let hMat = calcularHorasTrabajadas(entMat.value, salMat.value);
             let hVes = calcularHorasTrabajadas(entVes.value, salVes.value);
 
-            // Si hay algún horario definido
             if (hMat !== null || hVes !== null) {
-                // Cálculo: (Sueldo base / 6 horas de jornada estándar) * horas reales
                 if (hMat !== null) totalCalculado += (base / 6) * hMat;
                 if (hVes !== null) totalCalculado += (base / 6) * hVes;
-                
                 inputMonto.value = totalCalculado.toFixed(2);
+                sueldoMsg.innerText = `Sueldo Sugerido: $${totalCalculado.toFixed(2)}`;
             } else {
-                // Si no hay horarios pero el estatus es normal, mostrar base
                 inputMonto.value = base.toFixed(2);
                 sueldoMsg.innerText = base > 0 ? `Sueldo Base: $${base.toFixed(2)}` : "";
             }
+        }
+
+        // --- 3. CANDADO DE ESTADO DEL BOTÓN ---
+        // Esto evita que el botón cambie a verde si estamos editando
+        if (form.dataset.modo === "editando") {
+            btnPrincipal.innerText = "CORREGIR REGISTRO";
+            btnPrincipal.style.background = "#FFC107";
+            btnPrincipal.style.color = "black";
+        } else {
+            btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
+            btnPrincipal.style.background = "#4CAF50";
+            btnPrincipal.style.color = "white";
         }
     }
 
@@ -588,105 +597,115 @@
     estatusJornada.addEventListener('change', actualizarTodo);
     inputCargas.addEventListener('input', actualizarTodo);
 
-    // --- PREPARAR EDICIÓN ---
+// --- PREPARAR EDICIÓN ---
     function prepararEdicion(boton) {
-    const d = boton.dataset;
-    asistenciaIdInput.value = d.id;
-    empleadoHidden.value = d.emp;
+        const d = boton.dataset;
+        
+        // Marcamos el formulario en modo edición ANTES de actualizar nada
+        form.dataset.modo = "editando"; 
+        asistenciaIdInput.value = d.id;
+        empleadoHidden.value = d.emp;
 
-    const opciones = datalist.options;
-    for (let i = 0; i < opciones.length; i++) {
-        if (opciones[i].getAttribute('data-id') == d.emp) {
-            empleadoSearch.value = opciones[i].value;
-            break;
+        // Buscar el nombre del empleado en el datalist para mostrarlo en el input visual
+        const opciones = datalist.options;
+        for (let i = 0; i < opciones.length; i++) {
+            if (opciones[i].getAttribute('data-id') == d.emp) {
+                empleadoSearch.value = opciones[i].value;
+                break;
+            }
         }
-    }
 
-    document.getElementById('fecha').value = d.fec;
-    puestoSelect.value = d.pue;
-    document.getElementById('sucursal').value = d.suc;
-    
-    entMat.value = d.mat || "";
-    entVes.value = d.ves || "";
-    salMat.value = d.salmat || "";
-    salVes.value = d.salves || "";
+        // Llenado de campos básicos
+        document.getElementById('fecha').value = d.fec;
+        puestoSelect.value = d.pue;
+        document.getElementById('sucursal').value = d.suc;
+        
+        // Horarios
+        entMat.value = d.mat || "";
+        entVes.value = d.ves || "";
+        salMat.value = d.salmat || "";
+        salVes.value = d.salves || "";
 
-    if (inputCargas) inputCargas.value = d.car || 0;
+        // Cargas (destajo)
+        if (inputCargas) inputCargas.value = d.car || 0;
 
-    estatusJornada.value = d.est;
-    document.getElementById('bonificacion').value = d.bon;
-    document.getElementById('motivo_bonificacion').value = d.mbon || "";
-    
-    // --- Lógica para Descuento y Motivo Personalizado ---
-    const mDes = d.mdes || "";
-    const campoOtroDescuento = document.getElementById('motivo_otro_texto');
-    
-    if (mDes.startsWith("Otro: ")) {
-        document.getElementById('motivo_descuento').value = "Otro";
-        campoOtroDescuento.style.display = "block";
-        campoOtroDescuento.value = mDes.replace("Otro: ", "");
-    } else {
-        document.getElementById('motivo_descuento').value = mDes;
-        campoOtroDescuento.style.display = "none";
-        campoOtroDescuento.value = "";
-    }
-    
-    document.getElementById('descuento').value = d.des;
-    document.getElementById('tipo_uniforme').value = d.uni || "";
-    document.getElementById('observaciones').value = d.obs;
-
-    btnPrincipal.innerText = "CORREGIR REGISTRO";
-    btnPrincipal.style.background = "#FFC107";
-    btnPrincipal.style.color = "black";
-    
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    actualizarTodo();
-}
-
-    function limpiarFormularioYTabla() {
-    // 1. Reset básico del formulario
-    form.reset();
-
-    // 2. Limpiar la tabla visualmente
-    const tablaBody = document.getElementById('tabla-asistencias-body');
-    if (tablaBody) {
-        tablaBody.innerHTML = '<tr id="fila-vacia"><td colspan="6">No hay registros visualizados.</td></tr>';
-    }
-
-    // 3. Resetear lógica de horarios (Selects y Custom Inputs)
-    [entMat, entVes, salMat, salVes].forEach(el => {
-        // Volver a mostrar el select y ocultar el input de tiempo
-        el.style.display = "block";
-        const customInput = document.getElementById('custom_' + el.id);
-        if (customInput) {
-            customInput.style.display = "none";
-            customInput.value = "";
+        estatusJornada.value = d.est;
+        document.getElementById('bonificacion').value = d.bon;
+        document.getElementById('motivo_bonificacion').value = d.mbon || "";
+        
+        // --- Lógica para Descuento y Motivo Personalizado ---
+        const mDes = d.mdes || "";
+        const campoOtroDescuento = document.getElementById('motivo_otro_texto');
+        
+        if (mDes.startsWith("Otro: ")) {
+            document.getElementById('motivo_descuento').value = "Otro";
+            campoOtroDescuento.style.display = "block";
+            campoOtroDescuento.value = mDes.replace("Otro: ", "");
+        } else {
+            document.getElementById('motivo_descuento').value = mDes;
+            campoOtroDescuento.style.display = "none";
+            campoOtroDescuento.value = "";
         }
         
-        // IMPORTANTE: Resetear el valor de la opción "OTRO" para que no guarde la hora manual anterior
-        const optionOtro = el.querySelector('option[value!="OTRO"][value!=""]'); // busca si se quedó con un valor manual
-        let optOtro = el.querySelector('option[text*="Manual"]');
-        if (optOtro) optOtro.value = "OTRO"; 
-    });
+        document.getElementById('descuento').value = d.des;
+        document.getElementById('tipo_uniforme').value = d.uni || "";
+        document.getElementById('observaciones').value = d.obs;
 
-    // 4. Limpiar variables de control y búsqueda
-    asistenciaIdInput.value = "";
-    empleadoHidden.value = "";
-    empleadoSearch.value = ""; 
-    
-    // 5. Limpiar el mensaje de sueldo sugerido
-    if (sueldoMsg) {
-        sueldoMsg.innerHTML = "";
+        // Cambiamos el estilo del botón para indicar edición
+        btnPrincipal.innerText = "CORREGIR REGISTRO";
+        btnPrincipal.style.background = "#FFC107"; // Amarillo
+        btnPrincipal.style.color = "black";
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // Llamamos a actualizarTodo para que calcule sueldos/visibilidad de cargas
+        actualizarTodo();
     }
 
-    // 6. Restaurar el botón principal a su estado original
-    btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
-    btnPrincipal.style.background = "#4CAF50";
-    btnPrincipal.style.color = "white";
+    function limpiarFormularioYTabla() {
+        // 1. Reset básico del formulario y quitar marca de edición
+        form.reset();
+        form.dataset.modo = "captura"; 
 
-    // 7. Forzar actualización de lógica (ocultar campos de cargas, etc.)
-    actualizarTodo();
-}
+        // 2. Limpiar la tabla visualmente (si aplica según tu lógica de filtrado)
+        const tablaBody = document.getElementById('tabla-asistencias-body');
+        if (tablaBody && !document.querySelector('form[method="GET"] input[name="q"]').value) {
+            // Solo limpiamos si no hay un filtro activo en la URL
+             tablaBody.innerHTML = '<tr id="fila-vacia"><td colspan="6">No hay registros visualizados.</td></tr>';
+        }
+
+        // 3. Resetear lógica de horarios (Selects y Custom Inputs)
+        [entMat, entVes, salMat, salVes].forEach(el => {
+            el.style.display = "block";
+            const customInput = document.getElementById('custom_' + el.id);
+            if (customInput) {
+                customInput.style.display = "none";
+                customInput.value = "";
+            }
+            
+            // Resetear el valor manual oculto
+            let optOtro = el.querySelector('option[text*="Manual"]');
+            if (optOtro) optOtro.value = "OTRO"; 
+        });
+
+        // 4. Limpiar variables de control y búsqueda
+        asistenciaIdInput.value = "";
+        empleadoHidden.value = "";
+        empleadoSearch.value = ""; 
+        
+        // 5. Limpiar el mensaje de sueldo sugerido
+        if (sueldoMsg) {
+            sueldoMsg.innerHTML = "";
+        }
+
+        // 6. Restaurar el botón principal a su estado de captura original
+        btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
+        btnPrincipal.style.background = "#4CAF50"; // Verde
+        btnPrincipal.style.color = "white";
+
+        // 7. Forzar actualización de lógica visual
+        actualizarTodo();
+    }
     // --- ALERTA DE DUPLICIDAD EN TIEMPO REAL ---
     async function verificarDuplicidad() {
         const fecha = document.getElementById('fecha').value;
