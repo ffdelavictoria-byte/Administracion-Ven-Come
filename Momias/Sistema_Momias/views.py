@@ -433,7 +433,8 @@ def Asistencias_view(request):
             else:
                 asistencia = Asistencia()
                 asistencia.empleado = empleado_obj
-                asistencia.fecha = fecha_captura
+                
+            asistencia.fecha = fecha_captura
 
             # Asignación de campos
             asistencia.estatus = estatus
