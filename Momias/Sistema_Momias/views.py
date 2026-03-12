@@ -808,25 +808,38 @@ def calcular_nomina_web(request):
                 asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
                 puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
                 
-                # --- LÓGICA DE DESCANSO MEJORADA ---
+                # --- LÓGICA DE DESCANSO AJUSTADA ---
                 asistencias_trabajadas = [a for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
                 
                 if asistencias_trabajadas:
                     total_dias_trabajados = len(asistencias_trabajadas)
                     conteo_puestos = Counter([a.puesto for a in asistencias_trabajadas])
                     
-                    # Detectamos cuántos días trabajó turno de 12 horas
+                    # 1. Identificar si cumple la regla de entrada 9am y salida 9pm (o similar jornada completa)
+                    # Comparamos si al menos un registro tiene ambos horarios (Matutino y Vespertino)
+                    es_jornada_completa = any(
+                        (a.entrada_matutina == "09:00" and a.salida_vespertina == "21:00") 
+                        for a in asistencias_trabajadas
+                    )
+
+                    # 2. Calcular salario de descanso
+                    if es_jornada_completa:
+                        # Se paga como dos turnos del puesto más recurrente
+                        puesto_frecuente = conteo_puestos.most_common(1)[0][0]
+                        salario_descanso = puestos_salarios.get(puesto_frecuente, 0) * 2
+                        puesto_principal = f"{puesto_frecuente} (Doble)"
+                    else:
+                        # Si hay puestos mixtos, se paga un turno de cada uno según su frecuencia
+                        # Esto ya lo cubría tu lógica de promedio ponderado, la mantenemos:
+                        salario_descanso = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
+                                               for p, c in conteo_puestos.items())
+                        puesto_principal = conteo_puestos.most_common(1)[0][0]
+                    
+                    # 3. Regla especial para turnos de 12 horas (si aplica)
                     dias_dobles = sum(1 for a in asistencias_trabajadas if "(12 Horas)" in (a.puesto or ""))
-                    
-                    # Calculamos la base proporcional (tu lógica original)
-                    salario_descanso = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
-                                           for p, c in conteo_puestos.items())
-                    
-                    # REGLA: Si trabajó más de 5 días en turno de 12 horas, el descanso se paga doble
-                    if dias_dobles > 5:
+                    if dias_dobles > 6:
                         salario_descanso *= 2
                         
-                    puesto_principal = conteo_puestos.most_common(1)[0][0]
                 else:
                     salario_descanso = float(empleado.sueldo_base or 0)
                     puesto_principal = "Sin Puesto"
