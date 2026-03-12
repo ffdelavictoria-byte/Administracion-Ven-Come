@@ -402,311 +402,634 @@
 {{ puestos_json|json_script:"puestos-data" }}
 
 <script>
+
     // 1. Inicialización de Datos y Elementos
+
     const salariosRaw = JSON.parse(document.getElementById('puestos-data').textContent);
+
     const salarios = {};
+
     // Limpieza de llaves del JSON para evitar errores por espacios
+
     Object.keys(salariosRaw).forEach(key => { salarios[key.trim()] = salariosRaw[key]; });
 
+
+
     const form = document.getElementById('formAsistencia');
+
     const asistenciaIdInput = document.getElementById('asistencia_id');
+
     const btnPrincipal = document.getElementById('btn-principal');
+
     const puestoSelect = document.getElementById('puesto_input');
+
     const sueldoMsg = document.getElementById('sueldo_sugerido');
+
     
+
     const empleadoSearch = document.getElementById('empleado_search');
+
     const empleadoHidden = document.getElementById('empleado_id_hidden');
+
     const datalist = document.getElementById('lista_empleados');
 
+
+
     const entMat = document.getElementById('entrada_matutina');
+
     const entVes = document.getElementById('entrada_vespertina');
+
     const salMat = document.getElementById('salida_matutina');
+
     const salVes = document.getElementById('salida_vespertina');
+
     const estatusJornada = document.getElementById('estatus_jornada');
 
+
+
     const divCargas = document.getElementById('group_cargas');
+
     const labelCargas = document.getElementById('label_cargas');
+
     const inputCargas = document.getElementById('cantidad_cargas');
+
     const inputMonto = document.getElementById('monto_dia');
 
+
+
     // --- LÓGICA DE BÚSQUEDA DE EMPLEADO ---
+
     empleadoSearch.addEventListener('input', function() {
+
         const val = this.value;
+
         const options = datalist.options;
+
         for (let i = 0; i < options.length; i++) {
+
             if (options[i].value === val) {
+
                 empleadoHidden.value = options[i].getAttribute('data-id');
+
                 puestoSelect.value = options[i].getAttribute('data-puesto');
+
                 actualizarTodo();
+
                 break;
+
             }
+
         }
+
     });
+
+
 
     // Busca esta parte en tu script y cámbiala por esto:
+
     const inputFiltro = document.getElementById('input_filtro_tabla');
+
     const datalistFiltro = document.getElementById('lista_busqueda_tabla');
+
     
+
     if (inputFiltro) {
+
         inputFiltro.addEventListener('input', function(e) {
+
             // Solo dejamos que el usuario presione el botón "FILTRAR" manualmente.
+
             // Si quieres que sea automático, quita el 'this.form.submit()' 
+
             // y asegúrate de que el input no esté dentro de un form que se dispare con Enter.
+
             const val = this.value;
+
             // Si el valor coincide con una opción, podrías disparar, 
+
             // pero verifica que el nombre no coincida con un elemento del otro formulario.
+
         });
+
     }
+
+
 
     // --- LÓGICA DE HORARIOS PERSONALIZADOS (Estilo FF) ---
+
     function manejarHorarioPersonalizado(selectId) {
+
         const select = document.getElementById(selectId);
+
         const customInput = document.getElementById('custom_' + selectId);
+
         
+
         if (select.value === "OTRO") {
+
             select.style.display = "none";
+
             customInput.style.display = "block";
+
             customInput.focus();
+
         } else {
+
             select.style.display = "block";
+
             customInput.style.display = "none";
+
             customInput.value = "";
+
         }
+
         actualizarTodo();
+
     }
+
+
 
     // Sincroniza el valor del input de tiempo con el valor del select oculto
+
     function sincronizarTiempo(input, selectId) {
+
         const select = document.getElementById(selectId);
+
         if (input.value) {
+
             let optionOtro = select.querySelector('option[value="OTRO"]');
+
             if (optionOtro) {
+
                 optionOtro.value = input.value;
+
                 select.value = input.value;
+
             }
+
         }
+
         actualizarTodo();
+
     }
+
+
 
     // --- CÁLCULO DE HORAS (Estilo FF) ---
+
     function calcularHorasTrabajadas(inicio, fin) {
+
         // Si no hay valores o son rangos de retardo (R1, R2...), devolvemos 6h (jornada estándar)
+
         if (!inicio || !fin) return null;
+
         if (inicio.includes('R') || fin.includes('R')) return 6; 
+
         
+
         const [h1, m1] = inicio.split(':').map(Number);
+
         const [h2, m2] = fin.split(':').map(Number);
+
         const totalInicio = h1 * 60 + m1;
+
         const totalFin = h2 * 60 + m2;
+
         const diferenciaMins = totalFin - totalInicio;
+
         return diferenciaMins > 0 ? diferenciaMins / 60 : 0;
+
     }
 
-// --- FUNCIÓN MAESTRA: ACTUALIZAR TODO ---
-function actualizarTodo() {
-    const puesto = puestoSelect.value.trim();
-    const estatus = estatusJornada.value;
-    const cargas = parseFloat(inputCargas.value) || 0;
 
-    // 1. Visibilidad de Cargas
-    if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
-        divCargas.style.display = "block";
-        labelCargas.innerText = (puesto === "Hamburguesas Momias") 
-            ? "Cantidad de Cargas ($51.50 c/u):" 
-            : "Cantidad de Tuppers ($46.50 c/u):";
-    } else {
-        divCargas.style.display = "none";
-        // Solo reseteamos cargas si estamos en modo captura
-        if (form.dataset.modo === "captura") inputCargas.value = 0; 
-    }
 
-    // 2. Lógica de Sueldos
-    const estatusSinPago = ["Falta", "Vacaciones", "Permiso"];
-    
-    if (estatusSinPago.includes(estatus)) {
-        inputMonto.value = "0.00";
-        sueldoMsg.innerHTML = `<span style="color: gray;">Sin pago por ${estatus}</span>`;
-    } 
-    else if (estatus === "Descanso") {
+    // --- FUNCIÓN MAESTRA: ACTUALIZAR TODO ---
+
+    function actualizarTodo() {
+
+        const puesto = puestoSelect.value.trim();
+
+        const estatus = estatusJornada.value;
+
+        const cargas = parseFloat(inputCargas.value) || 0;
+
+
+
+        // 1. Visibilidad de Cargas
+
         if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
-            inputMonto.value = "138.00";
-            sueldoMsg.innerHTML = `<b style="color: blue;">Descanso Pagado: $138.00</b>`;
+
+            divCargas.style.display = "block";
+
+            labelCargas.innerText = (puesto === "Hamburguesas Momias") 
+
+                ? "Cantidad de Cargas ($51.50 c/u):" 
+
+                : "Cantidad de Tuppers ($46.50 c/u):";
+
         } else {
-            inputMonto.value = "0.00";
-            sueldoMsg.innerHTML = "Descanso No Pagado";
+
+            divCargas.style.display = "none";
+
+            if (asistenciaIdInput.value === "") inputCargas.value = 0; 
+
         }
-    }
-    else if (puesto === "Hamburguesas Momias") {
-        let total = (cargas * 51.50).toFixed(2);
-        inputMonto.value = total;
-        sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
-    } 
-    else if (puesto === "Tuppers") {
-        let total = (cargas * 46.50).toFixed(2);
-        inputMonto.value = total;
-        sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
-    } 
-    else {
-        // Sueldo Proporcional
-        let base = parseFloat(salarios[puesto]) || 0;
-        let totalCalculado = 0;
+
+
+
+        // 2. Lógica de Sueldos
+
+        const estatusSinPago = ["Falta", "Vacaciones", "Permiso"];
+
         
-        let hMat = calcularHorasTrabajadas(entMat.value, salMat.value);
-        let hVes = calcularHorasTrabajadas(entVes.value, salVes.value);
 
-        if (hMat !== null || hVes !== null) {
-            if (hMat !== null) totalCalculado += (base / 6) * hMat;
-            if (hVes !== null) totalCalculado += (base / 6) * hVes;
-            inputMonto.value = totalCalculado.toFixed(2);
-            sueldoMsg.innerText = `Sueldo Sugerido: $${totalCalculado.toFixed(2)}`;
-        } else {
-            inputMonto.value = base.toFixed(2);
-            sueldoMsg.innerText = base > 0 ? `Sueldo Base: $${base.toFixed(2)}` : "";
+        if (estatusSinPago.includes(estatus)) {
+
+            inputMonto.value = "0.00";
+
+            sueldoMsg.innerHTML = `<span style="color: gray;">Sin pago por ${estatus}</span>`;
+
+        } 
+
+        else if (estatus === "Descanso") {
+
+            if (puesto === "Hamburguesas Momias" || puesto === "Tuppers") {
+
+                inputMonto.value = "138.00";
+
+                sueldoMsg.innerHTML = `<b style="color: blue;">Descanso Pagado: $138.00</b>`;
+
+            } else {
+
+                inputMonto.value = "0.00";
+
+                sueldoMsg.innerHTML = "Descanso No Pagado";
+
+            }
+
         }
+
+        else if (puesto === "Hamburguesas Momias") {
+
+            let total = (cargas * 51.50).toFixed(2);
+
+            inputMonto.value = total;
+
+            sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
+
+        } 
+
+        else if (puesto === "Tuppers") {
+
+            let total = (cargas * 46.50).toFixed(2);
+
+            inputMonto.value = total;
+
+            sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
+
+        } 
+
+        else {
+
+            // Sueldo Proporcional (Estilo FF)
+
+            let base = parseFloat(salarios[puesto]) || 0;
+
+            let totalCalculado = 0;
+
+            
+
+            let hMat = calcularHorasTrabajadas(entMat.value, salMat.value);
+
+            let hVes = calcularHorasTrabajadas(entVes.value, salVes.value);
+
+
+
+            // Si hay algún horario definido
+
+            if (hMat !== null || hVes !== null) {
+
+                // Cálculo: (Sueldo base / 6 horas de jornada estándar) * horas reales
+
+                if (hMat !== null) totalCalculado += (base / 6) * hMat;
+
+                if (hVes !== null) totalCalculado += (base / 6) * hVes;
+
+                
+
+                inputMonto.value = totalCalculado.toFixed(2);
+
+            } else {
+
+                // Si no hay horarios pero el estatus es normal, mostrar base
+
+                inputMonto.value = base.toFixed(2);
+
+                sueldoMsg.innerText = base > 0 ? `Sueldo Base: $${base.toFixed(2)}` : "";
+
+            }
+
+        }
+
     }
 
-    // 3. Gestión del Botón (Centralizada)
-    if (form.dataset.modo === "editando") {
-        btnPrincipal.innerText = "CORREGIR REGISTRO";
-        btnPrincipal.style.background = "#FFC107"; // Amarillo
-        btnPrincipal.style.color = "black";
-    } else {
-        btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
-        btnPrincipal.style.background = "#4CAF50"; // Verde
-        btnPrincipal.style.color = "white";
-    }
-}
+
 
     // --- EVENTOS ---
+
     [entMat, entVes, salMat, salVes].forEach(el => {
+
         el.addEventListener('change', () => {
+
             if (el.id.includes('entrada')) {
+
                 // Autocompletado de salida si se marca una entrada (Ahorro de clics)
+
                 if (el.id === 'entrada_matutina' && el.value !== "" && salMat.value === "") {
+
                     salMat.value = "15:00";
+
                 }
+
                 if (el.id === 'entrada_vespertina' && el.value !== "" && salVes.value === "") {
+
                     salVes.value = "21:00";
+
                 }
+
             }
+
             manejarHorarioPersonalizado(el.id);
+
         });
+
     });
 
+
+
     puestoSelect.addEventListener('change', actualizarTodo);
+
     estatusJornada.addEventListener('change', actualizarTodo);
+
     inputCargas.addEventListener('input', actualizarTodo);
 
-// --- PREPARAR EDICIÓN ---
-function prepararEdicion(boton) {
+
+
+    // --- PREPARAR EDICIÓN ---
+
+    function prepararEdicion(boton) {
+
     const d = boton.dataset;
-    
-    // 1. Marcar modo edición
-    form.dataset.modo = "editando"; 
+
     asistenciaIdInput.value = d.id;
+
     empleadoHidden.value = d.emp;
 
-    // 2. Sincronizar búsqueda
+
+
     const opciones = datalist.options;
+
     for (let i = 0; i < opciones.length; i++) {
+
         if (opciones[i].getAttribute('data-id') == d.emp) {
+
             empleadoSearch.value = opciones[i].value;
+
             break;
+
         }
+
     }
 
-    // 3. Llenar campos
+
+
     document.getElementById('fecha').value = d.fec;
+
     puestoSelect.value = d.pue;
+
     document.getElementById('sucursal').value = d.suc;
+
     
+
     entMat.value = d.mat || "";
+
     entVes.value = d.ves || "";
+
     salMat.value = d.salmat || "";
+
     salVes.value = d.salves || "";
+
+
 
     if (inputCargas) inputCargas.value = d.car || 0;
 
+
+
     estatusJornada.value = d.est;
+
     document.getElementById('bonificacion').value = d.bon;
+
     document.getElementById('motivo_bonificacion').value = d.mbon || "";
+
     
-    // 4. Lógica Descuentos
+
+    // --- Lógica para Descuento y Motivo Personalizado ---
+
     const mDes = d.mdes || "";
+
     const campoOtroDescuento = document.getElementById('motivo_otro_texto');
-    if (mDes.startsWith("Otro: ")) {
-        document.getElementById('motivo_descuento').value = "Otro";
-        campoOtroDescuento.style.display = "block";
-        campoOtroDescuento.value = mDes.replace("Otro: ", "");
-    } else {
-        document.getElementById('motivo_descuento').value = mDes;
-        campoOtroDescuento.style.display = "none";
-        campoOtroDescuento.value = "";
-    }
+
     
+
+    if (mDes.startsWith("Otro: ")) {
+
+        document.getElementById('motivo_descuento').value = "Otro";
+
+        campoOtroDescuento.style.display = "block";
+
+        campoOtroDescuento.value = mDes.replace("Otro: ", "");
+
+    } else {
+
+        document.getElementById('motivo_descuento').value = mDes;
+
+        campoOtroDescuento.style.display = "none";
+
+        campoOtroDescuento.value = "";
+
+    }
+
+    
+
     document.getElementById('descuento').value = d.des;
+
     document.getElementById('tipo_uniforme').value = d.uni || "";
+
     document.getElementById('observaciones').value = d.obs;
 
+
+
+    btnPrincipal.innerText = "CORREGIR REGISTRO";
+
+    btnPrincipal.style.background = "#FFC107";
+
+    btnPrincipal.style.color = "black";
+
+    
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    // 5. Forzar actualización (esto ajustará el botón automáticamente)
+
     actualizarTodo();
+
 }
 
-// --- LIMPIAR FORMULARIO ---
-function limpiarFormularioYTabla() {
-    // 1. Reseteo del formulario
+
+
+    function limpiarFormularioYTabla() {
+
+    // 1. Reset básico del formulario
+
     form.reset();
-    form.dataset.modo = "captura"; // Regresamos al modo original
 
-    // 2. Limpieza visual de la tabla
+
+
+    // 2. Limpiar la tabla visualmente
+
     const tablaBody = document.getElementById('tabla-asistencias-body');
-    if (tablaBody && !document.querySelector('form[method="GET"] input[name="q"]')?.value) {
+
+    if (tablaBody) {
+
         tablaBody.innerHTML = '<tr id="fila-vacia"><td colspan="6">No hay registros visualizados.</td></tr>';
+
     }
 
-    // 3. Limpieza de campos ocultos y mensajes
-    asistenciaIdInput.value = "";
-    empleadoHidden.value = "";
-    empleadoSearch.value = "";
-    if (sueldoMsg) sueldoMsg.innerHTML = "";
 
-    // 4. Forzar actualización para restaurar el estado del botón y cálculos
-    actualizarTodo();
-}
 
-    asistenciaIdInput.value = "";
-    empleadoHidden.value = "";
-    empleadoSearch.value = ""; 
-    if (sueldoMsg) sueldoMsg.innerHTML = "";
+    // 3. Resetear lógica de horarios (Selects y Custom Inputs)
 
-    // Forzar actualización para restaurar el botón a "CAPTURAR"
-    actualizarTodo();
-}
-    // --- ALERTA DE DUPLICIDAD EN TIEMPO REAL ---
-    async function verificarDuplicidad() {
-    const fecha = document.getElementById('fecha').value;
-    const empId = document.getElementById('empleado_id_hidden').value;
-    
-    // Si estamos editando, NO hacemos la validación de duplicidad
-    if (form.dataset.modo === "editando") return;
+    [entMat, entVes, salMat, salVes].forEach(el => {
 
-    if (fecha && empId) {
-        const filas = document.querySelectorAll('#tabla-asistencias-body tr');
-        let existe = false;
-        // Aquí iría tu lógica de búsqueda...
-        
-        if (existe) {
-            btnPrincipal.style.background = "#FF5722";
-            btnPrincipal.innerText = "¡ADVERTENCIA: REGISTRO EXISTENTE!";
-        } else {
-            // Solo devolvemos a verde si NO estamos en modo edición
-            btnPrincipal.style.background = "#4CAF50";
-            btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
+        // Volver a mostrar el select y ocultar el input de tiempo
+
+        el.style.display = "block";
+
+        const customInput = document.getElementById('custom_' + el.id);
+
+        if (customInput) {
+
+            customInput.style.display = "none";
+
+            customInput.value = "";
+
         }
+
+        
+
+        // IMPORTANTE: Resetear el valor de la opción "OTRO" para que no guarde la hora manual anterior
+
+        const optionOtro = el.querySelector('option[value!="OTRO"][value!=""]'); // busca si se quedó con un valor manual
+
+        let optOtro = el.querySelector('option[text*="Manual"]');
+
+        if (optOtro) optOtro.value = "OTRO"; 
+
+    });
+
+
+
+    // 4. Limpiar variables de control y búsqueda
+
+    asistenciaIdInput.value = "";
+
+    empleadoHidden.value = "";
+
+    empleadoSearch.value = ""; 
+
+    
+
+    // 5. Limpiar el mensaje de sueldo sugerido
+
+    if (sueldoMsg) {
+
+        sueldoMsg.innerHTML = "";
+
     }
+
+
+
+    // 6. Restaurar el botón principal a su estado original
+
+    btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
+
+    btnPrincipal.style.background = "#4CAF50";
+
+    btnPrincipal.style.color = "white";
+
+
+
+    // 7. Forzar actualización de lógica (ocultar campos de cargas, etc.)
+
+    actualizarTodo();
+
 }
+
+    // --- ALERTA DE DUPLICIDAD EN TIEMPO REAL ---
+
+    async function verificarDuplicidad() {
+
+        const fecha = document.getElementById('fecha').value;
+
+        const empId = document.getElementById('empleado_id_hidden').value;
+
+        const asistenciaId = document.getElementById('asistencia_id').value;
+
+    
+
+        if (fecha && empId) {
+
+            // Hacemos una llamada al servidor para consultar si existe el registro
+
+            // Nota: Asegúrate de tener una URL o vista que devuelva esto. 
+
+            // Si no, puedes simplificarlo buscando en los datos de la tabla que ya tienes cargada en el HTML.
+
+            const filas = document.querySelectorAll('#tabla-asistencias-body tr');
+
+            let existe = false;
+
+            
+
+            // Buscamos en la tabla renderizada (si el registro está en la página actual)
+
+            filas.forEach(fila => {
+
+                // Lógica simple de comparación de fecha y empleado en el texto de la tabla
+
+                // (Si usas paginación, lo ideal es una consulta AJAX real a una vista)
+
+            });
+
+    
+
+            // Alternativa: Si el usuario selecciona fecha/empleado, cambiamos el color del botón
+
+            if (existe) {
+
+                btnPrincipal.style.background = "#FF5722"; // Naranja rojizo de alerta
+
+                btnPrincipal.innerText = "¡ADVERTENCIA: REGISTRO EXISTENTE!";
+
+            } else {
+
+                btnPrincipal.style.background = "#4CAF50"; // Verde original
+
+                btnPrincipal.innerText = "CAPTURAR MOVIMIENTO";
+
+            }
+
+        }
+
+    }
     
     // Escuchar cambios en fecha o empleado
     document.getElementById('fecha').addEventListener('change', verificarDuplicidad);
