@@ -372,7 +372,7 @@
             </thead>
             <tbody>
     {% for n in nominas %}
-    <tr>
+    <tr class="align-middle">
         <td class="fw-bold px-2">{{ n.nombre }}</td>
         <td class="small text-muted">{{ n.puesto_principal|default:"--" }}</td>
         
@@ -390,30 +390,30 @@
         
         <td class="text-center fw-bold">{{ n.retardos }}</td>
         
-        <td class="text-end px-2 text-success">+${{ n.bonos|floatformat:2 }}</td>
-        <td class="text-end px-2 text-danger">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
+        <td class="text-end px-2 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
+        <td class="text-end px-2 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
         
-        <td class="text-end fw-bold bg-light" style="border-left: 2px solid #000; font-size: 1rem;">
+        <td class="text-end px-2 fw-bold bg-light" style="border-left: 2px solid #000; font-size: 1rem;">
             ${{ n.total_neto|floatformat:2 }}
         </td>
     </tr>
 
     <tr class="table-light">
-        <td colspan="12" class="p-2">
-            <div class="d-flex flex-wrap gap-2" style="font-size: 0.65rem;">
-                <strong>Detalle Base:</strong>
+        <td colspan="11" class="p-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center" style="font-size: 0.65rem;">
+                <strong class="text-dark">Desglose de Pago Base:</strong>
                 {% for dia_list in n.dias %}
                     {% for turno in dia_list %}
-                    <div class="border rounded px-1 bg-white">
+                    <div class="border rounded px-1 bg-white shadow-sm">
                         {{ turno.fecha_dia }} | <b>{{ turno.sucursal }}</b> | {{ turno.puesto }} | 
                         <b>{{ turno.cantidad_turnos }} T</b> | <b>${{ turno.pago_dia|floatformat:2 }}</b>
                         {% if turno.descuento_retardo > 0 %}
-                            <span class="text-danger">| Ret: -${{ turno.descuento_retardo|floatformat:2 }}</span>
+                            <span class="text-danger ms-1">| Ret: -${{ turno.descuento_retardo|floatformat:2 }}</span>
                         {% endif %}
                     </div>
                     {% endfor %}
                 {% endfor %}
-                <div class="fw-bold ms-auto text-primary">TOTAL BASE: ${{ n.pago_base|floatformat:2 }}</div>
+                <div class="fw-bold ms-auto text-primary border-start ps-2">TOTAL BASE ACUMULADO: ${{ n.pago_base|floatformat:2 }}</div>
             </div>
         </td>
     </tr>
