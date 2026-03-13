@@ -125,341 +125,136 @@
 </head>
 
 <body>
-
-
-
 <div class="comic-container">
-
     <header class="d-flex justify-content-between align-items-center mb-4 no-print">
-
         <h2 class="m-0"> Sistema de Nómina - Control Global</h2>
-
         <a href="{% url 'main' %}" class="btn btn-outline-dark btn-sm fw-bold">
-
             <i class="fas fa-arrow-left"></i> REGRESAR
-
         </a>
-
     </header>
 
-
-
     <div class="card card-comic no-print">
-
         <div class="card-body">
-
             <form method="GET" class="row g-3 align-items-end">
-
                 <div class="col-md-2">
-
                     <label class="form-label fw-bold small text-uppercase">Fecha Inicio:</label>
-
                     <input type="date" name="inicio" class="form-control" value="{{ inicio }}" required>
-
                 </div>
-
                 <div class="col-md-2">
-
                     <label class="form-label fw-bold small text-uppercase">Fecha Fin:</label>
-
                     <input type="date" name="fin" class="form-control" value="{{ fin }}" required>
-
                 </div>
-
                 <div class="col-md-2">
-
                     <label class="form-label fw-bold small text-uppercase">Empleado:</label>
-
                     <input type="text" name="nombre" class="form-control" placeholder="Nombre..." value="{{ nombre_busqueda|default_if_none:'' }}">
-
                 </div>
-
                 <div class="col-md-2">
-
                     <label class="form-label fw-bold small text-uppercase">Sucursal:</label>
-
                     <select name="sucursal" class="form-select">
-
                         <option value="TODAS">--- Todas ---</option>
-
                         <option value="Momias 1" {% if sucursal_seleccionada == "Momias 1" %}selected{% endif %}>Momias 1</option>
-
                         <option value="Momias 2" {% if sucursal_seleccionada == "Momias 2" %}selected{% endif %}>Momias 2</option>
-
                         <option value="Momias 3" {% if sucursal_seleccionada == "Momias 3" %}selected{% endif %}>Momias 3</option>
-
                         <option value="Momias 4" {% if sucursal_seleccionada == "Momias 4" %}selected{% endif %}>Momias 4</option>
-
                         <option value="Momias 5" {% if sucursal_seleccionada == "Momias 5" %}selected{% endif %}>Momias 5</option>
-
                         <option value="Momias 6" {% if sucursal_seleccionada == "Momias 6" %}selected{% endif %}>Momias 6</option>
-
                         <option value="PP" {% if sucursal_seleccionada == "PP" %}selected{% endif %}>PP</option>
-
                         <option value="PM" {% if sucursal_seleccionada == "PM" %}selected{% endif %}>PM</option>
-
                         <option value="Yommy" {% if sucursal_seleccionada == "Yommy" %}selected{% endif %}>Yommy</option>
-
                         <option value="Perrioni" {% if sucursal_seleccionada == "Perrioni" %}selected{% endif %}>Perrioni</option>
-
                         <option value="Fabrica" {% if sucursal_seleccionada == "Fabrica" %}selected{% endif %}>Fabrica</option>
-
                         <option value="Benny" {% if sucursal_seleccionada == "Benny" %}selected{% endif %}>Benny</option>
-
                         <option value="Cocina" {% if sucursal_seleccionada == "Cocina" %}selected{% endif %}>Cocina</option>
-
                         <option value="Area Seca" {% if sucursal_seleccionada == "Area Seca" %}selected{% endif %}>Area Seca</option>
-
                         <option value="FastFood" {% if sucursal_seleccionada == "FastFood" %}selected{% endif %}>FAST FOOD</option>
-
                     </select>
-
                 </div>
-
                 <div class="col-md-4 d-flex gap-2">
-
-                    <button type="submit" class="btn btn-comic btn-edit flex-grow-1">
-
-                        <i class="fas fa-calculator"></i> CALCULAR
-
-                    </button>
-
-                    <button type="button" onclick="window.print();" class="btn-comic" style="background: #546e7a; color: white; padding: 0 15px;">
-
-                        <i class="fas fa-print"></i>
-
-                    </button>
-
-                    <button type="button" onclick="descargaDirecta('excel')" class="btn-comic" style="background: #2e7d32; color: white; padding: 0 15px;">
-
-                        <i class="fas fa-file-excel"></i>
-
-                    </button>
-
-                    <button type="button" onclick="descargaDirecta('pdf')" class="btn-comic" style="background: #c62828; color: white; padding: 0 15px;">
-
-                        <i class="fas fa-file-pdf"></i>
-
-                    </button>
-
+                    <button type="submit" class="btn btn-comic btn-edit flex-grow-1"><i class="fas fa-calculator"></i> CALCULAR</button>
+                    <button type="button" onclick="window.print();" class="btn-comic" style="background: #546e7a; color: white; padding: 0 15px;"><i class="fas fa-print"></i></button>
+                    <button type="button" onclick="descargaDirecta('excel')" class="btn-comic" style="background: #2e7d32; color: white; padding: 0 15px;"><i class="fas fa-file-excel"></i></button>
+                    <button type="button" onclick="descargaDirecta('pdf')" class="btn-comic" style="background: #c62828; color: white; padding: 0 15px;"><i class="fas fa-file-pdf"></i></button>
                 </div>
-
             </form>
-
         </div>
-
     </div>
-
-
 
     {% if inicio %}
-    <div class="text-center mb-3">
+    <div class="text-center mb-4">
         <h4 class="fw-bold text-uppercase">Reporte: {{ inicio }} al {{ fin }}</h4>
-        <p class="badge bg-dark no-print">Filtrado por: {{ sucursal_seleccionada|default:"TODAS LAS SUCURSALES" }}</p>
     </div>
     {% endif %}
-
-    <div class="table-responsive bg-white mb-5 no-print shadow-sm border border-dark">
-        <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.75rem;">
-            <thead class="table-dark text-center text-uppercase">
-    <tr>
-        <th rowspan="2" class="align-middle">Empleado</th>
-        <th rowspan="2" class="align-middle">Puesto Principal</th>
-        <th colspan="7" class="bg-secondary text-white">Desglose Diario (Sucursal / Puesto / Pago)</th>
-        <th rowspan="2" class="align-middle">Ret</th>
-        <th rowspan="2" class="align-middle text-success">Bonif.</th>
-        <th rowspan="2" class="align-middle text-danger">Desc.</th>
-        <th rowspan="2" class="align-middle bg-primary text-white">TOTAL</th>
-    </tr>
-    <tr class="small text-center table-light text-dark">
-        <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
-    </tr>
-</thead>
-<tbody>
-    {% for n in nominas %}
-    <tr class="align-middle">
-        <td class="fw-bold px-2">{{ n.nombre }}</td>
-        <td class="small text-muted">{{ n.puesto_principal|default:"--" }}</td>
-        
-        {% for dia_list in n.dias %}
-        <td class="text-center p-1" style="vertical-align: top;">
-            {% for turno in dia_list %}
-            <div class="border-bottom mb-1" style="font-size: 0.6rem;">
-                <span class="fw-bold">{{ turno.fecha_dia }}</span><br>
-                <span class="badge {% if turno.cantidad_turnos > 1 %}bg-danger{% else %}bg-secondary{% endif %}">{{ turno.cantidad_turnos }} T</span>
-                <div class="fw-bold text-success">${{ turno.pago_dia|floatformat:2 }}</div>
-            </div>
-            {% endfor %}
-        </td>
-        {% endfor %}
-        
-        <td class="text-center fw-bold">{{ n.retardos }}</td>
-        
-        <td class="text-end px-2 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
-        <td class="text-end px-2 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
-        
-        <td class="text-end px-2 fw-bold bg-light" style="border-left: 2px solid #000; font-size: 1rem;">
-            ${{ n.total_neto|floatformat:2 }}
-        </td>
-    </tr>
-
-    <tr class="table-light">
-        <td colspan="12" class="p-2">
-            <div class="d-flex flex-wrap gap-2 align-items-center" style="font-size: 0.65rem;">
-                <strong class="text-dark">Desglose de Pago Base:</strong>
-                {% for dia_list in n.dias %}
-                    {% for turno in dia_list %}
-                    <div class="border rounded px-1 bg-white shadow-sm">
-                        {{ turno.fecha_dia }} | <b>{{ turno.sucursal }}</b> | {{ turno.puesto }} | 
-                        <b>{{ turno.cantidad_turnos }} T</b> | <b>${{ turno.pago_dia|floatformat:2 }}</b>
-                        {% if turno.descuento_retardo > 0 %}
-                            <span class="text-danger ms-1">| Ret: -${{ turno.descuento_retardo|floatformat:2 }}</span>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                {% endfor %}
-                <div class="fw-bold ms-auto text-primary border-start ps-2">TOTAL BASE ACUMULADO: ${{ n.pago_base|floatformat:2 }}</div>
-            </div>
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
-        </table>
-
-    </div>
 
     <div id="contenedor-nominas">
-    {% for n in nominas %}
-    <div class="tira-recortable mb-5 p-3 border border-dark bg-white shadow-sm" style="page-break-inside: avoid;">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="m-0 text-uppercase fw-bold"><i class="fas fa-user-circle"></i> {{ n.nombre }}</h5>
-            <span class="small fw-bold text-muted">Periodo: {{ inicio }} al {{ fin }}</span>
-        </div>
+        {% for n in nominas %}
+        <div class="tira-recortable mb-5 p-3 border border-dark bg-white shadow-sm" style="page-break-inside: avoid;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="m-0 text-uppercase fw-bold"><i class="fas fa-user-circle"></i> {{ n.nombre }}</h5>
+                <span class="small fw-bold text-muted">Periodo: {{ inicio }} al {{ fin }}</span>
+            </div>
 
-        <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.75rem;">
-            <thead class="table-dark text-center text-uppercase">
-                <tr>
-                    <th style="width: 100px;">Puesto</th>
-                    <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
-                    <th>Ret</th><th>Bonos</th><th>Desc.</th>
-                    <th class="bg-primary text-white">TOTAL NETO</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="text-center small fw-bold">{{ n.puesto_principal|default:"--" }}</td>
-                    {% for dia_list in n.dias %}
-                    <td class="text-center p-1" style="min-width: 80px; vertical-align: top;">
-                        {% for turno in dia_list %}
-                        <div class="border-bottom mb-1 pb-1 {% if 'FALTA' in turno.estatus %}table-danger{% endif %}">
-                            <div class="fw-bold">{{ turno.fecha_dia }}</div>
-                            <div class="fw-bold text-success">${{ turno.pago_dia|floatformat:2 }}</div>
-                        </div>
+            <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.75rem;">
+                <thead class="table-dark text-center text-uppercase">
+                    <tr>
+                        <th style="width: 100px;">Puesto</th>
+                        <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
+                        <th>Ret</th><th>Bonos</th><th>Desc.</th>
+                        <th class="bg-primary text-white">TOTAL NETO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-center small fw-bold">{{ n.puesto_principal|default:"--" }}</td>
+                        {% for dia_list in n.dias %}
+                        <td class="text-center p-1" style="min-width: 80px; vertical-align: top;">
+                            {% for turno in dia_list %}
+                            <div class="border-bottom mb-1 pb-1 {% if 'FALTA' in turno.estatus %}table-danger{% endif %}">
+                                <div class="fw-bold">{{ turno.fecha_dia }}</div>
+                                <div class="fw-bold text-success">${{ turno.pago_dia|floatformat:2 }}</div>
+                            </div>
+                            {% endfor %}
+                        </td>
                         {% endfor %}
-                    </td>
-                    {% endfor %}
-                    <td class="text-center fw-bold">{{ n.retardos }}</td>
-                    <td class="text-end px-1 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
-                    <td class="text-end px-1 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
-                    <td class="text-end fw-bold bg-light border-start border-dark" style="font-size: 1rem;">
-                        ${{ n.total_neto|floatformat:2 }}
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+                        <td class="text-center fw-bold">{{ n.retardos }}</td>
+                        <td class="text-end px-1 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
+                        <td class="text-end px-1 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
+                        <td class="text-end fw-bold bg-light border-start border-dark" style="font-size: 1rem;">
+                            ${{ n.total_neto|floatformat:2 }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
 
-        <div class="d-flex justify-content-between mt-2 pt-2 border-top border-dashed">
-            <small class="fst-italic text-muted">Momias de la Victoria - Sistema Administrativo</small>
-            <div style="border-top: 1px solid #000; width: 180px; text-align: center; margin-top: 10px;">
-                <small class="fw-bold">Firma de Recibido</small>
-            </div>
-        </div>
-    </div>
-    {% empty %}
-        <div class="alert alert-info text-center">No hay datos para el periodo seleccionado.</div>
-    {% endfor %}
-</div>
-
-    {% if nominas %}
-
-    <div class="mt-4 row justify-content-end no-print">
-
-        <div class="col-md-4">
-
-            <div class="p-3 border border-dark shadow-sm bg-light">
-
-                <h5 class="fw-bold text-uppercase border-bottom border-dark pb-2">Resumen Global</h5>
-
-                <div class="d-flex justify-content-between">
-
-                    <span>Empleados en lista:</span>
-
-                    <span class="fw-bold">{{ nominas|length }}</span>
-
+            <div class="d-flex justify-content-between mt-2 pt-2 border-top border-dashed">
+                <small class="fst-italic text-muted">Momias de la Victoria - Sistema Administrativo</small>
+                <div style="border-top: 1px solid #000; width: 180px; text-align: center; margin-top: 10px;">
+                    <small class="fw-bold">Firma de Recibido</small>
                 </div>
-
             </div>
-
         </div>
-
+        {% empty %}
+            <div class="alert alert-info text-center">No hay datos para el periodo seleccionado.</div>
+        {% endfor %}
     </div>
-
-    {% endif %}
-
 </div>
-
-
 
 <script>
-
     function descargaDirecta(tipo) {
-
         const inicio = document.querySelector('[name="inicio"]').value;
-
         const fin = document.querySelector('[name="fin"]').value;
-
         const nombre = document.querySelector('[name="nombre"]').value.trim();
-
         const sucursal = document.querySelector('[name="sucursal"]').value;
 
-
-
         if (!inicio || !fin) {
-
             alert("¡Rayos! Por favor selecciona las fechas de inicio y fin para continuar.");
-
             return;
-
         }
 
-
-
         let baseUrl = (tipo === 'excel') ? "{% url 'exportar_excel' %}" : "{% url 'exportar_pdf' %}";
-
-
-
-        const params = new URLSearchParams({
-
-            'inicio': inicio,
-
-            'fin': fin,
-
-            'nombre': nombre,
-
-            'sucursal': sucursal
-
-        });
-
-
-
+        const params = new URLSearchParams({'inicio': inicio, 'fin': fin, 'nombre': nombre, 'sucursal': sucursal});
         window.location.href = `${baseUrl}?${params.toString()}`;
-
     }
-
 </script>
-
-
-
 </body>
 
 </html>
