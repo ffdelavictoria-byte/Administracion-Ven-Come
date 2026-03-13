@@ -356,20 +356,19 @@
     <div class="table-responsive bg-white mb-5 no-print shadow-sm border border-dark">
         <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.75rem;">
             <thead class="table-dark text-center text-uppercase">
-                <tr>
-                    <th rowspan="2" class="align-middle">Empleado</th>
-                    <th rowspan="2" class="align-middle">Puesto Principal</th>
-                    <th colspan="7" class="bg-secondary text-white">Desglose Diario (Sucursal / Puesto / Pago)</th>
-                    <th rowspan="2" class="align-middle">Ret</th>
-                    <th rowspan="2" class="align-middle">Pago Base</th>
-                    <th rowspan="2" class="align-middle text-success">Bonif.</th>
-                    <th rowspan="2" class="align-middle text-danger">Desc.</th>
-                    <th rowspan="2" class="align-middle bg-primary text-white">TOTAL</th>
-                </tr>
-                <tr class="small text-center table-light text-dark">
-                    <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
-                </tr>
-            </thead>
+    <tr>
+        <th rowspan="2" class="align-middle">Empleado</th>
+        <th rowspan="2" class="align-middle">Puesto Principal</th>
+        <th colspan="7" class="bg-secondary text-white">Desglose Diario (Sucursal / Puesto / Pago)</th>
+        <th rowspan="2" class="align-middle">Ret</th>
+        <th rowspan="2" class="align-middle text-success">Bonif.</th>
+        <th rowspan="2" class="align-middle text-danger">Desc.</th>
+        <th rowspan="2" class="align-middle bg-primary text-white">TOTAL</th>
+    </tr>
+    <tr class="small text-center table-light text-dark">
+        <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
+    </tr>
+</thead>
 <tbody>
     {% for n in nominas %}
     <tr class="align-middle">
@@ -390,8 +389,6 @@
         
         <td class="text-center fw-bold">{{ n.retardos }}</td>
         
-        <td style="display: none;"><span style="display: none;">{{ n.pago_base }}</span></td>
-        
         <td class="text-end px-2 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
         <td class="text-end px-2 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
         
@@ -401,7 +398,7 @@
     </tr>
 
     <tr class="table-light">
-        <td colspan="10" class="p-2">
+        <td colspan="12" class="p-2">
             <div class="d-flex flex-wrap gap-2 align-items-center" style="font-size: 0.65rem;">
                 <strong class="text-dark">Desglose de Pago Base:</strong>
                 {% for dia_list in n.dias %}
@@ -457,7 +454,7 @@
 
                         <th>Ret</th>
 
-                        <th style="display: none;">PAGO BASE</th>
+                        <th>PAGO BASE</th>
 
                         <th>Bonos</th>
 
