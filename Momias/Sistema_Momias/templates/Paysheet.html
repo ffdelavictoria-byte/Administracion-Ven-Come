@@ -133,7 +133,7 @@
         </a>
     </header>
 
-    <div class="card card-comic no-print">
+    <div class="card card-comic no-print mb-4">
         <div class="card-body">
             <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-2">
@@ -179,7 +179,7 @@
         </div>
     </div>
 
-    <div id="contenedor-nominas" class="mt-4">
+    <div id="contenedor-nominas">
         {% for n in nominas %}
         <div class="tira-recortable mb-5 p-3 border border-dark bg-white shadow-sm" style="page-break-inside: avoid;">
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -187,23 +187,23 @@
                 <span class="small fw-bold text-muted">Periodo: {{ inicio }} al {{ fin }}</span>
             </div>
 
-            <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.75rem;">
+            <table class="table table-bordered table-sm align-middle mb-2" style="font-size: 0.75rem;">
                 <thead class="table-dark text-center text-uppercase">
                     <tr>
-                        <th style="width: 100px;">Puesto</th>
+                        <th>Puesto</th>
                         <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
-                        <th>Ret</th><th>Bonos</th><th>Desc.</th>
+                        <th>Ret</th><th>Bonif.</th><th>Desc.</th>
                         <th class="bg-primary text-white">TOTAL NETO</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td class="text-center small fw-bold">{{ n.puesto_principal|default:"--" }}</td>
+                    <tr class="align-middle">
+                        <td class="text-center fw-bold">{{ n.puesto_principal|default:"--" }}</td>
                         {% for dia_list in n.dias %}
-                        <td class="text-center p-1" style="min-width: 80px; vertical-align: top;">
+                        <td class="text-center p-1" style="vertical-align: top;">
                             {% for turno in dia_list %}
-                            <div class="border-bottom mb-1 pb-1 {% if 'FALTA' in turno.estatus %}table-danger{% endif %}">
-                                <div class="fw-bold">{{ turno.fecha_dia }}</div>
+                            <div class="border-bottom mb-1" style="font-size: 0.6rem;">
+                                <span class="fw-bold">{{ turno.fecha_dia }}</span><br>
                                 <span class="badge {% if turno.cantidad_turnos > 1 %}bg-danger{% else %}bg-secondary{% endif %}">{{ turno.cantidad_turnos }} T</span>
                                 <div class="fw-bold text-success">${{ turno.pago_dia|floatformat:2 }}</div>
                             </div>
@@ -211,14 +211,30 @@
                         </td>
                         {% endfor %}
                         <td class="text-center fw-bold">{{ n.retardos }}</td>
-                        <td class="text-end px-1 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
-                        <td class="text-end px-1 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
-                        <td class="text-end fw-bold bg-light border-start border-dark" style="font-size: 1rem;">
-                            ${{ n.total_neto|floatformat:2 }}
-                        </td>
+                        <td class="text-end px-2 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
+                        <td class="text-end px-2 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
+                        <td class="text-end px-2 fw-bold bg-light" style="font-size: 1rem;">${{ n.total_neto|floatformat:2 }}</td>
                     </tr>
                 </tbody>
             </table>
+
+            <div class="table-light p-2 border">
+                <div class="d-flex flex-wrap gap-2 align-items-center" style="font-size: 0.65rem;">
+                    <strong class="text-dark">Desglose:</strong>
+                    {% for dia_list in n.dias %}
+                        {% for turno in dia_list %}
+                        <div class="border rounded px-1 bg-white shadow-sm">
+                            {{ turno.fecha_dia }} | <b>{{ turno.sucursal }}</b> | {{ turno.puesto }} | 
+                            <b>{{ turno.cantidad_turnos }} T</b> | <b>${{ turno.pago_dia|floatformat:2 }}</b>
+                            {% if turno.descuento_retardo > 0 %}
+                                <span class="text-danger ms-1">| Ret: -${{ turno.descuento_retardo|floatformat:2 }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% endfor %}
+                    <div class="fw-bold ms-auto text-primary border-start ps-2">TOTAL BASE: ${{ n.pago_base|floatformat:2 }}</div>
+                </div>
+            </div>
 
             <div class="d-flex justify-content-between mt-2 pt-2 border-top border-dashed">
                 <small class="fst-italic text-muted">Momias de la Victoria - Sistema Administrativo</small>
@@ -228,9 +244,10 @@
             </div>
         </div>
         {% empty %}
-            <div class="alert alert-info text-center">No hay registros para este periodo.</div>
+            <div class="alert alert-info text-center">No hay datos para el periodo seleccionado.</div>
         {% endfor %}
     </div>
+</div
 </div>
 
 <script>
