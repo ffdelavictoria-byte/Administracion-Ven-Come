@@ -376,19 +376,33 @@
         <td class="fw-bold px-2" style="font-size: 0.85rem;">{{ n.nombre }}</td>
         <td class="small text-muted">{{ n.puesto_principal|default:"--" }}</td>
         
+        <td class="text-start px-2" style="font-size: 0.7rem; min-width: 180px;">
+    <div class="mb-2">
         {% for dia_list in n.dias %}
-        <td class="text-center p-1" style="min-width: 120px; vertical-align: top;">
             {% for turno in dia_list %}
-            <div class="mb-2 p-1 border-bottom" style="background: rgba(0,0,0,0.02);">
-                <div class="fw-bold mb-1" style="font-size: 0.65rem; border-bottom: 1px solid #000;">
-                    {{ turno.fecha_dia }} 
-                </div>
-                <div class="small fw-bold">{{ turno.puesto }}</div>
-                <div class="text-primary" style="font-size: 0.65rem;">{{ turno.sucursal }}</div>
-                <div class="text-success fw-bold mt-1">${{ turno.pago_dia|floatformat:2 }}</div>
+            <div class="border-bottom pb-1 mb-1">
+                <strong>{{ turno.fecha_dia }}:</strong> {{ turno.puesto }} 
+                <span class="text-primary">${{ turno.pago_dia }}</span>
+                {% if turno.descuento_retardo > 0 %}
+                    <br><span class="text-danger">- ${{ turno.descuento_retardo }} (Ret: {{ turno.estatus }})</span>
+                {% endif %}
             </div>
             {% endfor %}
-        </td>
+        {% endfor %}
+    </div>
+    
+    <div class="mt-2 pt-2 border-top border-dark">
+        <div class="d-flex justify-content-between">
+            <span>Base:</span> <strong>${{ n.pago_base|floatformat:2 }}</strong>
+        </div>
+        <div class="d-flex justify-content-between text-danger">
+            <span>Desc:</span> <strong>-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</strong>
+        </div>
+        <div class="d-flex justify-content-between fw-bold mt-1">
+            <span>NETO:</span> <span>${{ n.total_neto|floatformat:2 }}</span>
+        </div>
+    </div>
+</td>
         {% endfor %}
         
         <td class="text-center fw-bold">{{ n.retardos }}</td>
