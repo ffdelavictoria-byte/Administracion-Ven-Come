@@ -944,6 +944,8 @@ def calcular_nomina_web(request):
                         'sucursal': reg.sucursal or '---',
                         'pago_dia': round(salario_dia, 2),
                         'descuento_retardo': round(desc_retardo_dia, 2),
+                        'monto_descuento': float(reg.descuento or 0),     # Pasamos el monto
+                        'motivo_descuento': reg.motivo_descuento,
                         'estatus': item['estatus'],
                         'cantidad_turnos': cantidad_turnos
                     })
