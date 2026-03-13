@@ -370,42 +370,32 @@
                     <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
                 </tr>
             </thead>
-            <tbody>
+<tbody>
     {% for n in nominas %}
     <tr>
         <td class="fw-bold px-2" style="font-size: 0.85rem;">{{ n.nombre }}</td>
         <td class="small text-muted">{{ n.puesto_principal|default:"--" }}</td>
         
         {% for dia_list in n.dias %}
-        <td class="text-center p-1" style="min-width: 100px;">
+        <td class="text-center p-1" style="min-width: 120px; vertical-align: top;">
             {% for turno in dia_list %}
-            <div class="mb-2 p-1 border-bottom">
-                <div class="fw-bold mb-1" style="font-size: 0.65rem; background: rgba(0,0,0,0.05);">{{ turno.fecha_dia }}</div>
-                <div class="fw-bold mb-1" style="font-size: 0.7rem;">{{ turno.horas|default:"0" }}h - {{ turno.estatus|default:"N/A" }}</div>
-                <div style="line-height: 1.1; margin-bottom: 4px;">
-                    <span class="text-primary fw-bold" style="font-size: 0.65rem;">{{ turno.sucursal|default:"---" }}</span><br>
-                    <span class="text-magenta" style="font-size: 0.6rem;">{{ turno.puesto|default:"---" }}</span>
+            <div class="mb-2 p-1 border-bottom" style="background: rgba(0,0,0,0.02);">
+                <div class="fw-bold mb-1" style="font-size: 0.65rem; border-bottom: 1px solid #000;">
+                    {{ turno.fecha_dia }} 
                 </div>
-
-                <div class="text-success fw-bold" style="font-size: 0.75rem;">
-                    ${{ turno.pago_dia|default:"0.00"|floatformat:2 }}
-                </div>
-
-                {% if turno.descuento_retardo > 0 %}
-                <div class="text-danger fw-bold mt-1" style="font-size: 0.6rem; border-top: 1px dashed #ffcdd2;">
-                    Ret: -${{ turno.descuento_retardo|floatformat:2 }}
-                </div>
-                {% endif %}
+                <div class="small fw-bold">{{ turno.puesto }}</div>
+                <div class="text-primary" style="font-size: 0.65rem;">{{ turno.sucursal }}</div>
+                <div class="text-success fw-bold mt-1">${{ turno.pago_dia|floatformat:2 }}</div>
             </div>
             {% endfor %}
         </td>
         {% endfor %}
         
         <td class="text-center fw-bold">{{ n.retardos }}</td>
-        <td class="text-end px-2">${{ n.pago_base|floatformat:2 }}</td>
+        <td class="text-end px-2 fw-bold" style="background: #e8f5e9;">${{ n.pago_base|floatformat:2 }}</td>
         <td class="text-end px-2 text-success">+${{ n.bonos|floatformat:2 }}</td>
         <td class="text-end px-2 text-danger">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
-        <td class="text-end px-2 fw-bold bg-light" style="font-size: 1rem; border-left: 2px solid #000 !important;">${{ n.total_neto|floatformat:2 }}</td>
+        <td class="text-end px-2 fw-bold bg-primary text-white" style="font-size: 1rem;">${{ n.total_neto|floatformat:2 }}</td>
     </tr>
     {% endfor %}
 </tbody>
