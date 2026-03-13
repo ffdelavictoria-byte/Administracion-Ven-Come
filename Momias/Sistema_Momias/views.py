@@ -893,11 +893,11 @@ def calcular_nomina_web(request):
                 for item in lista_detalles_asistencia:
                     reg = item['reg']
                     retardo_dia = item['retardo_dia']
-                    salario_dia = item['salario_dia'] # Este es el valor total del día (ej. 473.0 para jornadas dobles)
+                    salario_dia = item['salario_dia'] # Valor total del día
                     
                     desc_retardo_dia = 0.0
                     
-                    # 1. Determinamos si es jornada física completa (independiente del nombre del puesto)
+                    # 1. Determinamos si es jornada física completa
                     es_jornada_completa = (
                         (reg.entrada_matutina and reg.salida_vespertina and not reg.salida_matutina) or 
                         (reg.entrada_matutina and reg.salida_matutina and reg.entrada_vespertina and reg.salida_vespertina)
@@ -910,11 +910,18 @@ def calcular_nomina_web(request):
                         
                         diferencia_factor = factor_actual - factor_anterior
                         
-                        # 2. Aplicamos el descuento sobre el salario total del día.
-                        # Al no multiplicar por 0.5, la diferencia del factor (0.5) 
-                        # actúa directamente sobre el salario diario total.
-                        # Resultado: 0.5 * 473.0 = 236.5 (Medio turno de descuento).
-                        desc_retardo_dia = diferencia_factor * float(salario_dia)
+                        # 2. Aplicamos el descuento:
+                        # Si es jornada completa, queremos 1/4 de un turno de 236.50
+                        # 0.5 (diferencia) * 473.0 (salario total) * 0.25 = 59.125 (Esto no es 118)
+                        # Para obtener 118.25 directamente:
+                        if es_jornada_completa:
+                            # 0.5 * 236.50 = 118.25
+                            # Usamos la base de un solo turno (236.50) si es jornada completa
+                            base_turno = float(salario_dia) / 2
+                            desc_retardo_dia = diferencia_factor * base_turno
+                        else:
+                            # Jornada sencilla: diferencia factor * salario total
+                            desc_retardo_dia = diferencia_factor * float(salario_dia)
                         
                     val_bono = float(reg.bonificacion or 0.0)
                     val_desc = float(reg.descuento or 0.0)
