@@ -893,34 +893,28 @@ def calcular_nomina_web(request):
                 for item in lista_detalles_asistencia:
                     reg = item['reg']
                     retardo_dia = item['retardo_dia']
-                    salario_dia = item['salario_dia']
-                    base_salario_dia = item['salario_puesto_full']
+                    salario_dia = item['salario_dia'] # Este es el valor total del día (ej. 473.0 para jornadas dobles)
                     
                     desc_retardo_dia = 0.0
                     
+                    # 1. Determinamos si es jornada física completa (independiente del nombre del puesto)
+                    es_jornada_completa = (
+                        (reg.entrada_matutina and reg.salida_vespertina and not reg.salida_matutina) or 
+                        (reg.entrada_matutina and reg.salida_matutina and reg.entrada_vespertina and reg.salida_vespertina)
+                    )
+                    
                     if retardo_dia > 0:
-                        # 1. Calculamos el salto en la escala de FACTORES
                         factor_anterior = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         total_retardos_acumulados += retardo_dia
                         factor_actual = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         
                         diferencia_factor = factor_actual - factor_anterior
-
-                        # 2. DETERMINAR SI ES JORNADA FÍSICA COMPLETA
-                        # Detectamos si estuvo de 9 a 9, independientemente de si cambió de puesto
-                        es_jornada_completa = (
-                            # Caso A: Entrada matutina y salida vespertina sin marcas intermedias
-                            (reg.entrada_matutina and reg.salida_vespertina and not reg.salida_matutina) or 
-                            # Caso B: Marcó los 4 tiempos (mañana y tarde)
-                            (reg.entrada_matutina and reg.salida_matutina and reg.entrada_vespertina and reg.salida_vespertina)
-                        )
-
-                        if es_jornada_completa:
-                            # Se reduce el castigo a la mitad para que 2 retardos sumen 1/4 de jornada (0.25)
-                            desc_retardo_dia = diferencia_factor * base_salario_dia * 0.5
-                        else:
-                            # Jornada sencilla: castigo estándar de la escala
-                            desc_retardo_dia = diferencia_factor * base_salario_dia
+                        
+                        # 2. Aplicamos el descuento sobre el salario total del día.
+                        # Al no multiplicar por 0.5, la diferencia del factor (0.5) 
+                        # actúa directamente sobre el salario diario total.
+                        # Resultado: 0.5 * 473.0 = 236.5 (Medio turno de descuento).
+                        desc_retardo_dia = diferencia_factor * float(salario_dia)
                         
                     val_bono = float(reg.bonificacion or 0.0)
                     val_desc = float(reg.descuento or 0.0)
@@ -933,17 +927,11 @@ def calcular_nomina_web(request):
                     total_bonos += val_bono
                     total_descuentos_manuales += val_desc
 
-                    # --- MANTÉN ESTO ---
                     nombre_dia = dias_semana_esp[reg.fecha.weekday()]
                     fecha_str = reg.fecha.strftime('%d/%m/%y')
                     
-                    # --- DETERMINA LA CANTIDAD DE TURNOS PARA EL REPORTE ---
-                    if es_jornada_completa:
-                        cantidad_turnos = 2
-                    else:
-                        cantidad_turnos = 1
+                    cantidad_turnos = 2 if es_jornada_completa else 1
                     
-                    # --- ACTUALIZACIÓN DEL DICCIONARIO PARA EL HTML ---
                     dias_map[nombre_dia].append({
                         'fecha_dia': fecha_str,
                         'puesto': reg.puesto or '---',
@@ -953,7 +941,6 @@ def calcular_nomina_web(request):
                         'estatus': item['estatus'],
                         'cantidad_turnos': cantidad_turnos
                     })
-
                 # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
                 total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
                 total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
