@@ -264,19 +264,17 @@
             </div>
 
             <div class="form-group">
-                <label>Descuento ($):</label>
-                <div class="flex-row">
-                    <input type="number" name="descuento" id="descuento" step="0.01" value="0">
-                    <select name="motivo_descuento" id="motivo_descuento" onchange="toggleOtroDescuento(this.value)">
-                        <option value="">Motivo...</option>
-                        <option value="Error en nómina">Error en nómina</option>
-                        <option value="Falta de uniforme">Falta de uniforme</option>
-                        <option value="Otro">Otro</option>
-                    </select>
+                <label for="descuento">Descuento ($):</label>
+                <div class="d-flex gap-2">
+                    <input type="number" name="descuento" id="descuento" step="0.01" value="0" class="form-control" style="width: 30%;">
+                    
+                    <input type="text" 
+                           name="motivo_descuento" 
+                           id="motivo_descuento" 
+                           class="form-control" 
+                           placeholder="Escriba el motivo del descuento aquí..." 
+                           value="{{ asistencia.motivo_descuento|default:'' }}">
                 </div>
-                <input type="text" name="motivo_otro_texto" id="motivo_otro_texto" 
-                       placeholder="Especificar otro motivo..." 
-                       style="display:none; margin-top: 10px; width: 100%;">
             </div>
 
             <div class="form-group">
