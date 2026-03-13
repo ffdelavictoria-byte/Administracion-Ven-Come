@@ -380,9 +380,9 @@
         <td class="text-center p-1" style="min-width: 95px; vertical-align: top;">
             {% for turno in dia_list %}
                 <div class="mb-1 {% if 'FALTA' in turno.estatus %}table-danger{% endif %}">
-                    <div class="fw-bold text-primary" style="font-size: 0.6rem;">{{ turno.sucursal|default:"--" }}</div>
-                    <div style="font-size: 0.6rem;">{{ turno.puesto|default:"--" }}</div>
-                    <div class="fw-bold" style="font-size: 0.7rem;">${{ turno.pago_dia|floatformat:2 }}</div>
+                    <div class="fw-bold" style="font-size: 0.6rem;">{{ turno.sucursal }}</div>
+                    <div style="font-size: 0.6rem;">{{ turno.puesto }}</div>
+                    <div class="fw-bold text-success" style="font-size: 0.7rem;">${{ turno.pago_dia|floatformat:2 }}</div>
                     {% if turno.descuento_retardo > 0 %}
                         <div class="text-danger" style="font-size: 0.55rem;">R: -${{ turno.descuento_retardo|floatformat:2 }}</div>
                     {% endif %}
@@ -402,10 +402,11 @@
                         <div class="fw-bold text-dark">{{ dia_list.0.fecha_dia }}:</div>
                         {% for turno in dia_list %}
                             <div class="ms-1">
-                                <strong>Puesto:</strong> {{ turno.puesto }}<br>
-                                <strong>Turno:</strong> {{ turno.sucursal }} <span class="text-primary">${{ turno.pago_dia }}</span>
+                                <strong>Puesto:</strong> {{ turno.puesto }} | 
+                                <strong>Turno:</strong> {% if dia_list|length > 1 %}2 turnos{% else %}1 turno{% endif %}
+                                <br><span class="text-primary">Pago: ${{ turno.pago_dia }}</span>
                                 {% if turno.descuento_retardo > 0 %}
-                                    <br><span class="text-danger">Desc. Retardo: -${{ turno.descuento_retardo }} ({{ turno.estatus }})</span>
+                                    <br><span class="text-danger">Desc: -${{ turno.descuento_retardo }} ({{ turno.estatus }})</span>
                                 {% endif %}
                             </div>
                         {% endfor %}
@@ -420,7 +421,6 @@
         <td class="text-end px-1 text-success">+${{ n.bonos|floatformat:2 }}</td>
         <td class="text-end px-1 text-danger">
             -${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}
-            {% if n.uniforme > 0 %}<br><small style="font-size: 0.5rem;">(Inc. Unif.)</small>{% endif %}
         </td>
         <td class="text-end fw-bold bg-primary text-white" style="font-size: 1.1rem;">
             ${{ n.total_neto|floatformat:2 }}
