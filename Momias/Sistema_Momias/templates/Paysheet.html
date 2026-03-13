@@ -390,6 +390,8 @@
         
         <td class="text-center fw-bold">{{ n.retardos }}</td>
         
+        <td style="display: none;">{{ n.pago_base }}</td>
+        
         <td class="text-end px-2 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
         <td class="text-end px-2 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
         
@@ -399,7 +401,7 @@
     </tr>
 
     <tr class="table-light">
-        <td colspan="11" class="p-2">
+        <td colspan="10" class="p-2">
             <div class="d-flex flex-wrap gap-2 align-items-center" style="font-size: 0.65rem;">
                 <strong class="text-dark">Desglose de Pago Base:</strong>
                 {% for dia_list in n.dias %}
@@ -455,7 +457,7 @@
 
                         <th>Ret</th>
 
-                        <th>Pago Base</th>
+                        <th style="display: none;">PAGO BASE</th>
 
                         <th>Bonos</th>
 
