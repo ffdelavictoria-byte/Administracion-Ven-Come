@@ -815,8 +815,7 @@ def calcular_nomina_web(request):
                     total_dias_trabajados = len(asistencias_trabajadas)
                     conteo_puestos = Counter([a.puesto for a in asistencias_trabajadas])
                     
-                    # 1. Identificar si cumple la regla de entrada 9am y salida 9pm (o similar jornada completa)
-                    # Comparamos si al menos un registro tiene ambos horarios (Matutino y Vespertino)
+                    # 1. Identificar si cumple la regla de jornada completa
                     es_jornada_completa = any(
                         (a.entrada_matutina == "09:00" and a.salida_vespertina == "21:00") 
                         for a in asistencias_trabajadas
@@ -824,18 +823,15 @@ def calcular_nomina_web(request):
 
                     # 2. Calcular salario de descanso
                     if es_jornada_completa:
-                        # Se paga como dos turnos del puesto más recurrente
                         puesto_frecuente = conteo_puestos.most_common(1)[0][0]
                         salario_descanso = puestos_salarios.get(puesto_frecuente, 0) * 2
                         puesto_principal = f"{puesto_frecuente} (Doble)"
                     else:
-                        # Si hay puestos mixtos, se paga un turno de cada uno según su frecuencia
-                        # Esto ya lo cubría tu lógica de promedio ponderado, la mantenemos:
                         salario_descanso = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
                                                for p, c in conteo_puestos.items())
                         puesto_principal = conteo_puestos.most_common(1)[0][0]
                     
-                    # 3. Regla especial para turnos de 12 horas (si aplica)
+                    # 3. Regla especial para turnos de 12 horas
                     dias_dobles = sum(1 for a in asistencias_trabajadas if "(12 Horas)" in (a.puesto or ""))
                     if dias_dobles > 6:
                         salario_descanso *= 2
@@ -844,13 +840,12 @@ def calcular_nomina_web(request):
                     salario_descanso = float(empleado.sueldo_base or 0)
                     puesto_principal = "Sin Puesto"
     
-                # --- PRE-CALCULO DE RETARDOS PARA APLICAR ESCALA ---
-                # Identificamos qué días tienen realmente un retardo
+                # --- PRE-CALCULO DE RETARDOS Y LÓGICA DE PAGO ÚNICO ---
                 lista_detalles_asistencia = []
                 total_retardos_semanales = 0
+                descanso_pagado = False  # Bandera para pago único
                 
                 for reg in asistencias:
-                    # Calculamos el retardo individual
                     estatus_limpio = (reg.estatus or "").upper()
                     salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
                     base_calc = float(salario_base_puesto)
@@ -858,9 +853,14 @@ def calcular_nomina_web(request):
                     if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
                     elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
 
+                    # Lógica de pago de descanso (Solo el primero se paga)
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
                         retardo_dia = 0
-                        salario_dia = salario_descanso
+                        if not descanso_pagado:
+                            salario_dia = salario_descanso
+                            descanso_pagado = True
+                        else:
+                            salario_dia = 0.0
                     elif float(reg.pago_dia or 0.0) > 0:
                         retardo_dia = int(reg.horas or 0)
                         salario_dia = float(reg.pago_dia)
@@ -877,7 +877,6 @@ def calcular_nomina_web(request):
                         'reg': reg, 'retardo_dia': retardo_dia, 'salario_dia': salario_dia,
                         'salario_puesto_full': base_calc, 'estatus': estatus_limpio
                     })
-
 
 
                 pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
