@@ -899,18 +899,28 @@ def calcular_nomina_web(request):
                     desc_retardo_dia = 0.0
                     
                     if retardo_dia > 0:
-                        # 1. Guardamos el factor anterior antes de aumentar el acumulado
+                        # 1. Calculamos el salto en la escala de FACTORES
                         factor_anterior = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
-                        
-                        # 2. Aumentamos el acumulado con los retardos de hoy
                         total_retardos_acumulados += retardo_dia
-                        
-                        # 3. Calculamos el nuevo factor actual
                         factor_actual = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         
-                        # 4. El descuento es la diferencia de castigo entre lo que debíamos antes y lo que debemos ahora
-                        # Esto asegura que si hoy acumulaste 2 retardos, solo pagas el castigo de esos retardos
-                        desc_retardo_dia = (factor_actual - factor_anterior) * base_salario_dia
+                        diferencia_factor = factor_actual - factor_anterior
+
+                        # 2. DETERMINAR SI ES JORNADA FÍSICA COMPLETA
+                        # Detectamos si estuvo de 9 a 9, independientemente de si cambió de puesto
+                        es_jornada_completa = (
+                            # Caso A: Entrada matutina y salida vespertina sin marcas intermedias
+                            (reg.entrada_matutina and reg.salida_vespertina and not reg.salida_matutina) or 
+                            # Caso B: Marcó los 4 tiempos (mañana y tarde)
+                            (reg.entrada_matutina and reg.salida_matutina and reg.entrada_vespertina and reg.salida_vespertina)
+                        )
+
+                        if es_jornada_completa:
+                            # Se reduce el castigo a la mitad para que 2 retardos sumen 1/4 de jornada (0.25)
+                            desc_retardo_dia = diferencia_factor * base_salario_dia * 0.5
+                        else:
+                            # Jornada sencilla: castigo estándar de la escala
+                            desc_retardo_dia = diferencia_factor * base_salario_dia
                         
                     val_bono = float(reg.bonificacion or 0.0)
                     val_desc = float(reg.descuento or 0.0)
@@ -927,14 +937,13 @@ def calcular_nomina_web(request):
                     nombre_dia = dias_semana_esp[reg.fecha.weekday()]
                     fecha_str = reg.fecha.strftime('%d/%m/%y')
                     
-                    # --- DETERMINA LA CANTIDAD DE TURNOS AQUÍ ---
-                    if (reg.entrada_matutina and reg.salida_matutina and reg.entrada_vespertina and reg.salida_vespertina) or \
-                       (reg.entrada_matutina and reg.salida_vespertina and not reg.entrada_vespertina and not reg.salida_matutina):
+                    # --- DETERMINA LA CANTIDAD DE TURNOS PARA EL REPORTE ---
+                    if es_jornada_completa:
                         cantidad_turnos = 2
                     else:
                         cantidad_turnos = 1
                     
-                    # --- Y AÑADE EL CAMPO 'cantidad_turnos' AL DICCIONARIO ---
+                    # --- ACTUALIZACIÓN DEL DICCIONARIO PARA EL HTML ---
                     dias_map[nombre_dia].append({
                         'fecha_dia': fecha_str,
                         'puesto': reg.puesto or '---',
@@ -942,7 +951,7 @@ def calcular_nomina_web(request):
                         'pago_dia': round(salario_dia, 2),
                         'descuento_retardo': round(desc_retardo_dia, 2),
                         'estatus': item['estatus'],
-                        'cantidad_turnos': cantidad_turnos  # <--- AQUÍ ESTÁ EL NUEVO DATO
+                        'cantidad_turnos': cantidad_turnos
                     })
 
                 # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
