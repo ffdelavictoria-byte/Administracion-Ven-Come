@@ -377,14 +377,15 @@
         <td class="text-center small fw-bold">{{ n.puesto_principal|default:"--" }}</td>
         
         {% for dia_list in n.dias %}
-        <td class="text-center p-1" style="min-width: 95px; vertical-align: top;">
+        <td class="text-center p-1" style="min-width: 100px; vertical-align: top;">
             {% for turno in dia_list %}
-                <div class="mb-1 {% if 'FALTA' in turno.estatus %}table-danger{% endif %}">
-                    <div class="fw-bold" style="font-size: 0.6rem;">{{ turno.sucursal }}</div>
+                <div class="mb-2 pb-1 border-bottom {% if 'FALTA' in turno.estatus %}table-danger{% endif %}">
+                    <div class="fw-bold" style="font-size: 0.65rem;">{{ turno.fecha_dia }}</div>
+                    <div class="text-primary fw-bold" style="font-size: 0.6rem;">{{ turno.sucursal }}</div>
                     <div style="font-size: 0.6rem;">{{ turno.puesto }}</div>
                     <div class="fw-bold text-success" style="font-size: 0.7rem;">${{ turno.pago_dia|floatformat:2 }}</div>
                     {% if turno.descuento_retardo > 0 %}
-                        <div class="text-danger" style="font-size: 0.55rem;">R: -${{ turno.descuento_retardo|floatformat:2 }}</div>
+                        <div class="text-danger fw-bold" style="font-size: 0.55rem;">R: -${{ turno.descuento_retardo|floatformat:2 }}</div>
                     {% endif %}
                 </div>
             {% empty %}
@@ -397,21 +398,17 @@
 
         <td class="text-start px-2" style="font-size: 0.65rem; min-width: 180px; background: #fafafa;">
             {% for dia_list in n.dias %}
-                {% if dia_list %}
+                {% for turno in dia_list %}
                     <div class="mb-2 pb-1" style="border-bottom: 1px dashed #ccc;">
-                        <div class="fw-bold text-dark">{{ dia_list.0.fecha_dia }}:</div>
-                        {% for turno in dia_list %}
-                            <div class="ms-1">
-                                <strong>Puesto:</strong> {{ turno.puesto }} | 
-                                <strong>Turno:</strong> {% if dia_list|length > 1 %}2 turnos{% else %}1 turno{% endif %}
-                                <br><span class="text-primary">Pago: ${{ turno.pago_dia }}</span>
-                                {% if turno.descuento_retardo > 0 %}
-                                    <br><span class="text-danger">Desc: -${{ turno.descuento_retardo }} ({{ turno.estatus }})</span>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
+                        <div class="fw-bold">{{ turno.fecha_dia }}</div>
+                        <div><strong>Puesto:</strong> {{ turno.puesto }}</div>
+                        <div><strong>Turno:</strong> {{ turno.sucursal }}</div>
+                        <div class="text-primary"><strong>Pago:</strong> ${{ turno.pago_dia }}</div>
+                        {% if turno.descuento_retardo > 0 %}
+                            <div class="text-danger fw-bold">Desc: -${{ turno.descuento_retardo }} ({{ turno.estatus }})</div>
+                        {% endif %}
                     </div>
-                {% endif %}
+                {% endfor %}
             {% endfor %}
             <div class="mt-2 pt-1 border-top border-dark fw-bold text-end">
                 Base Total: ${{ n.pago_base|floatformat:2 }}
