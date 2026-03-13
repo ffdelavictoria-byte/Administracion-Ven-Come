@@ -923,16 +923,26 @@ def calcular_nomina_web(request):
                     total_bonos += val_bono
                     total_descuentos_manuales += val_desc
 
+                    # --- MANTÉN ESTO ---
                     nombre_dia = dias_semana_esp[reg.fecha.weekday()]
                     fecha_str = reg.fecha.strftime('%d/%m/%y')
                     
+                    # --- DETERMINA LA CANTIDAD DE TURNOS AQUÍ ---
+                    if (reg.entrada_matutina and reg.salida_matutina and reg.entrada_vespertina and reg.salida_vespertina) or \
+                       (reg.entrada_matutina and reg.salida_vespertina and not reg.entrada_vespertina and not reg.salida_matutina):
+                        cantidad_turnos = 2
+                    else:
+                        cantidad_turnos = 1
+                    
+                    # --- Y AÑADE EL CAMPO 'cantidad_turnos' AL DICCIONARIO ---
                     dias_map[nombre_dia].append({
                         'fecha_dia': fecha_str,
                         'puesto': reg.puesto or '---',
                         'sucursal': reg.sucursal or '---',
                         'pago_dia': round(salario_dia, 2),
                         'descuento_retardo': round(desc_retardo_dia, 2),
-                        'estatus': item['estatus']
+                        'estatus': item['estatus'],
+                        'cantidad_turnos': cantidad_turnos  # <--- AQUÍ ESTÁ EL NUEVO DATO
                     })
 
                 # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
