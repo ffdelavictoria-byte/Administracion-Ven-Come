@@ -382,16 +382,20 @@
             <div class="border-bottom mb-1" style="font-size: 0.6rem;">
                 <span class="fw-bold">{{ turno.fecha_dia }}</span><br>
                 <span class="badge {% if turno.cantidad_turnos > 1 %}bg-danger{% else %}bg-secondary{% endif %}">{{ turno.cantidad_turnos }} T</span>
-                <div>${{ turno.pago_dia|floatformat:2 }}</div>
+                <div class="fw-bold text-success">${{ turno.pago_dia|floatformat:2 }}</div>
             </div>
             {% endfor %}
         </td>
         {% endfor %}
         
         <td class="text-center fw-bold">{{ n.retardos }}</td>
+        
         <td class="text-end px-2 text-success">+${{ n.bonos|floatformat:2 }}</td>
         <td class="text-end px-2 text-danger">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
-        <td class="text-end fw-bold bg-light" style="border-left: 2px solid #000;">${{ n.total_neto|floatformat:2 }}</td>
+        
+        <td class="text-end fw-bold bg-light" style="border-left: 2px solid #000; font-size: 1rem;">
+            ${{ n.total_neto|floatformat:2 }}
+        </td>
     </tr>
 
     <tr class="table-light">
@@ -401,14 +405,15 @@
                 {% for dia_list in n.dias %}
                     {% for turno in dia_list %}
                     <div class="border rounded px-1 bg-white">
-                        {{ turno.fecha_dia }} | <b>{{ turno.sucursal }}</b> | {{ turno.puesto }} | <b>${{ turno.pago_dia|floatformat:2 }}</b>
+                        {{ turno.fecha_dia }} | <b>{{ turno.sucursal }}</b> | {{ turno.puesto }} | 
+                        <b>{{ turno.cantidad_turnos }} T</b> | <b>${{ turno.pago_dia|floatformat:2 }}</b>
                         {% if turno.descuento_retardo > 0 %}
-                            <span class="text-danger">| Ret: -${{ turno.descuento_retardo }}</span>
+                            <span class="text-danger">| Ret: -${{ turno.descuento_retardo|floatformat:2 }}</span>
                         {% endif %}
                     </div>
                     {% endfor %}
                 {% endfor %}
-                <div class="fw-bold ms-auto">TOTAL BASE: ${{ n.pago_base|floatformat:2 }}</div>
+                <div class="fw-bold ms-auto text-primary">TOTAL BASE: ${{ n.pago_base|floatformat:2 }}</div>
             </div>
         </td>
     </tr>
