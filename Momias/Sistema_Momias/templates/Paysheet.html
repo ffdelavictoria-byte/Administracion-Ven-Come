@@ -92,7 +92,7 @@
 
         /* Línea de corte con tijeras */
         .tira-recortable::after {
-            content: "✂️ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -";
+            content: "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -";
             position: absolute;
             bottom: -30px;
             left: 0;
@@ -204,7 +204,11 @@
                             {% for turno in dia_list %}
                             <div class="border-bottom mb-1" style="font-size: 0.6rem;">
                                 <span class="fw-bold">{{ turno.fecha_dia }}</span><br>
-                                <span class="badge {% if turno.cantidad_turnos > 1 %}bg-danger{% else %}bg-secondary{% endif %}">{{ turno.cantidad_turnos }} T</span>
+                                {% if turno.estatus == "DESCANSO" %}
+                                    <span class="badge bg-info">DESCANSO</span>
+                                {% else %}
+                                    <span class="badge {% if turno.cantidad_turnos > 1 %}bg-danger{% else %}bg-secondary{% endif %}">{{ turno.cantidad_turnos }} T</span>
+                                {% endif %}
                                 <div class="fw-bold text-success">${{ turno.pago_dia|floatformat:2 }}</div>
                             </div>
                             {% endfor %}
@@ -224,15 +228,23 @@
                     {% for dia_list in n.dias %}
                         {% for turno in dia_list %}
                         <div class="border rounded px-1 bg-white shadow-sm">
-                            {{ turno.fecha_dia }} | <b>{{ turno.sucursal }}</b> | {{ turno.puesto }} | 
-                            <b>{{ turno.cantidad_turnos }} T</b> | <b>${{ turno.pago_dia|floatformat:2 }}</b>
-                            {% if turno.descuento_retardo > 0 %}
-                                <span class="text-danger ms-1">| Ret: -${{ turno.descuento_retardo|floatformat:2 }}</span>
+                            {{ turno.fecha_dia }} | 
+                            {% if turno.estatus == "DESCANSO" %}
+                                <span class="text-muted fw-bold">DESCANSO | PAGO: ${{ turno.pago_dia|floatformat:2 }}</span>
+                            {% else %}
+                                <b>{{ turno.sucursal }}</b> | {{ turno.puesto }} | 
+                                <b>{{ turno.cantidad_turnos }} T</b> | <b>${{ turno.pago_dia|floatformat:2 }}</b>
+                                {% if turno.descuento_retardo > 0 %}
+                                    <span class="text-danger ms-1">| Ret: -${{ turno.descuento_retardo|floatformat:2 }}</span>
+                                {% endif %}
                             {% endif %}
                         </div>
                         {% endfor %}
                     {% endfor %}
-                    <div class="fw-bold ms-auto text-primary border-start ps-2">TOTAL BASE: ${{ n.pago_base|floatformat:2 }}</div>
+                    <div class="fw-bold ms-auto text-primary border-start ps-2">
+                        TOTAL BASE: ${{ n.pago_base|floatformat:2 }}
+                        <small class="d-block text-muted" style="font-size: 9px;">* Máx. 1 descanso pagado.</small>
+                    </div>
                 </div>
             </div>
 
@@ -247,7 +259,6 @@
             <div class="alert alert-info text-center">No hay datos para el periodo seleccionado.</div>
         {% endfor %}
     </div>
-</div
 </div>
 
 <script>
