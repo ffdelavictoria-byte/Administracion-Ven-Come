@@ -370,7 +370,7 @@
                     <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
                 </tr>
             </thead>
-            <tbody>
+<tbody>
     {% for n in nominas %}
     <tr class="align-middle">
         <td class="fw-bold px-2">{{ n.nombre }}</td>
@@ -390,7 +390,7 @@
         
         <td class="text-center fw-bold">{{ n.retardos }}</td>
         
-        <td style="display: none;">{{ n.pago_base }}</td>
+        <td style="display: none;"><span style="display: none;">{{ n.pago_base }}</span></td>
         
         <td class="text-end px-2 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
         <td class="text-end px-2 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
