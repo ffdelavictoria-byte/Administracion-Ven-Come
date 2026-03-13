@@ -924,16 +924,35 @@ def calcular_nomina_web(request):
                     total_descuentos_manuales += val_desc
                     
                     nombre_dia = dias_semana_esp[reg.fecha.weekday()]
-                    dias_map[nombre_dia].append({
-                        'fecha_dia': reg.fecha.strftime('%d/%m/%y'),
-                        'horas': retardo_dia,
-                        'estatus': item['estatus'],
-                        'pago_dia': round(salario_dia, 2),
-                        'sucursal': reg.sucursal or '---',
-                        'puesto': reg.puesto or '---',
-                        'descuento_retardo': round(desc_retardo_dia, 2), 
-                        'descuento_aplicado': round(val_desc, 2)
-                    })
+
+                    # Buscamos si ya existe esta fecha para este día
+                    fecha_str = reg.fecha.strftime('%d/%m/%y')
+                    dia_existente = next((d for d in dias_map[nombre_dia] if d['fecha_dia'] == fecha_str), None)
+                    
+                    if dia_existente:
+                        # Si ya existe, agregamos información de este segundo turno
+                        dia_existente['turnos'].append({
+                            'puesto': reg.puesto or '---',
+                            'sucursal': reg.sucursal or '---',
+                            'pago': round(salario_dia, 2),
+                            'retardo': retardo_dia
+                        })
+                        dia_existente['pago_dia'] += round(salario_dia, 2)
+                        dia_existente['descuento_retardo'] += round(desc_retardo_dia, 2)
+                    else:
+                        # Si es el primer turno del día
+                        dias_map[nombre_dia].append({
+                            'fecha_dia': fecha_str,
+                            'turnos': [{
+                                'puesto': reg.puesto or '---',
+                                'sucursal': reg.sucursal or '---',
+                                'pago': round(salario_dia, 2),
+                                'retardo': retardo_dia
+                            }],
+                            'pago_dia': round(salario_dia, 2),
+                            'descuento_retardo': round(desc_retardo_dia, 2),
+                            'estatus': item['estatus']
+                        })
 
                 # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
                 total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
