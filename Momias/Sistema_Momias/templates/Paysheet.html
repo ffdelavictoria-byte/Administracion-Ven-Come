@@ -1,4 +1,4 @@
- {% load static %}
+{% load static %}
 
 <!DOCTYPE html>
 
@@ -370,45 +370,42 @@
                     <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
                 </tr>
             </thead>
-<tbody>
+            <tbody>
     {% for n in nominas %}
     <tr>
         <td class="fw-bold px-2" style="font-size: 0.85rem;">{{ n.nombre }}</td>
         <td class="small text-muted">{{ n.puesto_principal|default:"--" }}</td>
         
-        <td class="text-start px-2" style="font-size: 0.7rem; min-width: 180px;">
-            <div class="mb-2">
-                {% for dia_list in n.dias %}
-                    {% for turno in dia_list %}
-                    <div class="border-bottom pb-1 mb-1">
-                        <strong>{{ turno.fecha_dia }}:</strong> {{ turno.puesto }} 
-                        <span class="text-primary">${{ turno.pago_dia }}</span>
-                        {% if turno.descuento_retardo > 0 %}
-                            <br><span class="text-danger">- ${{ turno.descuento_retardo }} (Ret: {{ turno.estatus }})</span>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                {% endfor %}
-            </div>
-            
-            <div class="mt-2 pt-2 border-top border-dark">
-                <div class="d-flex justify-content-between">
-                    <span>Base:</span> <strong>${{ n.pago_base|floatformat:2 }}</strong>
+        {% for dia_list in n.dias %}
+        <td class="text-center p-1" style="min-width: 100px;">
+            {% for turno in dia_list %}
+            <div class="mb-2 p-1 border-bottom">
+                <div class="fw-bold mb-1" style="font-size: 0.65rem; background: rgba(0,0,0,0.05);">{{ turno.fecha_dia }}</div>
+                <div class="fw-bold mb-1" style="font-size: 0.7rem;">{{ turno.horas|default:"0" }}h - {{ turno.estatus|default:"N/A" }}</div>
+                <div style="line-height: 1.1; margin-bottom: 4px;">
+                    <span class="text-primary fw-bold" style="font-size: 0.65rem;">{{ turno.sucursal|default:"---" }}</span><br>
+                    <span class="text-magenta" style="font-size: 0.6rem;">{{ turno.puesto|default:"---" }}</span>
                 </div>
-                <div class="d-flex justify-content-between text-danger">
-                    <span>Desc:</span> <strong>-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</strong>
-                </div>
-                <div class="d-flex justify-content-between fw-bold mt-1">
-                    <span>NETO:</span> <span>${{ n.total_neto|floatformat:2 }}</span>
-                </div>
-            </div>
-        </td>
 
+                <div class="text-success fw-bold" style="font-size: 0.75rem;">
+                    ${{ turno.pago_dia|default:"0.00"|floatformat:2 }}
+                </div>
+
+                {% if turno.descuento_retardo > 0 %}
+                <div class="text-danger fw-bold mt-1" style="font-size: 0.6rem; border-top: 1px dashed #ffcdd2;">
+                    Ret: -${{ turno.descuento_retardo|floatformat:2 }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </td>
+        {% endfor %}
+        
         <td class="text-center fw-bold">{{ n.retardos }}</td>
-        <td class="text-end px-2 fw-bold" style="background: #e8f5e9;">${{ n.pago_base|floatformat:2 }}</td>
+        <td class="text-end px-2">${{ n.pago_base|floatformat:2 }}</td>
         <td class="text-end px-2 text-success">+${{ n.bonos|floatformat:2 }}</td>
         <td class="text-end px-2 text-danger">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
-        <td class="text-end px-2 fw-bold bg-primary text-white" style="font-size: 1rem;">${{ n.total_neto|floatformat:2 }}</td>
+        <td class="text-end px-2 fw-bold bg-light" style="font-size: 1rem; border-left: 2px solid #000 !important;">${{ n.total_neto|floatformat:2 }}</td>
     </tr>
     {% endfor %}
 </tbody>
@@ -460,69 +457,89 @@
 
                 </thead>
 
-               <tbody>
-    {% for n in nominas %}
-    <tr>
-        <td class="text-center small fw-bold">{{ n.puesto_principal|default:"--" }}</td>
-        
-        {% for dia_list in n.dias %}
-        <td class="text-center p-1" style="min-width: 95px; vertical-align: top;">
-            {% for turno in dia_list %}
-                <div class="{% if 'FALTA' in turno.estatus %}table-danger{% endif %}">
-                    <div class="fw-bold mb-1" style="font-size: 0.65rem; color: #000; border-bottom: 1.5px solid #000;">
-                        {{ turno.fecha_dia }}
-                    </div>
-                    <div class="fw-bold" style="font-size: 0.65rem; border-bottom: 1px solid #eee; padding-bottom: 2px;">
-                        {{ turno.horas|default:"0" }}h - {{ turno.estatus }}
-                    </div>
-                    <div style="font-size: 0.6rem; line-height: 1.1; margin-top: 3px;">
-                        <span class="text-uppercase fw-bold text-primary">{{ turno.sucursal|default:"--" }}</span><br>
-                        <span class="text-magenta">{{ turno.puesto|default:"--" }}</span>
-                    </div>
-                    <div style="font-size: 0.55rem; margin-top: 2px;">
-                        {% if turno.horas_retardo > 0 %}<span class="fw-bold text-danger">R: {{ turno.horas_retardo }}</span>{% endif %}
-                        {% if turno.descuento_retardo > 0 %}<span class="ms-1 fw-bold text-danger">D: -${{ turno.descuento_retardo|floatformat:2 }}</span>{% endif %}
-                    </div>
-                    <div class="mt-1 fw-bold text-success" style="font-size: 0.75rem; border-top: 1px dashed #ccc; padding-top: 2px;">
-                        ${{ turno.pago_dia|default:"0.00"|floatformat:2 }}
-                    </div>
-                </div>
-            {% empty %}
-                <div class="text-muted" style="font-size: 0.6rem;">---</div>
-            {% endfor %}
-        </td>
-        {% endfor %}
+                <tbody>
 
-        <td class="text-center fw-bold">{{ n.retardos }}</td>
+                    <tr>
 
-        <td class="text-start px-2" style="font-size: 0.65rem; min-width: 150px; background: #fafafa; border-left: 2px solid #dee2e6;">
-            <div class="fw-bold border-bottom mb-1 pb-1">Desglose Semanal:</div>
-            {% for dia_list in n.dias %}
-                {% for turno in dia_list %}
-                <div style="margin-bottom: 2px;">
-                    <strong>{{ turno.fecha_dia }}:</strong> {{ turno.puesto }} <span class="text-primary">${{ turno.pago_dia }}</span>
-                    {% if turno.descuento_retardo > 0 %}
-                        <br><span class="text-danger">- ${{ turno.descuento_retardo }} ({{ turno.estatus }})</span>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            {% endfor %}
-            <div class="mt-2 pt-1 border-top border-dark fw-bold">
-                Total Base: ${{ n.pago_base|floatformat:2 }}
-            </div>
-        </td>
+                        <td class="text-center small fw-bold">{{ n.puesto_principal|default:"--" }}</td>
 
-        <td class="text-end px-1 text-success">+${{ n.bonos|floatformat:2 }}</td>
-        <td class="text-end px-1 text-danger">
-            -${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}
-            {% if n.uniforme > 0 %}<br><small style="font-size: 0.5rem;">(Inc. Unif.)</small>{% endif %}
-        </td>
-        <td class="text-end fw-bold bg-light" style="font-size: 1.1rem; border-left: 2px solid #000 !important;">
-            ${{ n.total_neto|floatformat:2 }}
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
+                        {% for dia_list in n.dias %}
+
+                        <td class="text-center p-1" style="min-width: 95px; vertical-align: top;">
+
+                            {% for turno in dia_list %}
+
+                                <div class="{% if 'FALTA' in turno.estatus %}table-danger{% endif %}">
+
+                                    <div class="fw-bold mb-1" style="font-size: 0.65rem; color: #000; border-bottom: 1.5px solid #000;">
+
+                                        {{ turno.fecha_dia }}
+
+                                    </div>
+
+                                    <div class="fw-bold" style="font-size: 0.65rem; border-bottom: 1px solid #eee; padding-bottom: 2px;">
+
+                                        {{ turno.horas|default:"0" }}h - {{ turno.estatus }}
+
+                                    </div>
+
+                                    <div style="font-size: 0.6rem; line-height: 1.1; margin-top: 3px;">
+
+                                        <span class="text-uppercase fw-bold text-primary">{{ turno.sucursal|default:"--" }}</span><br>
+
+                                        <span class="text-magenta">{{ turno.puesto|default:"--" }}</span>
+
+                                    </div>
+
+                                    <div style="font-size: 0.55rem; margin-top: 2px;">
+
+                                        {% if turno.horas_retardo > 0 %}<span class="fw-bold text-danger">R: {{ turno.horas_retardo }}</span>{% endif %}
+
+                                        {% if turno.descuento_retardo > 0 %}<span class="ms-1 fw-bold text-danger">D: -${{ turno.descuento_retardo|floatformat:2 }}</span>{% endif %}
+
+                                    </div>
+
+                                    <div class="mt-1 fw-bold text-success" style="font-size: 0.75rem; border-top: 1px dashed #ccc; padding-top: 2px;">
+
+                                        ${{ turno.pago_dia|default:"0.00"|floatformat:2 }}
+
+                                    </div>
+
+                                </div>
+
+                            {% empty %}
+
+                                <div class="text-muted" style="font-size: 0.6rem;">---</div>
+
+                            {% endfor %}
+
+                        </td>
+
+                        {% endfor %}
+
+                        <td class="text-center fw-bold">{{ n.retardos }}</td>
+
+                        <td class="text-end px-1">${{ n.pago_base|floatformat:2 }}</td>
+
+                        <td class="text-end px-1 text-success">+${{ n.bonos|floatformat:2 }}</td>
+
+                        <td class="text-end px-1 text-danger">
+
+                            -${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}
+
+                            {% if n.uniforme > 0 %}<br><small style="font-size: 0.5rem;">(Inc. Unif.)</small>{% endif %}
+
+                        </td>
+
+                        <td class="text-end fw-bold bg-light" style="font-size: 1.1rem; border-left: 2px solid #000 !important;">
+
+                            ${{ n.total_neto|floatformat:2 }}
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
 
             </table>
 
