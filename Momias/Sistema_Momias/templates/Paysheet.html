@@ -377,34 +377,33 @@
         <td class="small text-muted">{{ n.puesto_principal|default:"--" }}</td>
         
         <td class="text-start px-2" style="font-size: 0.7rem; min-width: 180px;">
-    <div class="mb-2">
-        {% for dia_list in n.dias %}
-            {% for turno in dia_list %}
-            <div class="border-bottom pb-1 mb-1">
-                <strong>{{ turno.fecha_dia }}:</strong> {{ turno.puesto }} 
-                <span class="text-primary">${{ turno.pago_dia }}</span>
-                {% if turno.descuento_retardo > 0 %}
-                    <br><span class="text-danger">- ${{ turno.descuento_retardo }} (Ret: {{ turno.estatus }})</span>
-                {% endif %}
+            <div class="mb-2">
+                {% for dia_list in n.dias %}
+                    {% for turno in dia_list %}
+                    <div class="border-bottom pb-1 mb-1">
+                        <strong>{{ turno.fecha_dia }}:</strong> {{ turno.puesto }} 
+                        <span class="text-primary">${{ turno.pago_dia }}</span>
+                        {% if turno.descuento_retardo > 0 %}
+                            <br><span class="text-danger">- ${{ turno.descuento_retardo }} (Ret: {{ turno.estatus }})</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% endfor %}
             </div>
-            {% endfor %}
-        {% endfor %}
-    </div>
-    
-    <div class="mt-2 pt-2 border-top border-dark">
-        <div class="d-flex justify-content-between">
-            <span>Base:</span> <strong>${{ n.pago_base|floatformat:2 }}</strong>
-        </div>
-        <div class="d-flex justify-content-between text-danger">
-            <span>Desc:</span> <strong>-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</strong>
-        </div>
-        <div class="d-flex justify-content-between fw-bold mt-1">
-            <span>NETO:</span> <span>${{ n.total_neto|floatformat:2 }}</span>
-        </div>
-    </div>
-</td>
-        {% endfor %}
-        
+            
+            <div class="mt-2 pt-2 border-top border-dark">
+                <div class="d-flex justify-content-between">
+                    <span>Base:</span> <strong>${{ n.pago_base|floatformat:2 }}</strong>
+                </div>
+                <div class="d-flex justify-content-between text-danger">
+                    <span>Desc:</span> <strong>-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</strong>
+                </div>
+                <div class="d-flex justify-content-between fw-bold mt-1">
+                    <span>NETO:</span> <span>${{ n.total_neto|floatformat:2 }}</span>
+                </div>
+            </div>
+        </td>
+
         <td class="text-center fw-bold">{{ n.retardos }}</td>
         <td class="text-end px-2 fw-bold" style="background: #e8f5e9;">${{ n.pago_base|floatformat:2 }}</td>
         <td class="text-end px-2 text-success">+${{ n.bonos|floatformat:2 }}</td>
