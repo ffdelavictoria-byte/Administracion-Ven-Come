@@ -504,7 +504,7 @@ def Asistencias_FF_view(request):
         "Caja Matutina (9 horas)": 354.50,
         "Caja Vespertina (9 horas)": 354.50,
         "Gerente (12 horas)": 600.00, 
-        "Chef de Línea": 531.57,
+        "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
         "Encargado Cocina (Matutino 9 horas)": 378.00,
         "Encargado Cocina (Matutino 12 horas)": 519.00,
@@ -743,7 +743,7 @@ def calcular_nomina_web(request):
 
     puestos_salarios = {
         "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
-        "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
+        "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
         "Encargado Cocina (Matutino 9 horas)": 378.00,
         "Encargado Cocina (Matutino 12 horas)": 519.00,
@@ -1046,7 +1046,7 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
     from django.db.models import Q
 
     puestos_salarios = {
-        "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
+        "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
         "Encargado Cocina (Matutino 12 horas)": 504.00, "Encargado de Cocina (12 horas)": 519.00,
         "Cocina y Barra (6 hrs)": 236.50, "Cocina y Barra (9 hrs)": 354.50,
@@ -1251,7 +1251,7 @@ def vista_reportes(request):
     # Diccionario de salarios
     puestos_salarios = {
         "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
-        "Gerente (12 Horas)": 600.00, "Chef de Línea": 531.57,
+        "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
         "Encargado Cocina (Matutino 9 horas)": 378.00,
         "Encargado Cocina (Matutino 12 horas)": 504.00,
