@@ -182,68 +182,40 @@
 
 
             <div class="form-group">
-                <label>Entrada Matutina:</label>
-                <select name="entrada_matutina" id="entrada_matutina">
-                    <option value="OTRO">--- OTRO (Personalizado) ---</option>
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="09:00">09:00 - 09:05</option>
-                    <option value="R1">09:06 - 09:10 (R1)</option>
-                    <option value="R2">09:11 - 09:20 (R2)</option>
-                    <option value="R3">09:21 - 09:30 (R3)</option>
-                    <option value="R4">09:31 - 09:40 (R4)</option>
-                    <option value="R5">09:41 - 09:50 (R5)</option>
-                    <option value="R6">09:51 - 10:00 (R6)</option>
-                    <option value="R7">10:01 - 10:10 (R7)</option>
-                    <option value="R8">10:11 - 10:20 (R8)</option>
-                    <option value="R9">10:21 - 10:30 (R9)</option>
-                    <option value="R10">10:31 - 10:40 (R10)</option>
-                    <option value="R11">10:41 - 10:50 (R11)</option>
-                </select>
-                <input type="time" id="custom_entrada_matutina" class="custom-time" oninput="sincronizarTiempo(this, 'entrada_matutina')">
-            </div>
+    <label>Entrada Matutina:</label>
+    <select name="entrada_matutina" id="entrada_matutina" class="select-horario">
+        <option value="" selected>--- No aplica ---</option>
+        <option value="OTRO">--- OTRO (Personalizado) ---</option>
+    </select>
+    <input type="time" id="custom_entrada_matutina" class="custom-time" oninput="sincronizarTiempo(this, 'entrada_matutina')">
+</div>
 
-            <div class="form-group">
-                <label>Salida Matutina:</label>
-                <select name="salida_matutina" id="salida_matutina">
-                    <option value="OTRO">--- OTRO (Personalizado) ---</option>
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="15:00">15:00 (Normal)</option>
-                    <option value="15:30">15:30</option>
-                    <option value="16:00">16:00</option>
-                </select>
-                <input type="time" id="custom_salida_matutina" class="custom-time" oninput="sincronizarTiempo(this, 'salida_matutina')">
-            </div>
+<div class="form-group">
+    <label>Salida Matutina:</label>
+    <select name="salida_matutina" id="salida_matutina" class="select-horario">
+        <option value="" selected>--- No aplica ---</option>
+        <option value="OTRO">--- OTRO (Personalizado) ---</option>
+    </select>
+    <input type="time" id="custom_salida_matutina" class="custom-time" oninput="sincronizarTiempo(this, 'salida_matutina')">
+</div>
 
-            <div class="form-group">
-                <label>Entrada Vespertina:</label>
-                <select name="entrada_vespertina" id="entrada_vespertina">
-                    <option value="OTRO">--- OTRO (Personalizado) ---</option>
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="15:00">15:00 - 15:05</option>
-                    <option value="R1">15:06 - 15:10 (R1)</option>
-                    <option value="R2">15:11 - 15:20 (R2)</option>
-                    <option value="R3">15:21 - 15:30 (R3)</option>
-                    <option value="R4">15:31 - 15:40 (R4)</option>
-                    <option value="R5">15:41 - 15:50 (R5)</option>
-                    <option value="R6">15:51 - 16:00 (R6)</option>
-                    <option value="R7">16:01 - 16:10 (R7)</option>
-                    <option value="R8">16:11 - 16:20 (R8)</option>
-                    <option value="R9">16:21 - 16:30 (R9)</option>
-                    <option value="R10">16:31 - 16:40 (R10)</option>
-                    <option value="R11">16:41 - 16:50 (R11)</option>
-                </select>
-                <input type="time" id="custom_entrada_vespertina" class="custom-time" oninput="sincronizarTiempo(this, 'entrada_vespertina')">
-            </div>
+<div class="form-group">
+    <label>Entrada Vespertina:</label>
+    <select name="entrada_vespertina" id="entrada_vespertina" class="select-horario">
+        <option value="" selected>--- No aplica ---</option>
+        <option value="OTRO">--- OTRO (Personalizado) ---</option>
+    </select>
+    <input type="time" id="custom_entrada_vespertina" class="custom-time" oninput="sincronizarTiempo(this, 'entrada_vespertina')">
+</div>
 
-            <div class="form-group">
-                <label>Salida Vespertina:</label>
-                <select name="salida_vespertina" id="salida_vespertina">
-                    <option value="OTRO">--- OTRO (Personalizado) ---</option>
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="21:00">21:00 (Normal)</option>
-                    <option value="21:30">21:30</option>
-                    <option value="22:00">22:00</option>
-                </select>
+<div class="form-group">
+    <label>Salida Vespertina:</label>
+    <select name="salida_vespertina" id="salida_vespertina" class="select-horario">
+        <option value="" selected>--- No aplica ---</option>
+        <option value="OTRO">--- OTRO (Personalizado) ---</option>
+    </select>
+    <input type="time" id="custom_salida_vespertina" class="custom-time" oninput="sincronizarTiempo(this, 'salida_vespertina')">
+</div>
                 <input type="time" id="custom_salida_vespertina" class="custom-time" oninput="sincronizarTiempo(this, 'salida_vespertina')">
             </div>
 
@@ -581,7 +553,44 @@ function verificarTodo() {
             formBorrar.submit();
         }
     }
+   const horarios = {
+    'entrada_matutina': [
+        { label: "09:00 - 09:05", value: "09:00" },
+        { label: "09:30 - 09:35", value: "09:30" },
+        { label: "11:30 - 11:35", value: "11:30" },
+        { label: "12:00 - 12:05", value: "12:00" },
+        ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => ({ label: `R${n}`, value: `R${n}` }))
+    ],
+    'salida_matutina': [
+        { label: "15:00 (Normal)", value: "15:00" },
+        { label: "15:30", value: "15:30" },
+        { label: "16:00", value: "16:00" }
+    ],
+    'entrada_vespertina': [
+        { label: "15:00 - 15:05", value: "15:00" },
+        ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => ({ label: `R${n}`, value: `R${n}` }))
+    ],
+    'salida_vespertina': [
+        { label: "21:00 (Normal)", value: "21:00" },
+        { label: "21:30", value: "21:30" },
+        { label: "22:00", value: "22:00" }
+    ]
+};
 
+function poblarHorarios() {
+    Object.keys(horarios).forEach(id => {
+        const select = document.getElementById(id);
+        horarios[id].forEach(h => {
+            let opt = document.createElement('option');
+            opt.value = h.value;
+            opt.textContent = h.label;
+            select.appendChild(opt);
+        });
+    });
+}
+
+// Llama a esto cuando cargue la página
+window.addEventListener('DOMContentLoaded', poblarHorarios);
     window.onload = verificarTodo;
 </script>
 </body>
