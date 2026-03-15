@@ -126,95 +126,58 @@
 
 <body>
 <div class="comic-container">
+    <header class="d-flex justify-content-between align-items-center mb-4 no-print">
+        <h2 class="m-0"> Sistema de Nómina - Control Global</h2>
+        <a href="{% url 'main' %}" class="btn btn-outline-dark btn-sm fw-bold">
+            <i class="fas fa-arrow-left"></i> REGRESAR
+        </a>
+    </header>
 
-<header class="d-flex justify-content-between align-items-center mb-4 no-print">
-    <h2 class="m-0"> Sistema de Nómina - Control Global</h2>
-    <a href="{% url 'main' %}" class="btn btn-outline-dark btn-sm fw-bold">
-        <i class="fas fa-arrow-left"></i> REGRESAR
-    </a>
-</header>
+    <div class="card card-comic no-print mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small text-uppercase">Fecha Inicio:</label>
+                    <input type="date" name="inicio" class="form-control" value="{{ inicio }}" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small text-uppercase">Fecha Fin:</label>
+                    <input type="date" name="fin" class="form-control" value="{{ fin }}" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small text-uppercase">Empleado:</label>
+                    <input type="text" name="nombre" class="form-control" placeholder="Nombre..." value="{{ nombre_busqueda|default_if_none:'' }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small text-uppercase">Filtrar Sucursales:</label>
+                    <div class="border p-2 bg-white" style="height: 100px; overflow-y: scroll; border: 1px solid #ced4da; border-radius: 4px;">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="check_todas" onclick="toggleAll(this)">
+                            <label class="form-check-label fw-bold text-primary" for="check_todas">TODAS</label>
+                        </div>
+                        <hr class="my-1">
+                        {% for s in todas_sucursales %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="sucursal" value="{{ s }}" 
+                                   {% if s in sucursales_seleccionadas %}checked{% endif %}>
+                            <label class="form-check-label small">{{ s }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
 
-<div class="card card-comic no-print mb-4">
-<div class="card-body">
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-comic btn-edit flex-grow-1"><i class="fas fa-calculator"></i> CALCULAR</button>
+                    <button type="button" onclick="window.print();" class="btn-comic" style="background: #546e7a; color: white; padding: 0 15px;"><i class="fas fa-print"></i></button>
+                    <button type="button" onclick="descargaDirecta('excel')" class="btn-comic" style="background: #2e7d32; color: white; padding: 0 15px;"><i class="fas fa-file-excel"></i></button>
+                    <button type="button" onclick="descargaDirecta('pdf')" class="btn-comic" style="background: #c62828; color: white; padding: 0 15px;"><i class="fas fa-file-pdf"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-<form method="GET" class="row g-3 align-items-end">
-
-<div class="col-md-2">
-<label class="form-label fw-bold small text-uppercase">Fecha Inicio:</label>
-<input type="date" name="inicio" class="form-control" value="{{ inicio }}" required>
-</div>
-
-<div class="col-md-2">
-<label class="form-label fw-bold small text-uppercase">Fecha Fin:</label>
-<input type="date" name="fin" class="form-control" value="{{ fin }}" required>
-</div>
-
-<div class="col-md-2">
-<label class="form-label fw-bold small text-uppercase">Empleado:</label>
-<input type="text" name="nombre" class="form-control"
-placeholder="Nombre..."
-value="{{ nombre_busqueda|default_if_none:'' }}">
-</div>
-
-<div class="col-md-3">
-<label class="form-label fw-bold small text-uppercase">Filtrar Sucursales:</label>
-
-<div class="border p-2 bg-white"
-style="height: 100px; overflow-y: scroll; border: 1px solid #ced4da; border-radius: 4px;">
-
-<div class="form-check">
-<input class="form-check-input" type="checkbox" id="check_todas" onclick="toggleAll(this)">
-<label class="form-check-label fw-bold text-primary" for="check_todas">TODAS</label>
-</div>
-
-<hr class="my-1">
-
-{% for s in todas_sucursales %}
-<div class="form-check">
-<input class="form-check-input"
-type="checkbox"
-name="sucursal"
-value="{{ s }}"
-{% if s in sucursales_seleccionadas %}checked{% endif %}>
-<label class="form-check-label small">{{ s }}</label>
-</div>
-{% endfor %}
-
-</div>
-</div>
-
-<div class="col-md-3 d-flex gap-2">
-<button type="submit" class="btn btn-comic btn-edit flex-grow-1">
-<i class="fas fa-calculator"></i> CALCULAR
-</button>
-
-<button type="button"
-onclick="window.print();"
-class="btn-comic"
-style="background:#546e7a;color:white;padding:0 15px;">
-<i class="fas fa-print"></i>
-</button>
-
-<button type="button"
-onclick="descargaDirecta('excel')"
-class="btn-comic"
-style="background:#2e7d32;color:white;padding:0 15px;">
-<i class="fas fa-file-excel"></i>
-</button>
-
-<button type="button"
-onclick="descargaDirecta('pdf')"
-class="btn-comic"
-style="background:#c62828;color:white;padding:0 15px;">
-<i class="fas fa-file-pdf"></i>
-</button>
-
-</div>
-
-</form>
-</div>
-</div>
-<script>
+    <script>
     function toggleAll(source) {
         let checkboxes = document.getElementsByName('sucursal');
         for(let cb of checkboxes) { cb.checked = source.checked; }
