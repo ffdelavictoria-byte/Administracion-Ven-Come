@@ -533,18 +533,29 @@ def Asistencias_FF_view(request):
 
     # Función auxiliar (Sin cambios)
     def obtener_monto_bloque(base_puesto, entrada, salida):
-        if not entrada or not salida: return 0.0
-        ent_str, sal_str = entrada.strip().upper(), salida.strip().upper()
-        if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
-            return float(base_puesto)
-        try:
-            fmt = '%H:%M'
-            inicio = datetime.strptime(ent_str[:5], fmt)
-            fin = datetime.strptime(sal_str[:5], fmt)
-            hrs = (fin - inicio).total_seconds() / 3600
-            if hrs < 0: hrs += 24
-            return (float(base_puesto) / 6) * hrs
-        except: return float(base_puesto)
+    if not entrada or not salida: return 0.0
+    
+    ent_str = entrada.strip().upper()
+    sal_str = salida.strip().upper()
+
+    # Si hay una 'R' o falta formato de hora, devolvemos la base completa
+    # Esto evita que el sistema intente calcular horas y descuente dinero
+    if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
+        return float(base_puesto)
+        
+    try:
+        fmt = '%H:%M'
+        inicio = datetime.strptime(ent_str[:5], fmt)
+        fin = datetime.strptime(sal_str[:5], fmt)
+        
+        diferencia = fin - inicio
+        hrs = diferencia.total_seconds() / 3600
+        if hrs < 0: hrs += 24
+        
+        # Aquí sí aplica el cálculo proporcional estándar
+        return (float(base_puesto) / 6) * hrs
+    except (ValueError, ZeroDivisionError):
+        return float(base_puesto)
 
     # --- 1. LÓGICA DE ELIMINACIÓN (IGUAL QUE EN MOMIAS) ---
     if request.method == 'POST' and 'eliminar_id' in request.POST:
@@ -553,7 +564,6 @@ def Asistencias_FF_view(request):
         messages.success(request, "¡Registro eliminado de FF!")
         return redirect('asistenciasff')
 
-    # --- 2. LÓGICA DE GUARDADO / MODIFICACIÓN ---
     # --- 2. LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
