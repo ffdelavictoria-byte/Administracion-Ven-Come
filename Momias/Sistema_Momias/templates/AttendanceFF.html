@@ -527,9 +527,8 @@
 
     // --- FUNCIÓN MAESTRA DE VERIFICACIÓN ---
 function verificarTodo() {
-    actualizarHorariosPorPuesto(); // Se ejecuta siempre que algo cambie
+    actualizarHorariosPorPuesto(); 
         
-    // Declaraciones únicas (sin duplicados)
     const puesto = puestoSelect.value.trim();
     const estatus = estatusJornada.value;
     const cargas = parseFloat(inputCargas.value) || 0;
@@ -558,30 +557,21 @@ function verificarTodo() {
     else if (puesto === "Hamburguesas FF") {
         divCargas.style.display = "block";
         inputMonto.value = (cargas * 62).toFixed(2);
-        sueldoMsg.innerHTML = `<b>Destajo: ${cargas} cargas</b>`;
+        sueldoMsg.innerHTML = `<b>Destajo: ${cargas} cargas ($62.00 c/u)</b>`;
     } 
     else if (puesto === "Tuppers") {
         divCargas.style.display = "block";
         inputMonto.value = (cargas * 46.50).toFixed(2);
-        sueldoMsg.innerHTML = `<b>Destajo: ${cargas} unidades</b>`;
+        sueldoMsg.innerHTML = `<b>Destajo: ${cargas} unidades ($46.50 c/u)</b>`;
     }
-    // 4. Lógica Estándar (Proporcional)
+    // 4. Lógica Estándar (Referencia Base)
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
-        let hMat = calcularHorasTrabajadas(entMat.value, salMat.value);
-        let hVes = calcularHorasTrabajadas(entVes.value, salVes.value);
-
-        if (hMat !== null || hVes !== null) {
-            let total = ((hMat || 0) + (hVes || 0)) * (base / 6);
-            inputMonto.value = total.toFixed(2);
-            sueldoMsg.innerHTML = `Sueldo calculado: $${total.toFixed(2)}`;
-        } else {
-            inputMonto.value = base.toFixed(2);
-            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)}`;
-        }
+        // Solo mostramos la base; el cálculo de retardos se delega a la función de nómina
+        inputMonto.value = base.toFixed(2);
+        sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: blue;">(Retardos se aplicarán en cálculo final)</small>`;
     }
 }
-
     // --- PREPARAR EDICIÓN ---
     function prepararEdicion(boton) {
         const d = boton.dataset;
