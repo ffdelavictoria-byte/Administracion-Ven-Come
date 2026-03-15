@@ -533,6 +533,9 @@ function verificarTodo() {
     const estatus = estatusJornada.value;
     const cargas = parseFloat(inputCargas.value) || 0;
     const sueldosFijos = { "Produccion": 370.00, "Aux Produccion": 177.00 };
+    
+    // Referencia al input de descuento para controlarlo
+    const inputDescuento = document.getElementById('descuento');
 
     // 1. Reset visual de horas y campos bloqueados
     [entMat, entVes, salMat, salVes].forEach(el => el.disabled = false);
@@ -564,12 +567,18 @@ function verificarTodo() {
         inputMonto.value = (cargas * 46.50).toFixed(2);
         sueldoMsg.innerHTML = `<b>Destajo: ${cargas} unidades ($46.50 c/u)</b>`;
     }
-    // 4. Lógica Estándar (Referencia Base)
+    // 4. Lógica Estándar
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
-        // Solo mostramos la base; el cálculo de retardos se delega a la función de nómina
         inputMonto.value = base.toFixed(2);
         sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: blue;">(Retardos se aplicarán en cálculo final)</small>`;
+    }
+
+    // --- CORRECCIÓN CRÍTICA ---
+    // Si el usuario no ha ingresado un descuento manualmente (o es 0), 
+    // nos aseguramos de que el campo esté en 0 para no arrastrar valores de ediciones previas.
+    if (!inputDescuento.value || inputDescuento.value === "") {
+        inputDescuento.value = "0";
     }
 }
     // --- PREPARAR EDICIÓN ---
