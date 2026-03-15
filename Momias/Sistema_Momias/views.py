@@ -534,23 +534,18 @@ def Asistencias_FF_view(request):
     # Función auxiliar (Sin cambios)
     # Función auxiliar corregida
     def obtener_monto_bloque(base_puesto, entrada, salida):
-        if not entrada or not salida: 
+        if not entrada or not salida:
             return 0.0
         
         ent_str = entrada.strip().upper()
         sal_str = salida.strip().upper()
-    
-        # --- CORRECCIÓN AQUÍ ---
-        # Si es R1, forzamos el retorno del 100% de la base sin procesar nada más.
-        # Solo si es R2 en adelante, permitimos que el sistema actúe.
-        if ent_str == "R1" or sal_str == "R1":
-            return float(base_puesto)
-        
-        # Si hay otra 'R' (R2, R3...), aquí puedes decidir si quieres que descuente 
-        # o simplemente que devuelva la base.
+
+        # AQUÍ ESTÁ EL CAMBIO:
+        # Si detecta cualquier código de retardo (R1, R2...) o falta de formato de hora,
+        # devuelve la base completa sin cálculos proporcionales.
         if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
             return float(base_puesto)
-            
+
         try:
             fmt = '%H:%M'
             inicio = datetime.strptime(ent_str[:5], fmt)
@@ -558,12 +553,13 @@ def Asistencias_FF_view(request):
             
             diferencia = fin - inicio
             hrs = diferencia.total_seconds() / 3600
-            if hrs < 0: hrs += 24
+            if hrs < 0: hrs += 24 
             
+            # Cálculo proporcional estándar
             return (float(base_puesto) / 6) * hrs
         except (ValueError, ZeroDivisionError):
             return float(base_puesto)
-
+            
     # --- 1. LÓGICA DE ELIMINACIÓN (IGUAL QUE EN MOMIAS) ---
     if request.method == 'POST' and 'eliminar_id' in request.POST:
         asistencia = get_object_or_404(Asistencia, id=request.POST.get('eliminar_id'))
@@ -618,10 +614,14 @@ def Asistencias_FF_view(request):
                 else:
                     base_6h = base_real
 
-                if "INTERMEDIO" in puesto_seleccionado.upper():
-                    monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_v)
+                if "R1" in [ent_m.upper(), sal_m.upper(), ent_v.upper(), sal_v.upper()]:
+                    monto_calculado = base_real
                 else:
-                    monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
+                    if "INTERMEDIO" in puesto_seleccionado.upper():
+                        monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_v)
+                    else:
+                        # Aquí sumas los bloques solo si NO hay R1
+                        monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
 
             # --- INTEGRACIÓN DE BONOS Y DESCUENTOS ---
             bono = float(request.POST.get('bonificacion') or 0)
