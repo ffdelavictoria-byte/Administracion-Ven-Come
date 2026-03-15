@@ -363,6 +363,26 @@
     const salMat = document.getElementById('salida_matutina');
     const salVes = document.getElementById('salida_vespertina');
 
+    // 1. Configuración de Familias de Horarios
+    const familiaHorarios = {
+        "MATUTINO_6": { entradas: ["09:00", "09:30"], salidas: ["15:00", "15:30"] },
+        "VESPERTINO_6": { entradas: ["15:00", "15:30"], salidas: ["21:00", "21:30"] },
+        "MATUTINO_9": { entradas: ["09:00"], salidas: ["18:00"] },
+        "VESPERTINO_9": { entradas: ["12:30"], salidas: ["21:30"] },
+        "INTERMEDIO": { entradas: ["11:00", "11:30"], salidas: ["20:00", "20:30"] },
+        "JORNADA_12": { entradas: ["09:00", "09:30", "12:30"], salidas: ["21:00", "21:30", "22:00"] }
+    };
+
+    // Mapeo de Puestos a Familias (Ajusta aquí según tu lista completa)
+    const mapaPuestos = {
+        "CAJA MATUTINA 6HRS": "MATUTINO_6",
+        "CAJA VESPERTINA 6HRS": "VESPERTINO_6",
+        "CAJA MATUTINA 9HRS": "MATUTINO_9",
+        "CAJA VESPERTINA 9HRS": "VESPERTINO_9",
+        "CREPAS 9HRS INTERMEDIO": "INTERMEDIO"
+        // ... agrega el resto de tus puestos aquí
+    };
+
     // --- LÓGICA DE HORARIOS PERSONALIZADOS ---
     function manejarHorarioPersonalizado(selectId) {
         const select = document.getElementById(selectId);
@@ -432,6 +452,10 @@
 
     // --- FUNCIÓN MAESTRA DE VERIFICACIÓN ---
 function verificarTodo() {
+    actualizarHorariosPorPuesto(); // Se ejecuta siempre que algo cambie
+        
+    const puesto = puestoSelect.value.trim();
+    const estatus = estatusJornada.value;
     const puesto = puestoSelect.value.trim();
     const estatus = estatusJornada.value;
     const cargas = parseFloat(inputCargas.value) || 0;
@@ -553,44 +577,7 @@ function verificarTodo() {
             formBorrar.submit();
         }
     }
-   const horarios = {
-    'entrada_matutina': [
-        { label: "09:00 - 09:05", value: "09:00" },
-        { label: "09:30 - 09:35", value: "09:30" },
-        { label: "11:30 - 11:35", value: "11:30" },
-        { label: "12:00 - 12:05", value: "12:00" },
-        ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => ({ label: `R${n}`, value: `R${n}` }))
-    ],
-    'salida_matutina': [
-        { label: "15:00 (Normal)", value: "15:00" },
-        { label: "15:30", value: "15:30" },
-        { label: "16:00", value: "16:00" }
-    ],
-    'entrada_vespertina': [
-        { label: "15:00 - 15:05", value: "15:00" },
-        ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => ({ label: `R${n}`, value: `R${n}` }))
-    ],
-    'salida_vespertina': [
-        { label: "21:00 (Normal)", value: "21:00" },
-        { label: "21:30", value: "21:30" },
-        { label: "22:00", value: "22:00" }
-    ]
-};
-
-function poblarHorarios() {
-    Object.keys(horarios).forEach(id => {
-        const select = document.getElementById(id);
-        horarios[id].forEach(h => {
-            let opt = document.createElement('option');
-            opt.value = h.value;
-            opt.textContent = h.label;
-            select.appendChild(opt);
-        });
-    });
-}
-
-// Llama a esto cuando cargue la página
-window.addEventListener('DOMContentLoaded', poblarHorarios);
+    puestoSelect.addEventListener('change', verificarTodo);
     window.onload = verificarTodo;
 </script>
 </body>
