@@ -363,12 +363,16 @@
 
     // 1. Configuración de Familias de Horarios
     const familiaHorarios = {
-        "MATUTINO_6": { entradas: ["09:00", "09:30"], salidas: ["15:00", "15:30"] },
-        "VESPERTINO_6": { entradas: ["15:00", "15:30"], salidas: ["21:00", "21:30"] },
+        "MATUTINO_6": { entradas: ["09:30"], salidas: ["15:30"] },
+        "MATUTINO_6h": { entradas: ["09:00"], salidas: ["15:00"] },
+        "VESPERTINO_6": { entradas: ["15:30"], salidas: ["21:30"] },
+        "VESPERTINO_6h": { entradas: ["15:00"], salidas: ["21:00"] },
         "MATUTINO_9": { entradas: ["09:00"], salidas: ["18:00"] },
         "VESPERTINO_9": { entradas: ["12:30"], salidas: ["21:30"] },
-        "INTERMEDIO": { entradas: ["11:00", "11:30"], salidas: ["20:00", "20:30"] },
-        "JORNADA_12": { entradas: ["09:00", "09:30", "12:30"], salidas: ["21:00", "21:30", "22:00"] }
+        "INTERMEDIO": { entradas: ["11:30"], salidas: ["20:30"] },
+        "INTERMEDIOh": { entradas: ["11:00"], salidas: ["20:00"] },
+        "JORNADA_12": { entradas: ["09:30"], salidas: ["21:30"] }
+        "JORNADA_12h": { entradas: ["09:00"], salidas: ["21:00"] }
     };
 
     // Mapeo de Puestos a Familias (Ajusta aquí según tu lista completa)
@@ -377,35 +381,78 @@
         "Caja Vespertina (6 horas)": "VESPERTINO_6",
         "Caja Matutina (9 horas)": "MATUTINO_9",
         "Caja Vespertina (9 horas)": "VESPERTINO_9",
+        "Cocina Matutina (6 horas)": "MATUTINO_6h",
+        "Cocina Vespertina (6 horas)": "VESPERTINO_6",
+        "Cocina Vespertina (6 horas 3:00-9:00)": "VESPERTINO_6h",
+        "Cocina Matutina (9 horas)": "MATUTINO_9",
+        "Cocina Vespertina (9 horas)": "VESPERTINO_9",
+        "Crepas Intermedio (9 horas)": "INTERMEDIO",
+        "Cocina y Barra (9 horas)": "INTERMEDIOh",
+        "Caja Fin De Semana (12 horas)": "JORNADA_12",
+        "Barra y Cocina Fin De Semana (12 horas)": "JORNADA_12",
+        "Limpieza Fin De Semana (9 horas)": "VESPERTINO_9",
+        "Limpieza 1 Matutino (6 horas L)": "MATUTINO_6h",
+        "Limpieza 2 Matutino (6 horas)": "MATUTINO_6",
+        "Limpieza 3 Vespertino (6 horas A)": "VESPERTINO_6",
+        "Limpieza 4 Vespertino (6 horas)": "VESPERTINO_6",
         "Gerente (12 horas)": "JORNADA_12",
         "Chef de Línea": "VESPERTINO_9",
         "CREPAS 9HRS INTERMEDIO": "INTERMEDIO"
+        "Encargado Cocina (Matutino 12 horas)": "JORNADA_12h"
         // ... agrega el resto de tus puestos aquí
     };
 
     function actualizarHorariosPorPuesto() {
-        const puesto = puestoSelect.value.trim();
-        const familiaKey = mapaPuestos[puesto];
-        const selectIds = ['entrada_matutina', 'salida_matutina', 'entrada_vespertina', 'salida_vespertina'];
+    const puesto = puestoSelect.value.trim();
+    const familiaKey = mapaPuestos[puesto];
+    const selectIds = ['entrada_matutina', 'salida_matutina', 'entrada_vespertina', 'salida_vespertina'];
 
-        selectIds.forEach(id => {
-            const select = document.getElementById(id);
-            const valorPrevio = select.value;
-            // Limpiar opciones manteniendo las fijas
-            select.innerHTML = '<option value="">--- No aplica ---</option><option value="OTRO">--- OTRO (Personalizado) ---</option>';
-            
-            if (familiaKey && familiaHorarios[familiaKey]) {
-                const tipo = id.includes('entrada') ? 'entradas' : 'salidas';
-                familiaHorarios[familiaKey][tipo].forEach(h => select.add(new Option(h, h)));
-                
-                if (tipo === 'entradas') {
-                    for (let i = 1; i <= 11; i++) select.add(new Option(`Retardo R${i}`, `R${i}`));
-                }
+    // 1. Resetear estados iniciales
+    selectIds.forEach(id => {
+        const select = document.getElementById(id);
+        select.disabled = false;
+        const valorPrevio = select.value;
+        
+        // Limpiar opciones
+        select.innerHTML = '<option value="">--- No aplica ---</option><option value="OTRO">--- OTRO (Personalizado) ---</option>';
+        
+        // 2. Aplicar lógica de bloqueo selectivo según familia
+        if (familiaKey === "INTERMEDIO") {
+            // En intermedio solo habilitamos entrada_matutina y salida_vespertina
+            if (id === 'salida_matutina' || id === 'entrada_vespertina') {
+                select.disabled = true;
+                select.value = "";
             }
-            if (select.querySelector(`option[value="${valorPrevio}"]`)) select.value = valorPrevio;
-        });
-    }
+        } else if (familiaKey && familiaKey.includes("MATUTINO")) {
+            // Bloqueamos los vespertinos
+            if (id.includes('vespertina')) {
+                select.disabled = true;
+                select.value = "";
+            }
+        } else if (familiaKey && familiaKey.includes("VESPERTINO")) {
+            // Bloqueamos los matutinos
+            if (id.includes('matutina')) {
+                select.disabled = true;
+                select.value = "";
+            }
+        }
 
+        // 3. Rellenar opciones si el campo no está bloqueado
+        if (!select.disabled && familiaKey && familiaHorarios[familiaKey]) {
+            const tipo = id.includes('entrada') ? 'entradas' : 'salidas';
+            familiaHorarios[familiaKey][tipo].forEach(h => select.add(new Option(h, h)));
+            
+            if (tipo === 'entradas') {
+                for (let i = 1; i <= 11; i++) select.add(new Option(`Retardo R${i}`, `R${i}`));
+            }
+        }
+        
+        // Restaurar valor previo si aún es válido
+        if (select.querySelector(`option[value="${valorPrevio}"]`)) {
+            select.value = valorPrevio;
+        }
+    });
+}
     // --- LÓGICA DE HORARIOS PERSONALIZADOS ---
     function manejarHorarioPersonalizado(selectId) {
         const select = document.getElementById(selectId);
