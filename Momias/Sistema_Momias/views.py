@@ -539,8 +539,15 @@ def Asistencias_FF_view(request):
         
         ent_str = entrada.strip().upper()
         sal_str = salida.strip().upper()
-
-        # Si hay una 'R' o falta formato de hora, devolvemos la base completa
+    
+        # --- CORRECCIÓN AQUÍ ---
+        # Si es R1, forzamos el retorno del 100% de la base sin procesar nada más.
+        # Solo si es R2 en adelante, permitimos que el sistema actúe.
+        if ent_str == "R1" or sal_str == "R1":
+            return float(base_puesto)
+        
+        # Si hay otra 'R' (R2, R3...), aquí puedes decidir si quieres que descuente 
+        # o simplemente que devuelva la base.
         if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
             return float(base_puesto)
             
