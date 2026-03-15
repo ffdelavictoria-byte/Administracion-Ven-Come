@@ -528,6 +528,7 @@ def Asistencias_FF_view(request):
         "Fin de Semana": 473.00,
         "Aux Produccion": 177.00,
         "Produccion": 370.00,
+        "Hamburguesas FF": 0.0,
     }
 
     # Función auxiliar (Sin cambios)
@@ -586,12 +587,23 @@ def Asistencias_FF_view(request):
             # SECCIÓN NORMAL (Proporcional):
             else:
                 base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
-                base_6h = base_real
-                if "(9 horas)" in puesto_seleccionado or "(9 hrs)" in puesto_seleccionado:
+                
+                # 1. Normalizar base a 6 horas para el cálculo proporcional
+                if "(9 horas)" in puesto_seleccionado or "9HRS" in puesto_seleccionado:
                     base_6h = base_real / 1.5
-                elif "(12 Horas)" in puesto_seleccionado:
+                elif "(12 horas)" in puesto_seleccionado or "(12 Horas)" in puesto_seleccionado:
                     base_6h = base_real / 2
-                monto_final = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
+                else:
+                    base_6h = base_real
+
+                # 2. Lógica especial para el INTERMEDIO (Cruza bloques)
+                # Si es intermedio, calculamos desde la entrada matutina hasta la salida vespertina
+                if "INTERMEDIO" in puesto_seleccionado.upper():
+                    monto_final = obtener_monto_bloque(base_6h, ent_m, sal_v)
+                else:
+                    # Lógica estándar: suma de ambos bloques
+                    monto_final = obtener_monto_bloque(base_6h, ent_m, sal_m) + \
+                                  obtener_monto_bloque(base_6h, ent_v, sal_v)
 
             # Puntos de retardo
             def calcular_puntos(valor):
