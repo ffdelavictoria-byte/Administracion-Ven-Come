@@ -383,6 +383,29 @@
         // ... agrega el resto de tus puestos aquí
     };
 
+    function actualizarHorariosPorPuesto() {
+        const puesto = puestoSelect.value.trim();
+        const familiaKey = mapaPuestos[puesto];
+        const selectIds = ['entrada_matutina', 'salida_matutina', 'entrada_vespertina', 'salida_vespertina'];
+
+        selectIds.forEach(id => {
+            const select = document.getElementById(id);
+            const valorPrevio = select.value;
+            // Limpiar opciones manteniendo las fijas
+            select.innerHTML = '<option value="">--- No aplica ---</option><option value="OTRO">--- OTRO (Personalizado) ---</option>';
+            
+            if (familiaKey && familiaHorarios[familiaKey]) {
+                const tipo = id.includes('entrada') ? 'entradas' : 'salidas';
+                familiaHorarios[familiaKey][tipo].forEach(h => select.add(new Option(h, h)));
+                
+                if (tipo === 'entradas') {
+                    for (let i = 1; i <= 11; i++) select.add(new Option(`Retardo R${i}`, `R${i}`));
+                }
+            }
+            if (select.querySelector(`option[value="${valorPrevio}"]`)) select.value = valorPrevio;
+        });
+    }
+
     // --- LÓGICA DE HORARIOS PERSONALIZADOS ---
     function manejarHorarioPersonalizado(selectId) {
         const select = document.getElementById(selectId);
@@ -454,8 +477,7 @@
 function verificarTodo() {
     actualizarHorariosPorPuesto(); // Se ejecuta siempre que algo cambie
         
-    const puesto = puestoSelect.value.trim();
-    const estatus = estatusJornada.value;
+    // Declaraciones únicas (sin duplicados)
     const puesto = puestoSelect.value.trim();
     const estatus = estatusJornada.value;
     const cargas = parseFloat(inputCargas.value) || 0;
@@ -473,7 +495,7 @@ function verificarTodo() {
         [entMat, entVes, salMat, salVes].forEach(el => el.disabled = true);
     } 
     // 3. Lógica de Destajos y Estatus Especiales
-    else if (estatus === "Falta" || estatus === "Permiso" || estatus === "Vacaciones") {
+    else if (["Falta", "Permiso", "Vacaciones"].includes(estatus)) {
         inputMonto.value = "0.00";
         sueldoMsg.innerHTML = `<span style="color: grey;">Sin pago por ${estatus}</span>`;
     } 
