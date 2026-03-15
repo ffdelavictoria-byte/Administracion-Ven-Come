@@ -567,6 +567,10 @@ def Asistencias_FF_view(request):
 
             monto_final = 0.0
             DESCANSO_ESPECIFICO = 138.00
+            sueldos_fijos_ff = {
+                "Produccion": 370.00,
+                "Aux Produccion": 177.00
+            }
 
             if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
                 monto_final = 0.0
@@ -576,6 +580,10 @@ def Asistencias_FF_view(request):
                 monto_final = float(request.POST.get('cantidad_cargas') or 0) * 62.00
             elif puesto_seleccionado == "Tuppers":
                 monto_final = float(request.POST.get('cantidad_cargas') or 0) * 46.50
+            # SECCIÓN NUEVA PARA PRODUCCIÓN:
+            elif puesto_seleccionado in sueldos_fijos_ff:
+                monto_final = float(sueldos_fijos_ff[puesto_seleccionado])
+            # SECCIÓN NORMAL (Proporcional):
             else:
                 base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
                 base_6h = base_real
