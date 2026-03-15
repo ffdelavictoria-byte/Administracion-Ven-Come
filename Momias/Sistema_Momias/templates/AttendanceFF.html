@@ -437,13 +437,31 @@
             }
         }
 
-        // 3. Rellenar opciones si el campo no está bloqueado
+        // 3. Rellenar opciones y generar Retardos dinámicos si el campo no está bloqueado
         if (!select.disabled && familiaKey && familiaHorarios[familiaKey]) {
             const tipo = id.includes('entrada') ? 'entradas' : 'salidas';
-            familiaHorarios[familiaKey][tipo].forEach(h => select.add(new Option(h, h)));
+            const opcionesBase = familiaHorarios[familiaKey][tipo];
+
+            // Agregar horarios normales
+            opcionesBase.forEach(h => select.add(new Option(h, h)));
             
-            if (tipo === 'entradas') {
-                for (let i = 1; i <= 11; i++) select.add(new Option(`Retardo R${i}`, `R${i}`));
+            // Generar solo R1 y R2 con sus rangos de tiempo (Solo para entradas)
+            if (tipo === 'entradas' && opcionesBase.length > 0) {
+                const horaBaseStr = opcionesBase[0].split(' ')[0];
+                const [h, m] = horaBaseStr.split(':').map(Number);
+                
+                const fmt = (hr, min) => {
+                    let d = new Date();
+                    d.setHours(hr, min, 0);
+                    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                };
+
+                for (let i = 1; i <= 2; i++) {
+                    let inicioMin = m + (i * 5) - 4;
+                    let finMin = m + (i * 5);
+                    const etiqueta = `${fmt(h, inicioMin)} - ${fmt(h, finMin)} (R${i})`;
+                    select.add(new Option(etiqueta, `R${i}`));
+                }
             }
         }
         
