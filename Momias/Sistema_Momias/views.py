@@ -723,7 +723,8 @@ def calcular_nomina_web(request):
         "Barra (6 horas) Entregas": 236.50,
         "Barra (9 horas) Entregas": 354.50,
         "Fin de Semana": 473.00,
-        "Produccion": 0.00,
+        "Aux Produccion": 177.00,
+        "Produccion": 370.00,
         "Encargado Victoria (6 Horas)": 316.00,
         "Encargado Sucursales (6 Horas)": 262.00,
         "Encargado Sucursales (9 Horas)": 393.00, 
@@ -1048,6 +1049,8 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "Limpieza 2 Matutino (6 horas)": 236.50,
         "Limpieza 3 Vespertino (6 horas A)": 272.00,
         "Limpieza 4 Vespertino (6 horas)": 236.50,
+        "Aux Produccion": 177.00,
+        "Produccion": 370.00,
     }
 
     datos_completos = []
