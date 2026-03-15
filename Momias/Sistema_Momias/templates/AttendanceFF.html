@@ -402,73 +402,60 @@
         // ... agrega el resto de tus puestos aquí
     };
 
-    function actualizarHorariosPorPuesto() {
+   function actualizarHorariosPorPuesto() {
     const puesto = puestoSelect.value.trim();
     const familiaKey = mapaPuestos[puesto];
     const selectIds = ['entrada_matutina', 'salida_matutina', 'entrada_vespertina', 'salida_vespertina'];
 
-    // 1. Resetear estados iniciales
     selectIds.forEach(id => {
         const select = document.getElementById(id);
         select.disabled = false;
         const valorPrevio = select.value;
         
-        // Limpiar opciones
         select.innerHTML = '<option value="">--- No aplica ---</option><option value="OTRO">--- OTRO (Personalizado) ---</option>';
         
-        // 2. Aplicar lógica de bloqueo selectivo según familia
+        // Lógica de bloqueo (mantenemos tu estructura anterior)
         if (familiaKey === "INTERMEDIO") {
-            // En intermedio solo habilitamos entrada_matutina y salida_vespertina
-            if (id === 'salida_matutina' || id === 'entrada_vespertina') {
-                select.disabled = true;
-                select.value = "";
-            }
-        } else if (familiaKey && familiaKey.includes("MATUTINO")) {
-            // Bloqueamos los vespertinos
-            if (id.includes('vespertina')) {
-                select.disabled = true;
-                select.value = "";
-            }
-        } else if (familiaKey && familiaKey.includes("VESPERTINO")) {
-            // Bloqueamos los matutinos
-            if (id.includes('matutina')) {
-                select.disabled = true;
-                select.value = "";
-            }
+            if (id === 'salida_matutina' || id === 'entrada_vespertina') { select.disabled = true; select.value = ""; }
+        } else if (familiaKey?.includes("MATUTINO")) {
+            if (id.includes('vespertina')) { select.disabled = true; select.value = ""; }
+        } else if (familiaKey?.includes("VESPERTINO")) {
+            if (id.includes('matutina')) { select.disabled = true; select.value = ""; }
         }
 
-        // 3. Rellenar opciones y generar Retardos dinámicos si el campo no está bloqueado
         if (!select.disabled && familiaKey && familiaHorarios[familiaKey]) {
             const tipo = id.includes('entrada') ? 'entradas' : 'salidas';
             const opcionesBase = familiaHorarios[familiaKey][tipo];
 
-            // Agregar horarios normales
+            // 1. Agregar horarios base
             opcionesBase.forEach(h => select.add(new Option(h, h)));
             
-            // Generar solo R1 y R2 con sus rangos de tiempo (Solo para entradas)
+            // 2. Generar R1 y R2 con tus reglas específicas
             if (tipo === 'entradas' && opcionesBase.length > 0) {
                 const horaBaseStr = opcionesBase[0].split(' ')[0];
                 const [h, m] = horaBaseStr.split(':').map(Number);
                 
                 const fmt = (hr, min) => {
-                    let d = new Date();
-                    d.setHours(hr, min, 0);
+                    let d = new Date(); d.setHours(hr, min, 0);
                     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                 };
 
-                for (let i = 1; i <= 2; i++) {
-                    let inicioMin = m + (i * 5) - 4;
-                    let finMin = m + (i * 5);
-                    const etiqueta = `${fmt(h, inicioMin)} - ${fmt(h, finMin)} (R${i})`;
-                    select.add(new Option(etiqueta, `R${i}`));
-                }
+                // Normal: HH:MM a HH:MM+5
+                // R1: HH:MM+6 a HH:MM+10
+                // R2: HH:MM+11 a HH:MM+30
+                const rangos = [
+                    { label: "R1", start: m + 6, end: m + 10 },
+                    { label: "R2", start: m + 11, end: m + 30 }
+                ];
+
+                rangos.forEach(r => {
+                    const etiqueta = `${fmt(h, r.start)} - ${fmt(h, r.end)} (${r.label})`;
+                    select.add(new Option(etiqueta, r.label));
+                });
             }
         }
         
-        // Restaurar valor previo si aún es válido
-        if (select.querySelector(`option[value="${valorPrevio}"]`)) {
-            select.value = valorPrevio;
-        }
+        if (select.querySelector(`option[value="${valorPrevio}"]`)) select.value = valorPrevio;
     });
 }
     // --- LÓGICA DE HORARIOS PERSONALIZADOS ---
