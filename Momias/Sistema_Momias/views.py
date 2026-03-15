@@ -554,10 +554,12 @@ def Asistencias_FF_view(request):
         return redirect('asistenciasff')
 
     # --- 2. LÓGICA DE GUARDADO / MODIFICACIÓN ---
+    # --- 2. LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
             asistencia_id = request.POST.get('asistencia_id')
-            empleado_id = request.POST.get('empleado')
+            empleado_obj = Empleado.objects.get(id=request.POST.get('empleado'))
+            fecha_captura = request.POST.get('fecha')
             puesto_seleccionado = (request.POST.get('puesto') or "").strip()
             estatus_jornada = request.POST.get('estatus_jornada')
             
@@ -566,29 +568,32 @@ def Asistencias_FF_view(request):
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
             sal_v = (request.POST.get('salida_vespertina') or "").strip()
 
-            monto_final = 0.0
+            # --- VALIDACIÓN DE DUPLICADOS DE TURNO ---
+            registros_dia = Asistencia.objects.filter(empleado=empleado_obj, fecha=fecha_captura).exclude(id=asistencia_id or -1)
+            if (ent_m and sal_m) and registros_dia.filter(entrada_matutina__isnull=False).exclude(entrada_matutina='').exists():
+                messages.error(request, "¡ERROR! Ya existe un registro matutino para este empleado.")
+                return redirect('asistenciasff')
+            if (ent_v and sal_v) and registros_dia.filter(entrada_vespertina__isnull=False).exclude(entrada_vespertina='').exists():
+                messages.error(request, "¡ERROR! Ya existe un registro vespertino para este empleado.")
+                return redirect('asistenciasff')
+
+            # --- CÁLCULO DE MONTO BASE ---
+            monto_calculado = 0.0
             DESCANSO_ESPECIFICO = 138.00
-            sueldos_fijos_ff = {
-                "Produccion": 370.00,
-                "Aux Produccion": 177.00
-            }
+            sueldos_fijos_ff = {"Produccion": 370.00, "Aux Produccion": 177.00}
 
             if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
-                monto_final = 0.0
+                monto_calculado = 0.0
             elif estatus_jornada == "Descanso":
-                monto_final = DESCANSO_ESPECIFICO if puesto_seleccionado in ["Hamburguesas FF", "Tuppers"] else 0.0
+                monto_calculado = DESCANSO_ESPECIFICO if puesto_seleccionado in ["Hamburguesas FF", "Tuppers"] else 0.0
             elif puesto_seleccionado == "Hamburguesas FF":
-                monto_final = float(request.POST.get('cantidad_cargas') or 0) * 62.00
+                monto_calculado = float(request.POST.get('cantidad_cargas') or 0) * 62.00
             elif puesto_seleccionado == "Tuppers":
-                monto_final = float(request.POST.get('cantidad_cargas') or 0) * 46.50
-            # SECCIÓN NUEVA PARA PRODUCCIÓN:
+                monto_calculado = float(request.POST.get('cantidad_cargas') or 0) * 46.50
             elif puesto_seleccionado in sueldos_fijos_ff:
-                monto_final = float(sueldos_fijos_ff[puesto_seleccionado])
-            # SECCIÓN NORMAL (Proporcional):
+                monto_calculado = float(sueldos_fijos_ff[puesto_seleccionado])
             else:
                 base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
-                
-                # 1. Normalizar base a 6 horas para el cálculo proporcional
                 if "(9 horas)" in puesto_seleccionado or "9HRS" in puesto_seleccionado:
                     base_6h = base_real / 1.5
                 elif "(12 horas)" in puesto_seleccionado or "(12 Horas)" in puesto_seleccionado:
@@ -596,16 +601,28 @@ def Asistencias_FF_view(request):
                 else:
                     base_6h = base_real
 
-                # 2. Lógica especial para el INTERMEDIO (Cruza bloques)
-                # Si es intermedio, calculamos desde la entrada matutina hasta la salida vespertina
                 if "INTERMEDIO" in puesto_seleccionado.upper():
-                    monto_final = obtener_monto_bloque(base_6h, ent_m, sal_v)
+                    monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_v)
                 else:
-                    # Lógica estándar: suma de ambos bloques
-                    monto_final = obtener_monto_bloque(base_6h, ent_m, sal_m) + \
-                                  obtener_monto_bloque(base_6h, ent_v, sal_v)
+                    monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
 
-            # Puntos de retardo
+            # --- INTEGRACIÓN DE BONOS Y DESCUENTOS ---
+            bono = float(request.POST.get('bonificacion') or 0)
+            desc = float(request.POST.get('descuento') or 0)
+            monto_final = monto_calculado + bono - desc
+
+            # --- GESTIÓN DE INSTANCIA Y GUARDADO ---
+            if asistencia_id and asistencia_id.isdigit():
+                asistencia = get_object_or_404(Asistencia, id=int(asistencia_id))
+            else:
+                asistencia = Asistencia(sucursal="FastFood")
+
+            asistencia.empleado = empleado_obj
+            asistencia.fecha = fecha_captura
+            asistencia.estatus = estatus_jornada
+            asistencia.puesto = puesto_seleccionado
+            asistencia.pago_dia = round(monto_final, 2)
+            
             def calcular_puntos(valor):
                 if not valor or ":" in valor or "R1" in valor: return 0
                 mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
@@ -613,37 +630,22 @@ def Asistencias_FF_view(request):
                     if clave in valor.upper(): return pts
                 return 0
 
-            total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
-
-            # Gestión de instancia
-            if asistencia_id and asistencia_id.isdigit():
-                asistencia = get_object_or_404(Asistencia, id=int(asistencia_id))
-            else:
-                asistencia = Asistencia()
-                asistencia.sucursal = "FastFood"
-
-            asistencia.empleado = Empleado.objects.get(id=empleado_id)
-            asistencia.fecha = request.POST.get('fecha')
-            asistencia.estatus = estatus_jornada
-            asistencia.puesto = puesto_seleccionado
-            asistencia.pago_dia = round(monto_final, 2)
-            asistencia.horas = float(total_puntos)
+            asistencia.horas = float(calcular_puntos(ent_m) + calcular_puntos(ent_v))
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
-            
-            asistencia.bonificacion = float(request.POST.get('bonificacion') or 0)
-            asistencia.descuento = float(request.POST.get('descuento') or 0)
+            asistencia.bonificacion = bono
+            asistencia.descuento = desc
             asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
             asistencia.motivo_descuento = request.POST.get('motivo_descuento')
             asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
             asistencia.observaciones = request.POST.get('observaciones')
             
             asistencia.save()
-            messages.success(request, "¡Registro FF procesado!")
+            messages.success(request, "¡Registro FF procesado correctamente!")
             return redirect('asistenciasff')
 
         except Exception as e:
-            messages.error(request, f"Error: {e}")
+            messages.error(request, f"Error al procesar: {e}")
             return redirect('asistenciasff')
 
     # --- 3. LÓGICA GET ---
