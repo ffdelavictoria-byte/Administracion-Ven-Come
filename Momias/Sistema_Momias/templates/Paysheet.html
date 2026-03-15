@@ -148,27 +148,49 @@
                     <label class="form-label fw-bold small text-uppercase">Empleado:</label>
                     <input type="text" name="nombre" class="form-control" placeholder="Nombre..." value="{{ nombre_busqueda|default_if_none:'' }}">
                 </div>
+                <div class="card card-comic no-print mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-2">
-                    <label class="form-label fw-bold small text-uppercase">Sucursal:</label>
-                    <select name="sucursal" class="form-select">
-                        <option value="TODAS">--- Todas ---</option>
-                        <option value="Momias 1" {% if sucursal_seleccionada == "Momias 1" %}selected{% endif %}>Momias 1</option>
-                        <option value="Momias 2" {% if sucursal_seleccionada == "Momias 2" %}selected{% endif %}>Momias 2</option>
-                        <option value="Momias 3" {% if sucursal_seleccionada == "Momias 3" %}selected{% endif %}>Momias 3</option>
-                        <option value="Momias 4" {% if sucursal_seleccionada == "Momias 4" %}selected{% endif %}>Momias 4</option>
-                        <option value="Momias 5" {% if sucursal_seleccionada == "Momias 5" %}selected{% endif %}>Momias 5</option>
-                        <option value="Momias 6" {% if sucursal_seleccionada == "Momias 6" %}selected{% endif %}>Momias 6</option>
-                        <option value="PP" {% if sucursal_seleccionada == "PP" %}selected{% endif %}>PP</option>
-                        <option value="PM" {% if sucursal_seleccionada == "PM" %}selected{% endif %}>PM</option>
-                        <option value="Yommy" {% if sucursal_seleccionada == "Yommy" %}selected{% endif %}>Yommy</option>
-                        <option value="Perrioni" {% if sucursal_seleccionada == "Perrioni" %}selected{% endif %}>Perrioni</option>
-                        <option value="Fabrica" {% if sucursal_seleccionada == "Fabrica" %}selected{% endif %}>Fabrica</option>
-                        <option value="Benny" {% if sucursal_seleccionada == "Benny" %}selected{% endif %}>Benny</option>
-                        <option value="Cocina" {% if sucursal_seleccionada == "Cocina" %}selected{% endif %}>Cocina</option>
-                        <option value="Area Seca" {% if sucursal_seleccionada == "Area Seca" %}selected{% endif %}>Area Seca</option>
-                        <option value="FastFood" {% if sucursal_seleccionada == "FastFood" %}selected{% endif %}>FAST FOOD</option>
-                    </select>
+                    <label class="form-label fw-bold small text-uppercase">Fecha Inicio:</label>
+                    <input type="date" name="inicio" class="form-control" value="{{ inicio }}" required>
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small text-uppercase">Fecha Fin:</label>
+                    <input type="date" name="fin" class="form-control" value="{{ fin }}" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small text-uppercase">Empleado:</label>
+                    <input type="text" name="nombre" class="form-control" placeholder="Nombre..." value="{{ nombre_busqueda|default_if_none:'' }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small text-uppercase">Filtrar Sucursales:</label>
+                    <div class="border p-2 bg-white" style="height: 100px; overflow-y: scroll; border: 1px solid #ced4da; border-radius: 4px;">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="check_todas" onclick="toggleAll(this)">
+                            <label class="form-check-label fw-bold text-primary" for="check_todas">TODAS</label>
+                        </div>
+                        <hr class="my-1">
+                        {% for s in todas_sucursales %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="sucursal" value="{{ s }}" 
+                                   {% if s in sucursales_seleccionadas %}checked{% endif %}>
+                            <label class="form-check-label small">{{ s }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-comic btn-edit flex-grow-1"><i class="fas fa-calculator"></i> CALCULAR</button>
+                    <button type="button" onclick="window.print();" class="btn-comic" style="background: #546e7a; color: white; padding: 0 15px;"><i class="fas fa-print"></i></button>
+                    <button type="button" onclick="descargaDirecta('excel')" class="btn-comic" style="background: #2e7d32; color: white; padding: 0 15px;"><i class="fas fa-file-excel"></i></button>
+                    <button type="button" onclick="descargaDirecta('pdf')" class="btn-comic" style="background: #c62828; color: white; padding: 0 15px;"><i class="fas fa-file-pdf"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
                 <div class="col-md-4 d-flex gap-2">
                     <button type="submit" class="btn btn-comic btn-edit flex-grow-1"><i class="fas fa-calculator"></i> CALCULAR</button>
                     <button type="button" onclick="window.print();" class="btn-comic" style="background: #546e7a; color: white; padding: 0 15px;"><i class="fas fa-print"></i></button>
@@ -269,20 +291,33 @@
 </div>
 
 <script>
+    function toggleAll(source) {
+        let checkboxes = document.getElementsByName('sucursal');
+        for(let cb of checkboxes) { cb.checked = source.checked; }
+    }
+
     function descargaDirecta(tipo) {
         const inicio = document.querySelector('[name="inicio"]').value;
         const fin = document.querySelector('[name="fin"]').value;
         const nombre = document.querySelector('[name="nombre"]').value.trim();
-        const sucursal = document.querySelector('[name="sucursal"]').value;
-
+        
         if (!inicio || !fin) {
-            alert("¡Rayos! Por favor selecciona las fechas de inicio y fin para continuar.");
+            alert("¡Rayos! Por favor selecciona las fechas de inicio y fin.");
             return;
         }
 
+        // Obtener sucursales seleccionadas
+        const sucursales = Array.from(document.querySelectorAll('input[name="sucursal"]:checked'))
+                                .map(cb => cb.value);
+
         let baseUrl = (tipo === 'excel') ? "{% url 'exportar_excel' %}" : "{% url 'exportar_pdf' %}";
-        const params = new URLSearchParams({'inicio': inicio, 'fin': fin, 'nombre': nombre, 'sucursal': sucursal});
-        window.location.href = `${baseUrl}?${params.toString()}`;
+        let url = new URL(window.location.origin + baseUrl);
+        url.searchParams.append('inicio', inicio);
+        url.searchParams.append('fin', fin);
+        url.searchParams.append('nombre', nombre);
+        sucursales.forEach(s => url.searchParams.append('sucursal', s));
+
+        window.location.href = url.toString();
     }
 </script>
 </body>
