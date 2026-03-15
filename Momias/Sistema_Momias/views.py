@@ -604,8 +604,8 @@ def Asistencias_FF_view(request):
             total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
 
             # Gestión de instancia
-            if asistencia_id and asistencia_id.strip():
-                asistencia = get_object_or_404(Asistencia, id=asistencia_id)
+            if asistencia_id and asistencia_id.isdigit():
+                asistencia = get_object_or_404(Asistencia, id=int(asistencia_id))
             else:
                 asistencia = Asistencia()
                 asistencia.sucursal = "FastFood"
