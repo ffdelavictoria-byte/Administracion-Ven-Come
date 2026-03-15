@@ -1042,12 +1042,20 @@ def calcular_nomina_web(request):
                     'total_neto': round(total_neto, 2),
                 })
 
+    lista_sucursales = [
+        "Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6",
+        "PP", "PM", "Yommy", "Perrioni", "Fabrica", "Benny", "Cocina", "Area Seca", "FastFood"
+    ]
+
     return render(request, 'Paysheet.html', { 
         'nominas': resultados_nomina,
         'inicio': fecha_inicio,
         'fin': fecha_fin,
-        'sucursal_seleccionada': sucursal_filtro,
-        'nombre_busqueda': nombre_filtro
+        'sucursal_seleccionada': sucursal_filtro, # Esto sigue funcionando
+        'nombre_busqueda': nombre_filtro,
+        # AGREGADOS:
+        'todas_sucursales': lista_sucursales,
+        'sucursales_seleccionadas': request.GET.getlist('sucursal') # Recibimos la lista de los checkboxes
     })
 def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=None):
     from collections import Counter
