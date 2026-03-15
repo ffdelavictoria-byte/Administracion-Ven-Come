@@ -858,15 +858,23 @@ def calcular_nomina_web(request):
             intervalos_semanas.append((current_start, current_end))
             current_start = current_end + timedelta(days=1)
 
+        # Obtenemos la lista de sucursales seleccionadas
+        sucursales_seleccionadas = request.GET.getlist('sucursal')
+
         for sem_inicio, sem_fin in intervalos_semanas:
             filtros_asistencia = Q(fecha__range=[sem_inicio, sem_fin])
-            if sucursal_filtro and sucursal_filtro != "TODAS":
-                filtros_asistencia &= Q(sucursal__iexact=sucursal_filtro)
+            
+            # Filtro corregido para selección múltiple
+            if sucursales_seleccionadas and "TODAS" not in sucursales_seleccionadas:
+                filtros_asistencia &= Q(sucursal__in=sucursales_seleccionadas)
+            
             if nombre_filtro:
                 filtros_asistencia &= (Q(empleado__nombre__icontains=nombre_filtro) | 
                                        Q(empleado__apellido_paterno__icontains=nombre_filtro))
 
             empleados_ids = Asistencia.objects.filter(filtros_asistencia).values_list('empleado_id', flat=True).distinct()
+            
+            # ... resto de tu lógica para procesar empleados_ids
 
             for emp_id in empleados_ids:
                 empleado = Empleado.objects.get(id=emp_id)
