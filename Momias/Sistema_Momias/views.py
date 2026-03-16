@@ -1254,6 +1254,9 @@ def exportar_pdf_nomina(request):
     doc.build(elements)
     return response
 
+from django.db.models import Q
+from django.shortcuts import render
+
 def vista_reportes(request):
     empleados = Empleado.objects.filter(estatus='Activo').order_by('nombre')
     
@@ -1264,7 +1267,6 @@ def vista_reportes(request):
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
-    # Diccionario de salarios
     puestos_salarios = {
         "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
         "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
@@ -1277,7 +1279,6 @@ def vista_reportes(request):
         "Barra (6 horas) Entregas": 236.50,
         "Barra (9 horas) Entregas": 354.50,
         "Fin de Semana": 473.00,
-        "Produccion": 0.00,
         "Encargado Victoria (6 Horas)": 316.00,
         "Encargado Sucursales (6 Horas)": 262.00,
         "Encargado Sucursales (9 Horas)": 393.00, 
@@ -1285,24 +1286,14 @@ def vista_reportes(request):
         "Freidor (9 horas)": 372.00, 
         "Despacho (6 horas)": 236.50,
         "Despacho (9 horas)": 354.75, 
-        "Aderezos": 236.50,
-        "Cocina": 248.00,
-        "Fabrica": 236.50,
-        "Perrioni": 236.50,
-        "PP": 236.50,
-        "Yommy": 236.50,
-        "PM": 236.50,
-        "Rappi": 354.75,
-        "Fabrica Crystal": 262.00,
-        "Hamburguesas Momias": 0.00, 
-        "Tuppers": 0.00,
-        "Benny": 171.00,
-        "Caja Capacitacion": 236.50,
-        "Freidor Capacitacion": 236.50,
-        "Encargado Capacitacion": 248.00,
+        "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50,
+        "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
+        "PM": 236.50, "Rappi": 354.75, "Fabrica Crystal": 262.00,
+        "Benny": 171.00, "Caja Capacitacion": 236.50,
+        "Freidor Capacitacion": 236.50, "Encargado Capacitacion": 248.00,
     }
 
-    # --- Funciones de apoyo ---
+    # --- Tus funciones de apoyo se mantienen igual ---
     def a_minutos(valor, es_entrada, bloque):
         if not valor: return None
         v = str(valor).strip().upper()
@@ -1315,30 +1306,27 @@ def vista_reportes(request):
 
     def calcular_pago_dia_final(base_6h, ent_m, sal_m, ent_v, sal_v):
         minutos = 0
-        if ent_m and sal_v and not sal_m and not ent_v: # Jornada continua
+        if ent_m and sal_v and not sal_m and not ent_v:
             m_i, m_f = a_minutos(ent_m, True, 'M'), a_minutos(sal_v, False, 'V')
             if m_i is not None and m_f is not None:
                 diff = m_f - m_i
                 minutos = diff + 1440 if diff < 0 else diff
-        else: # Por bloques
+        else:
             if ent_m and sal_m: minutos += max(0, a_minutos(sal_m, False, 'M') - a_minutos(ent_m, True, 'M'))
             elif ent_m or sal_m: minutos += 360
             if ent_v and sal_v: minutos += max(0, a_minutos(sal_v, False, 'V') - a_minutos(ent_v, True, 'V'))
             elif ent_v or sal_v: minutos += 360
         return (float(base_6h) / 360) * minutos
 
-    asistencias_query = None
-    resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0}
+    agrupados_dict = {}
+    resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0, 'total_turnos': 0}
 
-    # Solo procesamos si hay rango de fechas (el reporte empieza vacío)
     if f_inicio and f_fin:
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
 
-        # 1. Filtro por Sucursal
         if sucursal_filtro:
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
 
-        # 2. Filtro por Persona (Doble opción)
         if emp_id:
             asistencias_query = asistencias_query.filter(empleado_id=emp_id)
         elif nombre_texto:
@@ -1347,21 +1335,18 @@ def vista_reportes(request):
                 Q(empleado__apellido_paterno__icontains=nombre_texto)
             )
 
-        # Ordenar para que el reporte sea legible
-        asistencias_query = asistencias_query.order_by('empleado__nombre', 'fecha')
-
-        # 3. Procesamiento de Cálculos para cada fila
         for asis in asistencias_query:
             emp = asis.empleado
-            estatus = (asis.estatus or "").upper()
-            sal_puesto = puestos_salarios.get(asis.puesto, emp.sueldo_base or 0)
+            suc = asis.sucursal or "SIN SUCURSAL"
+            pue = asis.puesto or "SIN PUESTO"
             
-            # Normalizar base a 6 horas
+            # --- Lógica de Cálculos (Misma que ya tenías) ---
+            estatus = (asis.estatus or "").upper()
+            sal_puesto = puestos_salarios.get(pue, emp.sueldo_base or 0)
             base_calc = float(sal_puesto)
-            if "(9 horas)" in (asis.puesto or ""): base_calc /= 1.5
-            elif "(12 Horas)" in (asis.puesto or ""): base_calc /= 2
+            if "(9 horas)" in pue: base_calc /= 1.5
+            elif "(12 Horas)" in pue: base_calc /= 2
 
-            # Lógica de pago por día
             if "DESCANSO" in estatus and "TRABAJADO" not in estatus:
                 pago_dia = float(emp.sueldo_base or 0)
             elif asis.pago_dia and float(asis.pago_dia) > 0:
@@ -1371,28 +1356,62 @@ def vista_reportes(request):
                 if "DESCANSO TRABAJADO" in estatus or "FESTIVO TRABAJADO" in estatus:
                     pago_dia *= 2
 
-            # Guardar valor calculado en el objeto para el template
-            asis.pago_calculado = round(pago_dia, 2)
+            # --- NUEVA LÓGICA DE AGRUPACIÓN ---
+            # Creamos una llave única por Empleado + Sucursal + Puesto
+            key = (emp.id, suc, pue)
             
-            # Acumular en el resumen global
-            resumen_global['total_pagar'] += pago_dia
+            if key not in agrupados_dict:
+                agrupados_dict[key] = {
+                    'empleado': f"{emp.nombre} {emp.apellido_paterno}",
+                    'sucursal': suc,
+                    'puesto': pue,
+                    'total_turnos': 0,
+                    'total_retardos': 0,
+                    'monto_descuentos': 0.0,
+                    'motivos_descuentos': [],
+                    'total_bonos': 0.0,
+                    'total_fila': 0.0
+                }
+            
+            # Acumulamos los datos en la fila correspondiente
+            fila = agrupados_dict[key]
+            fila['total_turnos'] += 1
+            fila['total_retardos'] += int(asis.horas or 0)
+            fila['total_bonos'] += float(asis.bonificacion or 0)
+            
+            # Manejo de descuentos y motivos
+            desc_dia = float(asis.monto_descuento or 0)
+            fila['monto_descuentos'] += desc_dia
+            if asis.motivo_descuento and asis.motivo_descuento not in fila['motivos_descuentos']:
+                fila['motivos_descuentos'].append(asis.motivo_descuento)
+            
+            fila['total_fila'] += (pago_dia + float(asis.bonificacion or 0)) - desc_dia
+
+            # Resumen Global (Footer)
+            resumen_global['total_pagar'] += (pago_dia + float(asis.bonificacion or 0)) - desc_dia
             resumen_global['total_retardos'] += int(asis.horas or 0)
             resumen_global['total_bonif'] += float(asis.bonificacion or 0)
+            resumen_global['total_turnos'] += 1
+
+    # Convertir el diccionario a una lista para el template y limpiar motivos
+    lista_agrupada = []
+    for f in agrupados_dict.values():
+        f['motivos_descuentos'] = ", ".join(f['motivos_descuentos']) if f['motivos_descuentos'] else "--"
+        lista_agrupada.append(f)
 
     context = {
         'empleados': empleados,
-        'asistencias': asistencias_query,
+        'agrupados': lista_agrupada,
+        'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "FastFood"],
         'fecha_inicio': f_inicio,
         'fecha_fin': f_fin,
-        'resumen': {
-            'total_pagar': round(resumen_global['total_pagar'], 2),
-            'total_retardos': resumen_global['total_retardos'],
-            'total_bonif': round(resumen_global['total_bonif'], 2)
-        }
+        'gran_total_pagar': round(resumen_global['total_pagar'], 2),
+        'gran_total_retardos': resumen_global['total_retardos'],
+        'gran_total_bonos': round(resumen_global['total_bonif'], 2),
+        'gran_total_turnos': resumen_global['total_turnos']
     }
 
     return render(request, 'Reports.html', context)
-
 @staff_member_required  # Solo usuarios con acceso al staff/admin
 def admin_cambiar_password(request, user_id):
     # Obtenemos al empleado (usuario) específico
