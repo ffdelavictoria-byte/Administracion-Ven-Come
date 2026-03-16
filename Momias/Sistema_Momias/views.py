@@ -1398,6 +1398,7 @@ def vista_reportes(request):
         'nombre_busqueda': nombre_texto, # Para mantener el texto en el input
     }
     return render(request, 'Reports.html', context)
+    
 @staff_member_required  # Solo usuarios con acceso al staff/admin
 def admin_cambiar_password(request, user_id):
     # Obtenemos al empleado (usuario) específico
