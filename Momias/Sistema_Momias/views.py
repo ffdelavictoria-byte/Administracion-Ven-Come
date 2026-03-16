@@ -1254,13 +1254,6 @@ def exportar_pdf_nomina(request):
     doc.build(elements)
     return response
 
-from django.db.models import Q
-from django.shortcuts import render
-
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.db.models import Q
-from .models import Empleado, Asistencia
 
 @login_required
 def vista_reportes(request):
@@ -1272,7 +1265,7 @@ def vista_reportes(request):
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
-    # Diccionario de referencia (Idéntico a tu función de cálculo)
+    # Diccionario de referencia de salarios
     puestos_salarios = {
         "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
@@ -1290,7 +1283,6 @@ def vista_reportes(request):
         "Aux Produccion": 177.00, "Produccion": 370.00,
     }
 
-    # Lógica de cálculo delegada de la función original
     def a_minutos(valor, es_entrada, bloque):
         if not valor: return None
         v = str(valor).strip().upper()
@@ -1329,11 +1321,15 @@ def vista_reportes(request):
 
         for asis in asistencias_query:
             emp = asis.empleado
-            suc, pue = asis.sucursal or "SIN SUCURSAL", asis.puesto or "SIN PUESTO"
             estatus = (asis.estatus or "").upper()
             
-            # Cálculo base respetando las reglas de tu nómina
-            base_calc = float(puestos_salarios.get(pue, emp.sueldo_base or 0))
+            # CORRECCIÓN "SIN PUESTO": Prioridad -> Asistencia > Empleado > Estatus
+            pue = asis.puesto or emp.puesto or estatus or "GENERAL"
+            suc = asis.sucursal or emp.sucursal or "SIN SUCURSAL"
+            
+            # Cálculo base según reglas de nómina
+            sal_puesto = puestos_salarios.get(pue, emp.sueldo_base or 0)
+            base_calc = float(sal_puesto)
             if "(9 horas)" in pue: base_calc /= 1.5
             elif "(12 Horas)" in pue or "(12 horas)" in pue: base_calc /= 2
 
@@ -1357,7 +1353,13 @@ def vista_reportes(request):
                 }
             
             fila = agrupados_dict[key]
-            retardo_val = int(float(asis.horas or 0))
+            
+            # CORRECCIÓN SUMA DE RETARDOS Y DESCUENTOS
+            try:
+                retardo_val = int(float(asis.horas or 0))
+            except:
+                retardo_val = 0
+                
             desc_dia = float(getattr(asis, 'descuento', 0) or 0)
             bono_dia = float(asis.bonificacion or 0)
             
@@ -1366,9 +1368,10 @@ def vista_reportes(request):
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += desc_dia
             
+            # CORRECCIÓN MOTIVOS: Captura observaciones sin repetir
             obs = getattr(asis, 'observaciones', None)
-            if obs and obs not in fila['motivos_descuentos']:
-                fila['motivos_descuentos'].append(obs)
+            if obs and str(obs).strip() and str(obs) not in fila['motivos_descuentos']:
+                fila['motivos_descuentos'].append(str(obs))
             
             pago_neto_fila = (pago_dia + bono_dia) - desc_dia
             fila['total_fila'] += pago_neto_fila
