@@ -1265,132 +1265,106 @@ def vista_reportes(request):
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
-    # Diccionario de referencia de salarios
+    # Diccionario de referencia sincronizado con tu vista de asistencias
     puestos_salarios = {
-        "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
-        "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
-        "Encargado Cocina (Matutino 12 horas)": 504.00, "Encargado de Cocina (12 horas)": 519.00,
-        "Cocina y Barra (6 hrs)": 236.50, "Cocina y Barra (9 hrs)": 354.50,
-        "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
-        "Barra (6 horas) Entregas": 236.50, "Barra (9 horas) Entregas": 354.50,
-        "Fin de Semana": 473.00, "Encargado Victoria (6 Horas)": 316.00,
-        "Encargado Sucursales (6 Horas)": 262.00, "Encargado Sucursales (9 Horas)": 393.00, 
-        "Freidor (6 horas)": 248.00, "Freidor (9 horas)": 372.00, 
-        "Despacho (6 horas)": 236.50, "Despacho (9 horas)": 354.75, 
+        "Caja (6 horas)": 248.00, "Caja Capacitacion": 236.50,
+        "Freidor Capacitacion": 236.50, "Encargado Capacitacion": 248.00,
+        "Encargado Victoria (6 Horas)": 316.00, "Encargado Sucursales (6 Horas)": 262.00,
+        "Freidor (6 horas)": 248.00, "Despacho (6 horas)": 236.50,
         "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50,
-        "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
-        "PM": 236.50, "Rappi": 354.75, "Fabrica Crystal": 262.00,
-        "Aux Produccion": 177.00, "Produccion": 370.00,
+        "Perrioni": 236.50, "PP": 236.50, "PM": 236.50, "Yommy": 236.50,
+        "Benny": 171.00, "Rappi": 354.75, "Fabrica Crystal": 262.00,
     }
-
-    def a_minutos(valor, es_entrada, bloque):
-        if not valor: return None
-        v = str(valor).strip().upper()
-        if ':' in v:
-            try:
-                h, m = map(int, v[:5].split(':'))
-                return h * 60 + m
-            except: pass
-        return (9*60 if es_entrada else 15*60) if bloque == 'M' else (15*60 if es_entrada else 21*60)
-
-    def calcular_pago_dia_final(base_6h, ent_m, sal_m, ent_v, sal_v):
-        minutos = 0
-        if ent_m and sal_v and not sal_m and not ent_v:
-            m_i, m_f = a_minutos(ent_m, True, 'M'), a_minutos(sal_v, False, 'V')
-            if m_i is not None and m_f is not None:
-                diff = m_f - m_i
-                minutos = diff + 1440 if diff < 0 else diff
-        else:
-            if ent_m and sal_m: minutos += max(0, a_minutos(sal_m, False, 'M') - a_minutos(ent_m, True, 'M'))
-            elif ent_m or sal_m: minutos += 360
-            if ent_v and sal_v: minutos += max(0, a_minutos(sal_v, False, 'V') - a_minutos(ent_v, True, 'V'))
-            elif ent_v or sal_v: minutos += 360
-        return (float(base_6h) / 360) * minutos
 
     agrupados_dict = {}
     resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0, 'total_turnos': 0}
 
     if f_inicio and f_fin:
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
-        if sucursal_filtro: asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
-        if emp_id: asistencias_query = asistencias_query.filter(empleado_id=emp_id)
+        
+        # Filtros de búsqueda
+        if sucursal_filtro: 
+            asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
+        if emp_id: 
+            asistencias_query = asistencias_query.filter(empleado_id=emp_id)
         elif nombre_texto:
             asistencias_query = asistencias_query.filter(
-                Q(empleado__nombre__icontains=nombre_texto) | Q(empleado__apellido_paterno__icontains=nombre_texto)
+                Q(empleado__nombre__icontains=nombre_texto) | 
+                Q(empleado__apellido_paterno__icontains=nombre_texto)
             )
 
         for asis in asistencias_query:
             emp = asis.empleado
-            estatus = (asis.estatus or "").upper()
+            estatus = (asis.estatus or "").strip()
             
-            # CORRECCIÓN "SIN PUESTO": Prioridad -> Asistencia > Empleado > Estatus
-            pue = asis.puesto or emp.puesto or estatus or "GENERAL"
-            suc = asis.sucursal or emp.sucursal or "SIN SUCURSAL"
+            # 1. Determinación de Puesto y Sucursal (Prioridad Asistencia)
+            pue = asis.puesto or emp.puesto or "GENERAL"
+            suc = asis.sucursal or "Victoria"
             
-            # Cálculo base según reglas de nómina
-            sal_puesto = puestos_salarios.get(pue, emp.sueldo_base or 0)
-            base_calc = float(sal_puesto)
-            if "(9 horas)" in pue: base_calc /= 1.5
-            elif "(12 Horas)" in pue or "(12 horas)" in pue: base_calc /= 2
+            # 2. Lógica de Pago (Tomamos el pago_dia ya calculado por tu vista de asistencias)
+            # Si el pago_dia es 0 (como en faltas), se queda en 0.
+            pago_dia = float(asis.pago_dia or 0)
+            bono_dia = float(asis.bonificacion or 0)
+            desc_dia = float(asis.descuento or 0)
 
-            if "DESCANSO" in estatus and "TRABAJADO" not in estatus:
-                pago_dia = float(emp.sueldo_base or 0)
-            elif asis.pago_dia and float(asis.pago_dia) > 0:
-                pago_dia = float(asis.pago_dia)
-            else:
-                pago_dia = calcular_pago_dia_final(base_calc, asis.entrada_matutina, asis.salida_matutina, asis.entrada_vespertina, asis.salida_vespertina)
-                if "DESCANSO TRABAJADO" in estatus or "FESTIVO TRABAJADO" in estatus:
-                    pago_dia *= 2
-
+            # 3. Agrupación por Llave única
             key = (emp.id, suc, pue)
             if key not in agrupados_dict:
                 agrupados_dict[key] = {
                     'empleado': f"{emp.nombre} {emp.apellido_paterno}",
-                    'sucursal': suc, 'puesto': pue,
-                    'total_turnos': 0, 'total_retardos': 0,
-                    'monto_descuentos': 0.0, 'motivos_descuentos': [],
-                    'total_bonos': 0.0, 'total_fila': 0.0
+                    'sucursal': suc, 
+                    'puesto': pue,
+                    'total_turnos': 0, 
+                    'total_retardos': 0, # Aquí sumaremos los "puntos"
+                    'monto_descuentos': 0.0, 
+                    'motivos_descuentos': [],
+                    'total_bonos': 0.0, 
+                    'total_fila': 0.0
                 }
             
             fila = agrupados_dict[key]
             
-            # CORRECCIÓN SUMA DE RETARDOS Y DESCUENTOS
+            # 4. Suma de Puntos de Retardo (En tu sistema los guardas en .horas)
             try:
-                retardo_val = int(float(asis.horas or 0))
-            except:
-                retardo_val = 0
-                
-            desc_dia = float(getattr(asis, 'descuento', 0) or 0)
-            bono_dia = float(asis.bonificacion or 0)
+                puntos_retardo = int(float(asis.horas or 0))
+            except (ValueError, TypeError):
+                puntos_retardo = 0
             
+            # 5. Consolidación de Motivos (Motivo Descuento + Observaciones)
+            motivos_asis = []
+            if asis.motivo_descuento: motivos_asis.append(str(asis.motivo_descuento))
+            if asis.observaciones: motivos_asis.append(str(asis.observaciones))
+            
+            for m in motivos_asis:
+                if m.strip() and m not in fila['motivos_descuentos']:
+                    fila['motivos_descuentos'].append(m)
+
+            # 6. Acumulación de valores
             fila['total_turnos'] += 1
-            fila['total_retardos'] += retardo_val
+            fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += desc_dia
             
-            # CORRECCIÓN MOTIVOS: Captura observaciones sin repetir
-            obs = getattr(asis, 'observaciones', None)
-            if obs and str(obs).strip() and str(obs) not in fila['motivos_descuentos']:
-                fila['motivos_descuentos'].append(str(obs))
-            
-            pago_neto_fila = (pago_dia + bono_dia) - desc_dia
-            fila['total_fila'] += pago_neto_fila
+            pago_neto_dia = (pago_dia + bono_dia) - desc_dia
+            fila['total_fila'] += pago_neto_dia
 
-            resumen_global['total_pagar'] += pago_neto_fila
-            resumen_global['total_retardos'] += retardo_val
+            # 7. Totales Globales
+            resumen_global['total_pagar'] += pago_neto_dia
+            resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
             resumen_global['total_turnos'] += 1
 
+    # Preparación final de la lista
     lista_agrupada = []
     for f in agrupados_dict.values():
-        f['motivos_descuentos'] = ", ".join(f['motivos_descuentos']) if f['motivos_descuentos'] else "--"
+        f['motivos_descuentos'] = " | ".join(f['motivos_descuentos']) if f['motivos_descuentos'] else "--"
         f['total_fila'] = round(f['total_fila'], 2)
         lista_agrupada.append(f)
 
     context = {
         'empleados': empleados,
         'agrupados': sorted(lista_agrupada, key=lambda x: x['empleado']),
-        'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "FastFood"],
+        'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal","PP","PM","Area Seca","Perrioni", "FastFood"],
         'fecha_inicio': f_inicio,
         'fecha_fin': f_fin,
         'gran_total_pagar': round(resumen_global['total_pagar'], 2),
