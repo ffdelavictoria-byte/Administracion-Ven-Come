@@ -1257,6 +1257,12 @@ def exportar_pdf_nomina(request):
 from django.db.models import Q
 from django.shortcuts import render
 
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.db.models import Q
+from .models import Empleado, Asistencia
+
+@login_required
 def vista_reportes(request):
     empleados = Empleado.objects.filter(estatus='Activo').order_by('nombre')
     
@@ -1266,7 +1272,7 @@ def vista_reportes(request):
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
-    # Diccionario extendido con tus nuevos puestos
+    # Diccionario de referencia (Idéntico a tu función de cálculo)
     puestos_salarios = {
         "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
@@ -1284,6 +1290,7 @@ def vista_reportes(request):
         "Aux Produccion": 177.00, "Produccion": 370.00,
     }
 
+    # Lógica de cálculo delegada de la función original
     def a_minutos(valor, es_entrada, bloque):
         if not valor: return None
         v = str(valor).strip().upper()
@@ -1313,32 +1320,23 @@ def vista_reportes(request):
 
     if f_inicio and f_fin:
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
-
-        if sucursal_filtro:
-            asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
-
-        if emp_id:
-            asistencias_query = asistencias_query.filter(empleado_id=emp_id)
+        if sucursal_filtro: asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
+        if emp_id: asistencias_query = asistencias_query.filter(empleado_id=emp_id)
         elif nombre_texto:
             asistencias_query = asistencias_query.filter(
-                Q(empleado__nombre__icontains=nombre_texto) | 
-                Q(empleado__apellido_paterno__icontains=nombre_texto)
+                Q(empleado__nombre__icontains=nombre_texto) | Q(empleado__apellido_paterno__icontains=nombre_texto)
             )
 
         for asis in asistencias_query:
             emp = asis.empleado
-            suc = asis.sucursal or "SIN SUCURSAL"
-            pue = asis.puesto or "SIN PUESTO"
-            
+            suc, pue = asis.sucursal or "SIN SUCURSAL", asis.puesto or "SIN PUESTO"
             estatus = (asis.estatus or "").upper()
-            sal_puesto = puestos_salarios.get(pue, emp.sueldo_base or 0)
-            base_calc = float(sal_puesto)
             
-            # Ajuste de base según horas en el nombre del puesto
+            # Cálculo base respetando las reglas de tu nómina
+            base_calc = float(puestos_salarios.get(pue, emp.sueldo_base or 0))
             if "(9 horas)" in pue: base_calc /= 1.5
             elif "(12 Horas)" in pue or "(12 horas)" in pue: base_calc /= 2
 
-            # Lógica de pago
             if "DESCANSO" in estatus and "TRABAJADO" not in estatus:
                 pago_dia = float(emp.sueldo_base or 0)
             elif asis.pago_dia and float(asis.pago_dia) > 0:
@@ -1359,32 +1357,25 @@ def vista_reportes(request):
                 }
             
             fila = agrupados_dict[key]
+            retardo_val = int(float(asis.horas or 0))
+            desc_dia = float(getattr(asis, 'descuento', 0) or 0)
+            bono_dia = float(asis.bonificacion or 0)
+            
             fila['total_turnos'] += 1
-            
-            # --- CORRECCIÓN DE NOMBRES DE CAMPOS SEGÚN TU NÓMINA ---
-            try:
-                retardo_val = int(float(asis.horas or 0))
-            except:
-                retardo_val = 0
-            
             fila['total_retardos'] += retardo_val
-            fila['total_bonos'] += float(asis.bonificacion or 0)
-            
-            # Usamos 'descuento' que es como lo tienes en la función de nómina
-            desc_dia = float(getattr(asis, 'descuento', 0) or 0) 
+            fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += desc_dia
             
-            # Usamos 'observaciones' como motivo si no existe 'motivo_descuento'
             obs = getattr(asis, 'observaciones', None)
             if obs and obs not in fila['motivos_descuentos']:
                 fila['motivos_descuentos'].append(obs)
             
-            pago_neto_fila = (pago_dia + float(asis.bonificacion or 0)) - desc_dia
+            pago_neto_fila = (pago_dia + bono_dia) - desc_dia
             fila['total_fila'] += pago_neto_fila
 
             resumen_global['total_pagar'] += pago_neto_fila
             resumen_global['total_retardos'] += retardo_val
-            resumen_global['total_bonif'] += float(asis.bonificacion or 0)
+            resumen_global['total_bonif'] += bono_dia
             resumen_global['total_turnos'] += 1
 
     lista_agrupada = []
@@ -1393,12 +1384,9 @@ def vista_reportes(request):
         f['total_fila'] = round(f['total_fila'], 2)
         lista_agrupada.append(f)
 
-    # Ordenar por nombre
-    lista_agrupada = sorted(lista_agrupada, key=lambda x: x['empleado'])
-
     context = {
         'empleados': empleados,
-        'agrupados': lista_agrupada,
+        'agrupados': sorted(lista_agrupada, key=lambda x: x['empleado']),
         'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "FastFood"],
         'fecha_inicio': f_inicio,
         'fecha_fin': f_fin,
@@ -1408,7 +1396,6 @@ def vista_reportes(request):
         'gran_total_turnos': resumen_global['total_turnos']
     }
     return render(request, 'Reports.html', context)
-
 
 @staff_member_required  # Solo usuarios con acceso al staff/admin
 def admin_cambiar_password(request, user_id):
