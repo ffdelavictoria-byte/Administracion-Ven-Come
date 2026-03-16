@@ -1260,40 +1260,30 @@ from django.shortcuts import render
 def vista_reportes(request):
     empleados = Empleado.objects.filter(estatus='Activo').order_by('nombre')
     
-    # Captura de parámetros
     emp_id = request.GET.get('empleado_id')
     nombre_texto = request.GET.get('nombre', '').strip()
     sucursal_filtro = request.GET.get('sucursal')
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
+    # Diccionario extendido con tus nuevos puestos
     puestos_salarios = {
-        "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
         "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
-        "Encargado Cocina (Matutino 6 horas)": 252.00,
-        "Encargado Cocina (Matutino 9 horas)": 378.00,
-        "Encargado Cocina (Matutino 12 horas)": 504.00,
-        "Encargado de Cocina (12 horas)": 519.00,
-        "Cocina y Barra (6 hrs)": 236.50,
-        "Cocina y Barra (9 hrs)": 354.50,
-        "Barra (6 horas) Entregas": 236.50,
-        "Barra (9 horas) Entregas": 354.50,
-        "Fin de Semana": 473.00,
-        "Encargado Victoria (6 Horas)": 316.00,
-        "Encargado Sucursales (6 Horas)": 262.00,
-        "Encargado Sucursales (9 Horas)": 393.00, 
-        "Freidor (6 horas)": 248.00,
-        "Freidor (9 horas)": 372.00, 
-        "Despacho (6 horas)": 236.50,
-        "Despacho (9 horas)": 354.75, 
+        "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
+        "Encargado Cocina (Matutino 12 horas)": 504.00, "Encargado de Cocina (12 horas)": 519.00,
+        "Cocina y Barra (6 hrs)": 236.50, "Cocina y Barra (9 hrs)": 354.50,
+        "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
+        "Barra (6 horas) Entregas": 236.50, "Barra (9 horas) Entregas": 354.50,
+        "Fin de Semana": 473.00, "Encargado Victoria (6 Horas)": 316.00,
+        "Encargado Sucursales (6 Horas)": 262.00, "Encargado Sucursales (9 Horas)": 393.00, 
+        "Freidor (6 horas)": 248.00, "Freidor (9 horas)": 372.00, 
+        "Despacho (6 horas)": 236.50, "Despacho (9 horas)": 354.75, 
         "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50,
         "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
         "PM": 236.50, "Rappi": 354.75, "Fabrica Crystal": 262.00,
-        "Benny": 171.00, "Caja Capacitacion": 236.50,
-        "Freidor Capacitacion": 236.50, "Encargado Capacitacion": 248.00,
+        "Aux Produccion": 177.00, "Produccion": 370.00,
     }
 
-    # --- Tus funciones de apoyo se mantienen igual ---
     def a_minutos(valor, es_entrada, bloque):
         if not valor: return None
         v = str(valor).strip().upper()
@@ -1340,13 +1330,15 @@ def vista_reportes(request):
             suc = asis.sucursal or "SIN SUCURSAL"
             pue = asis.puesto or "SIN PUESTO"
             
-            # --- Lógica de Cálculos (Misma que ya tenías) ---
             estatus = (asis.estatus or "").upper()
             sal_puesto = puestos_salarios.get(pue, emp.sueldo_base or 0)
             base_calc = float(sal_puesto)
+            
+            # Ajuste de base según horas en el nombre del puesto
             if "(9 horas)" in pue: base_calc /= 1.5
-            elif "(12 Horas)" in pue: base_calc /= 2
+            elif "(12 Horas)" in pue or "(12 horas)" in pue: base_calc /= 2
 
+            # Lógica de pago
             if "DESCANSO" in estatus and "TRABAJADO" not in estatus:
                 pago_dia = float(emp.sueldo_base or 0)
             elif asis.pago_dia and float(asis.pago_dia) > 0:
@@ -1356,48 +1348,53 @@ def vista_reportes(request):
                 if "DESCANSO TRABAJADO" in estatus or "FESTIVO TRABAJADO" in estatus:
                     pago_dia *= 2
 
-            # --- NUEVA LÓGICA DE AGRUPACIÓN ---
-            # Creamos una llave única por Empleado + Sucursal + Puesto
             key = (emp.id, suc, pue)
-            
             if key not in agrupados_dict:
                 agrupados_dict[key] = {
                     'empleado': f"{emp.nombre} {emp.apellido_paterno}",
-                    'sucursal': suc,
-                    'puesto': pue,
-                    'total_turnos': 0,
-                    'total_retardos': 0,
-                    'monto_descuentos': 0.0,
-                    'motivos_descuentos': [],
-                    'total_bonos': 0.0,
-                    'total_fila': 0.0
+                    'sucursal': suc, 'puesto': pue,
+                    'total_turnos': 0, 'total_retardos': 0,
+                    'monto_descuentos': 0.0, 'motivos_descuentos': [],
+                    'total_bonos': 0.0, 'total_fila': 0.0
                 }
             
-            # Acumulamos los datos en la fila correspondiente
             fila = agrupados_dict[key]
             fila['total_turnos'] += 1
-            fila['total_retardos'] += int(asis.horas or 0)
+            
+            # --- CORRECCIÓN DE NOMBRES DE CAMPOS SEGÚN TU NÓMINA ---
+            try:
+                retardo_val = int(float(asis.horas or 0))
+            except:
+                retardo_val = 0
+            
+            fila['total_retardos'] += retardo_val
             fila['total_bonos'] += float(asis.bonificacion or 0)
             
-            # Manejo de descuentos y motivos
-            desc_dia = float(asis.monto_descuento or 0)
+            # Usamos 'descuento' que es como lo tienes en la función de nómina
+            desc_dia = float(getattr(asis, 'descuento', 0) or 0) 
             fila['monto_descuentos'] += desc_dia
-            if asis.motivo_descuento and asis.motivo_descuento not in fila['motivos_descuentos']:
-                fila['motivos_descuentos'].append(asis.motivo_descuento)
             
-            fila['total_fila'] += (pago_dia + float(asis.bonificacion or 0)) - desc_dia
+            # Usamos 'observaciones' como motivo si no existe 'motivo_descuento'
+            obs = getattr(asis, 'observaciones', None)
+            if obs and obs not in fila['motivos_descuentos']:
+                fila['motivos_descuentos'].append(obs)
+            
+            pago_neto_fila = (pago_dia + float(asis.bonificacion or 0)) - desc_dia
+            fila['total_fila'] += pago_neto_fila
 
-            # Resumen Global (Footer)
-            resumen_global['total_pagar'] += (pago_dia + float(asis.bonificacion or 0)) - desc_dia
-            resumen_global['total_retardos'] += int(asis.horas or 0)
+            resumen_global['total_pagar'] += pago_neto_fila
+            resumen_global['total_retardos'] += retardo_val
             resumen_global['total_bonif'] += float(asis.bonificacion or 0)
             resumen_global['total_turnos'] += 1
 
-    # Convertir el diccionario a una lista para el template y limpiar motivos
     lista_agrupada = []
     for f in agrupados_dict.values():
         f['motivos_descuentos'] = ", ".join(f['motivos_descuentos']) if f['motivos_descuentos'] else "--"
+        f['total_fila'] = round(f['total_fila'], 2)
         lista_agrupada.append(f)
+
+    # Ordenar por nombre
+    lista_agrupada = sorted(lista_agrupada, key=lambda x: x['empleado'])
 
     context = {
         'empleados': empleados,
@@ -1410,8 +1407,9 @@ def vista_reportes(request):
         'gran_total_bonos': round(resumen_global['total_bonif'], 2),
         'gran_total_turnos': resumen_global['total_turnos']
     }
-
     return render(request, 'Reports.html', context)
+
+
 @staff_member_required  # Solo usuarios con acceso al staff/admin
 def admin_cambiar_password(request, user_id):
     # Obtenemos al empleado (usuario) específico
