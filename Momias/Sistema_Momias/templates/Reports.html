@@ -55,9 +55,9 @@
         }
         tr:nth-child(even) td { background: #fffde7; }
 
-        .retardo-celda { font-weight: bold; color: var(--puebla-red); }
+        .retardo-celda { font-weight: bold; color: var(--puebla-red); background-color: #ffebee !important; }
         .col-pago { font-weight: bold; color: #2E7D32; font-size: 1.1rem; }
-        .col-motivos { font-style: italic; color: #555; text-align: left; font-size: 0.85rem; max-width: 200px; }
+        .col-motivos { font-style: italic; color: #555; text-align: left; font-size: 0.85rem; max-width: 250px; }
 
         .summary-box {
             margin-top: 20px; padding: 20px; border: 3px dashed var(--puebla-magenta);
@@ -67,7 +67,7 @@
 
         .badge-puesto {
             background: #e3f2fd; color: #0d47a1; padding: 2px 8px; border-radius: 5px; font-weight: bold;
-            display: inline-block;
+            display: inline-block; font-size: 0.8rem;
         }
 
         @media print {
@@ -123,7 +123,7 @@
                     <th>Sucursal</th>
                     <th>Puesto</th>
                     <th>Turnos</th>
-                    <th>Retardos</th>
+                    <th>Puntos Retardo</th>
                     <th>Descuentos / Motivos</th>
                     <th>Bonificaciones</th>
                     <th>Total Fila</th>
@@ -135,15 +135,15 @@
                     <td style="font-weight: bold; text-align: left;">{{ item.empleado }}</td>
                     <td style="color: var(--puebla-blue); font-weight: bold;">{{ item.sucursal }}</td>
                     <td><span class="badge-puesto">{{ item.puesto }}</span></td>
-                    <td style="font-size: 1.2rem;">{{ item.total_turnos }}</td>
+                    <td style="font-size: 1.1rem;">{{ item.total_turnos }}</td>
                     <td class="{% if item.total_retardos > 0 %}retardo-celda{% endif %}">
-                        {{ item.total_retardos }}
+                        {{ item.total_retardos }} pts
                     </td>
                     <td class="col-motivos">
                         <span style="color: var(--puebla-red); font-weight: bold;">
                             -${{ item.monto_descuentos|floatformat:2 }}
                         </span><br>
-                        <small style="color: #666; display: block; line-height: 1.1;">
+                        <small style="color: #666; display: block; line-height: 1.1; margin-top: 4px;">
                             {{ item.motivos_descuentos }}
                         </small>
                     </td>
@@ -159,13 +159,13 @@
                 <strong>TOTAL TURNOS:</strong> {{ gran_total_turnos }}
             </div>
             <div style="color: var(--puebla-red);">
-                <strong>TOTAL RETARDOS:</strong> {{ gran_total_retardos }}
+                <strong>TOTAL PUNTOS:</strong> {{ gran_total_retardos }} pts
             </div>
             <div>
                 <strong>TOTAL BONOS:</strong> <span style="color: #1A237E;">${{ gran_total_bonos|floatformat:2 }}</span>
             </div>
             <div style="border-left: 2px solid black; padding-left: 20px;">
-                <strong>GRAN TOTAL CONSULTA:</strong> <span style="color: green; font-weight: bold;">${{ gran_total_pagar|floatformat:2 }}</span>
+                <strong>GRAN TOTAL NÓMINA:</strong> <span style="color: green; font-weight: bold;">${{ gran_total_pagar|floatformat:2 }}</span>
             </div>
         </div>
         {% else %}
