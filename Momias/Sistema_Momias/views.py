@@ -1271,13 +1271,41 @@ def vista_reportes(request):
 
     # Diccionario maestro para referencia informativa de costos
     puestos_salarios = {
-        "Caja (6 horas)": 248.00, "Caja (9 horas)": 354.50,
         "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
-        "Encargado Cocina (Matutino 6 horas)": 252.00,
-        "Encargado Cocina (Matutino 9 horas)": 378.00,
-        "Encargado Cocina (Matutino 12 horas)": 519.00,
-        "Despacho (6 horas)": 236.50, "Despacho (9 horas)": 354.75,
-        "Cocina": 248.00, "Fabrica": 236.50, "Benny": 171.00,
+        "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
+        "Encargado Cocina (Matutino 12 horas)": 504.00, "Encargado de Cocina (12 horas)": 519.00,
+        "Cocina y Barra (6 hrs)": 236.50, "Cocina y Barra (9 hrs)": 354.50,
+        "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
+        "Barra (6 horas) Entregas": 236.50, "Barra (9 horas) Entregas": 354.50,
+        "Fin de Semana": 473.00, "Encargado Victoria (6 Horas)": 316.00,
+        "Encargado Sucursales (6 Horas)": 262.00,
+        "Encargado Sucursales (9 Horas)": 393.00, "Freidor (6 horas)": 248.00,
+        "Freidor (9 horas)": 372.00, "Despacho (6 horas)": 236.50,
+        "Despacho (9 horas)": 354.75, "Benny": 171.00,
+        "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50,
+        "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
+        "Rappi": 354.75, "Fabrica Crystal": 262.00,
+        "Hamburguesas Momias": 0.00, "Tuppers": 0.00, 
+        "PM": 236.50, "Caja Capacitacion": 236.50,
+        "Freidor Capacitacion": 236.50,
+        "Encargado Capacitacion": 248.00,
+        "Caja Matutina (6 horas)": 236.50, 
+        "Caja Vespertina (6 horas)": 236.50,
+        "Caja Matutina (9 horas)": 354.50,
+        "Caja Vespertina (9 horas)": 354.50,
+        "Cocina Matutina (6 horas)": 236.50,
+        "Cocina Vespertina (6 horas)": 236.50,
+        "Cocina Matutina (9 horas)": 354.50,
+        "Cocina Vespertina (9 horas)": 354.50,
+        "Crepas Intermedio (9 horas)": 354.50,
+        "Barra y Cocina Fin De Semana (12 horas)": 473.00,
+        "Limpieza Fin De Semana (9 horas)": 408.00,
+        "Limpieza 1 Matutino (6 horas L)": 272.00,
+        "Limpieza 2 Matutino (6 horas)": 236.50,
+        "Limpieza 3 Vespertino (6 horas A)": 272.00,
+        "Limpieza 4 Vespertino (6 horas)": 236.50,
+        "Aux Produccion": 177.00,
+        "Produccion": 370.00,
     }
 
     agrupados_dict = {}
@@ -1298,45 +1326,49 @@ def vista_reportes(request):
 
         for asis in asistencias_query:
             emp = asis.empleado
-            # Limpieza de estatus para evitar errores de lectura
             estatus_limpio = (asis.estatus or "").strip().upper()
             
-            pue = asis.puesto or emp.puesto or "GENERAL"
+            # --- DETERMINACIÓN DE ESTATUS Y PUESTO ---
+            es_descanso = "DESCANSO" in estatus_limpio
+            pue_original = asis.puesto or emp.puesto or "GENERAL"
+            # Si es descanso, el nombre del puesto se reemplaza totalmente
+            pue_display = "DESCANSO" if es_descanso else pue_original
             suc = asis.sucursal or "Victoria"
+
+            # --- LÓGICA DE TURNOS (Detección de jornada completa) ---
+            # Si tiene entrada matutina Y salida vespertina, contamos 2 turnos
+            if asis.entrada_matutina and asis.salida_vespertina:
+                cantidad_turnos = 2
+            else:
+                cantidad_turnos = 1
             
             # --- VALORES MONETARIOS ---
             pago_dia = float(asis.pago_dia or 0)
             bono_dia = float(asis.bonificacion or 0)
             desc_manual = float(asis.descuento or 0)
             
-            # Cálculo informativo del descuento por retardo (puntos)
-            # Usamos la lógica de (salario / 6) para mostrar cuánto dinero representaron esos retardos
+            # Descuento informativo por retardos (puntos)
             puntos_retardo = int(float(asis.horas or 0))
-            salario_ref = float(puestos_salarios.get(pue, emp.sueldo_base or 0))
-            desc_retardo_inf = (salario_ref / 6) * puntos_retardo if "DESCANSO" not in estatus_limpio else 0
+            salario_ref = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
+            desc_retardo_inf = (salario_ref / 6) * puntos_retardo if not es_descanso else 0
 
-            # Llave de agrupación: Empleado + Sucursal + Puesto
-            key = (emp.id, suc, pue)
+            # Llave de agrupación
+            key = (emp.id, suc, pue_display)
             if key not in agrupados_dict:
                 agrupados_dict[key] = {
                     'empleado': f"{emp.nombre} {emp.apellido_paterno}",
                     'sucursal': suc, 
-                    'puesto': pue,
+                    'puesto': pue_display,
                     'total_turnos': 0, 
                     'total_retardos': 0,
-                    'monto_descuentos': 0.0, # Suma de manual + retardos
+                    'monto_descuentos': 0.0, 
                     'motivos_descuentos': [],
                     'total_bonos': 0.0, 
-                    'total_fila': 0.0,
-                    'es_descanso': False
+                    'total_fila': 0.0
                 }
             
             fila = agrupados_dict[key]
             
-            # Si el estatus es descanso, lo marcamos para el reporte
-            if "DESCANSO" in estatus_limpio:
-                fila['es_descanso'] = True
-
             # Registro de motivos
             if asis.motivo_descuento:
                 m_txt = str(asis.motivo_descuento).strip()
@@ -1344,13 +1376,12 @@ def vista_reportes(request):
                     fila['motivos_descuentos'].append(m_txt)
 
             # --- ACUMULACIÓN ---
-            fila['total_turnos'] += 1
+            fila['total_turnos'] += cantidad_turnos
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
-            # Sumamos ambos tipos de descuento para el total de la columna
             fila['monto_descuentos'] += (desc_manual + desc_retardo_inf)
             
-            # El total de la fila refleja lo que efectivamente se calculó en nómina
+            # El total de la fila refleja el pago real calculado
             pago_neto_dia = (pago_dia + bono_dia) - desc_manual
             fila['total_fila'] += pago_neto_dia
 
@@ -1359,16 +1390,13 @@ def vista_reportes(request):
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
             resumen_global['total_descuentos'] += (desc_manual + desc_retardo_inf)
-            resumen_global['total_turnos'] += 1
+            resumen_global['total_turnos'] += cantidad_turnos
 
-    # Formateo final
+    # Formateo final de la lista
     lista_agrupada = []
     for f in agrupados_dict.values():
         f['motivos_descuentos'] = " | ".join(f['motivos_descuentos']) if f['motivos_descuentos'] else "--"
-        # Si la fila es mayormente descansos, podrías etiquetarlo en el reporte
-        if f['es_descanso'] and f['total_turnos'] == 1:
-            f['puesto'] = f"{f['puesto']} (Descanso)"
-            
+        f['total_fila'] = round(f['total_fila'], 2)
         lista_agrupada.append(f)
 
     context = {
@@ -1384,7 +1412,7 @@ def vista_reportes(request):
         'gran_total_turnos': resumen_global['total_turnos']
     }
     return render(request, 'Reports.html', context)
-
+    
 @staff_member_required  # Solo usuarios con acceso al staff/admin
 def admin_cambiar_password(request, user_id):
     # Obtenemos al empleado (usuario) específico
