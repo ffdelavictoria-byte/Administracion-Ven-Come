@@ -43,6 +43,7 @@
         .btn-generate { background: #4CAF50; }
         .btn-export { background: #9C27B0; }
         .btn-back { background: var(--puebla-red); }
+        .btn-clear { background: #757575; font-size: 0.8rem; padding: 5px 10px; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.95rem; }
         th { 
@@ -86,9 +87,16 @@
         <h2>REPORTE ACUMULADO POR SUCURSAL</h2>
         
         <form method="GET" class="filters">
-            <div style="display: flex; flex-direction: column;">
-                <label style="font-size: 0.8rem; font-weight: bold;">NOMBRE:</label>
-                <input type="text" name="nombre" placeholder="Buscar..." value="{{ request.GET.nombre|default_if_none:'' }}">
+            <div style="display: flex; flex-direction: column; min-width: 250px;">
+                <label style="font-size: 0.8rem; font-weight: bold;">BUSCAR EMPLEADO (NOMBRE/APELLIDO):</label>
+                <input type="text" name="nombre" placeholder="Escribe para buscar..." 
+                       value="{{ request.GET.nombre|default:'' }}" 
+                       list="lista_empleados" autocomplete="off">
+                <datalist id="lista_empleados">
+                    {% for e in empleados %}
+                        <option value="{{ e.nombre }} {{ e.apellido_paterno }} {{ e.apellido_materno|default:'' }}">
+                    {% endfor %}
+                </datalist>
             </div>
 
             <div style="display: flex; flex-direction: column;">
@@ -111,8 +119,11 @@
                 <input type="date" name="fecha_fin" value="{{ fecha_fin }}">
             </div>
             
-            <button type="submit" class="btn-action btn-generate" style="align-self: flex-end;">GENERAR</button>
-            <button type="button" onclick="window.print()" class="btn-action btn-export" style="align-self: flex-end;">IMPRIMIR PDF</button>
+            <div style="display: flex; gap: 10px; align-self: flex-end;">
+                <button type="submit" class="btn-action btn-generate">GENERAR</button>
+                <a href="{% url 'vista_reportes' %}" class="btn-action btn-clear no-print" title="Limpiar filtros">LIMPIAR</a>
+                <button type="button" onclick="window.print()" class="btn-action btn-export">IMPRIMIR PDF</button>
+            </div>
         </form>
 
         {% if agrupados %}
@@ -122,11 +133,11 @@
                     <th>Empleado</th>
                     <th>Sucursal</th>
                     <th>Puesto</th>
-                    <th>Turnos</th>
+                    <th>Turnos (6h)</th>
                     <th>Puntos Retardo</th>
-                    <th>Descuentos / Motivos</th>
+                    <th>Descuentos Acum.</th>
                     <th>Bonificaciones</th>
-                    <th>Total Fila</th>
+                    <th>Total a Pagar</th>
                 </tr>
             </thead>
             <tbody>
@@ -134,8 +145,12 @@
                 <tr>
                     <td style="font-weight: bold; text-align: left;">{{ item.empleado }}</td>
                     <td style="color: var(--puebla-blue); font-weight: bold;">{{ item.sucursal }}</td>
-                    <td><span class="badge-puesto">{{ item.puesto }}</span></td>
-                    <td style="font-size: 1.1rem;">{{ item.total_turnos }}</td>
+                    <td>
+                        <span class="badge-puesto" style="{% if item.puesto == 'DESCANSO' %}background:#fff9c4; color:#f57f17;{% endif %}">
+                            {{ item.puesto }}
+                        </span>
+                    </td>
+                    <td style="font-size: 1.1rem; font-weight: bold;">{{ item.total_turnos }}</td>
                     <td class="{% if item.total_retardos > 0 %}retardo-celda{% endif %}">
                         {{ item.total_retardos }} pts
                     </td>
@@ -162,6 +177,9 @@
                 <strong>TOTAL PUNTOS:</strong> {{ gran_total_retardos }} pts
             </div>
             <div>
+                <strong>DESC. TOTALES:</strong> <span style="color: var(--puebla-red);">-${{ gran_total_descuentos|floatformat:2 }}</span>
+            </div>
+            <div>
                 <strong>TOTAL BONOS:</strong> <span style="color: #1A237E;">${{ gran_total_bonos|floatformat:2 }}</span>
             </div>
             <div style="border-left: 2px solid black; padding-left: 20px;">
@@ -170,7 +188,8 @@
         </div>
         {% else %}
         <p style="text-align: center; font-size: 1.5rem; margin-top: 50px;">
-            ¡Sin resultados para este rango o filtros!
+            ¡Sin resultados para este rango o filtros! <br>
+            <small style="font-size: 1rem; color: #666;">Asegúrate de seleccionar un rango de fechas válido.</small>
         </p>
         {% endif %}
     </div>
