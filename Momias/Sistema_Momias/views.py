@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.db.models import Q, Value, CharField
+from django.db.models.functions import Concat
 from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
@@ -1322,13 +1324,21 @@ def vista_reportes(request):
         query_nombre = request.GET.get('q', '').strip()
 
         if query_nombre:
-            # icontains hace que no importen las mayúsculas/minúsculas
-            asistencias_query = asistencias_query.filter(
-                Q(empleado__nombre__icontains=query_nombre) | 
-                Q(empleado__apellido_paterno__icontains=query_nombre) |
-                Q(empleado__apellido_materno__icontains=query_nombre) |
-                Q(empleado__codigo_empleado__icontains=query_nombre)
+        # Creamos un nombre completo temporal para comparar
+        # Concatenamos: nombre + espacio + apellido_paterno + espacio + apellido_materno
+        asistencias_query = asistencias_query.annotate(
+            nombre_completo=Concat(
+                'empleado__nombre', Value(' '), 
+                'empleado__apellido_paterno', Value(' '), 
+                'empleado__apellido_materno',
+                output_field=CharField()
             )
+        ).filter(
+            Q(nombre_completo__icontains=query_nombre) |
+            Q(empleado__nombre__icontains=query_nombre) |
+            Q(empleado__apellido_paterno__icontains=query_nombre) |
+            Q(empleado__codigo_empleado__icontains=query_nombre)
+        )
 
         for asis in asistencias_query:
             emp = asis.empleado
