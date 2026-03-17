@@ -1259,21 +1259,16 @@ def exportar_pdf_nomina(request):
 
 @login_required
 def vista_reportes(request):
-    from django.db.models import Q
-    from .models import Asistencia, Empleado
-    from django.shortcuts import render
-    from datetime import datetime
-
-    # Enviamos todos los empleados activos para alimentar el "combo" (datalist) de sugerencias
+    # Enviamos todos los empleados activos para alimentar el "combo" (datalist)
     empleados_qs = Empleado.objects.filter(estatus='Activo').order_by('nombre')
     
-    # Captura de filtros (usamos 'q' para ser consistentes con tu vista de asistencias)
+    # Captura de filtros
     query_nombre = request.GET.get('q', '').strip() 
     sucursal_filtro = request.GET.get('sucursal')
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
-    # Diccionario de salarios (mantenemos tu versión extendida)
+    # Diccionario de salarios (Mantenemos tu versión extendida)
     puestos_salarios = {
         "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
@@ -1289,18 +1284,12 @@ def vista_reportes(request):
         "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50,
         "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
         "Rappi": 354.75, "Fabrica Crystal": 262.00,
-        "Hamburguesas Momias": 0.00, "Tuppers": 0.00, 
         "PM": 236.50, "Caja Capacitacion": 236.50,
-        "Freidor Capacitacion": 236.50,
-        "Encargado Capacitacion": 248.00,
-        "Caja Matutina (6 horas)": 236.50, 
-        "Caja Vespertina (6 horas)": 236.50,
-        "Caja Matutina (9 horas)": 354.50,
-        "Caja Vespertina (9 horas)": 354.50,
-        "Cocina Matutina (6 horas)": 236.50,
-        "Cocina Vespertina (6 horas)": 236.50,
-        "Cocina Matutina (9 horas)": 354.50,
-        "Cocina Vespertina (9 horas)": 354.50,
+        "Freidor Capacitacion": 236.50, "Encargado Capacitacion": 248.00,
+        "Caja Matutina (6 horas)": 236.50, "Caja Vespertina (6 horas)": 236.50,
+        "Caja Matutina (9 horas)": 354.50, "Caja Vespertina (9 horas)": 354.50,
+        "Cocina Matutina (6 horas)": 236.50, "Cocina Vespertina (6 horas)": 236.50,
+        "Cocina Matutina (9 horas)": 354.50, "Cocina Vespertina (9 horas)": 354.50,
         "Crepas Intermedio (9 horas)": 354.50,
         "Barra y Cocina Fin De Semana (12 horas)": 473.00,
         "Limpieza Fin De Semana (9 horas)": 408.00,
@@ -1308,8 +1297,7 @@ def vista_reportes(request):
         "Limpieza 2 Matutino (6 horas)": 236.50,
         "Limpieza 3 Vespertino (6 horas A)": 272.00,
         "Limpieza 4 Vespertino (6 horas)": 236.50,
-        "Aux Produccion": 177.00,
-        "Produccion": 370.00,
+        "Aux Produccion": 177.00, "Produccion": 370.00,
     }
 
     agrupados_dict = {}
@@ -1321,24 +1309,21 @@ def vista_reportes(request):
         if sucursal_filtro and sucursal_filtro != "TODAS": 
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
         
-        query_nombre = request.GET.get('q', '').strip()
-
         if query_nombre:
-        # Creamos un nombre completo temporal para comparar
-        # Concatenamos: nombre + espacio + apellido_paterno + espacio + apellido_materno
-        asistencias_query = asistencias_query.annotate(
-            nombre_completo=Concat(
-                'empleado__nombre', Value(' '), 
-                'empleado__apellido_paterno', Value(' '), 
-                'empleado__apellido_materno',
-                output_field=CharField()
+            # CORRECCIÓN: Búsqueda por nombre completo concatenado para soportar "Nombre Apellido"
+            asistencias_query = asistencias_query.annotate(
+                full_name=Concat(
+                    'empleado__nombre', Value(' '), 
+                    'empleado__apellido_paterno', Value(' '), 
+                    'empleado__apellido_materno',
+                    output_field=CharField()
+                )
+            ).filter(
+                Q(full_name__icontains=query_nombre) |
+                Q(empleado__nombre__icontains=query_nombre) |
+                Q(empleado__apellido_paterno__icontains=query_nombre) |
+                Q(empleado__codigo_empleado__icontains=query_nombre)
             )
-        ).filter(
-            Q(nombre_completo__icontains=query_nombre) |
-            Q(empleado__nombre__icontains=query_nombre) |
-            Q(empleado__apellido_paterno__icontains=query_nombre) |
-            Q(empleado__codigo_empleado__icontains=query_nombre)
-        )
 
         for asis in asistencias_query:
             emp = asis.empleado
@@ -1349,7 +1334,7 @@ def vista_reportes(request):
             pue_display = "DESCANSO" if es_descanso else pue_original
             suc = asis.sucursal or "Victoria"
 
-            # Detección de turnos (Doble o Sencillo)
+            # Detección de turnos
             cantidad_turnos = 2 if (asis.entrada_matutina and asis.salida_vespertina) else 1
             
             pago_dia = float(asis.pago_dia or 0)
@@ -1358,12 +1343,15 @@ def vista_reportes(request):
             
             puntos_retardo = int(float(asis.horas or 0))
             salario_ref = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
-            desc_retardo_inf = (salario_ref / 6) * puntos_retardo if not es_descanso else 0
+            
+            # Cálculo de descuento por retardo (Si aplica)
+            desc_retardo_inf = (salario_ref / 6) * puntos_retardo if (not es_descanso and puntos_retardo > 0) else 0
 
+            # Llave única por empleado, sucursal y puesto para agrupar
             key = (emp.id, suc, pue_display)
             if key not in agrupados_dict:
                 agrupados_dict[key] = {
-                    'empleado': f"{emp.nombre} {emp.apellido_paterno}",
+                    'empleado': f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip(),
                     'sucursal': suc, 
                     'puesto': pue_display,
                     'total_turnos': 0, 
@@ -1376,6 +1364,7 @@ def vista_reportes(request):
             
             fila = agrupados_dict[key]
             
+            # Gestión de motivos de descuento únicos
             if asis.motivo_descuento:
                 m_txt = str(asis.motivo_descuento).strip()
                 if m_txt and m_txt not in fila['motivos_descuentos']:
@@ -1386,24 +1375,27 @@ def vista_reportes(request):
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += (desc_manual + desc_retardo_inf)
             
+            # Pago Neto = (Pago del día + Bonos) - Descuentos
             pago_neto_dia = (pago_dia + bono_dia) - desc_manual
             fila['total_fila'] += pago_neto_dia
 
+            # Acumuladores Globales
             resumen_global['total_pagar'] += pago_neto_dia
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
             resumen_global['total_descuentos'] += (desc_manual + desc_retardo_inf)
             resumen_global['total_turnos'] += cantidad_turnos
 
+    # Ordenar resultados por nombre de empleado
     lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
 
     context = {
-        'empleados': empleados_qs, # Listado completo para el combo/datalist
+        'empleados': empleados_qs,
         'agrupados': lista_agrupada,
         'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal","PP","PM","Area Seca","Perrioni", "FastFood"],
         'fecha_inicio': f_inicio,
         'fecha_fin': f_fin,
-        'query': query_nombre, # Mantenemos el texto buscado
+        'query': query_nombre,
         'gran_total_pagar': round(resumen_global['total_pagar'], 2),
         'gran_total_retardos': resumen_global['total_retardos'],
         'gran_total_bonos': round(resumen_global['total_bonif'], 2),
