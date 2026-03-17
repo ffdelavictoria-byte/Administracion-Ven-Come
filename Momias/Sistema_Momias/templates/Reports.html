@@ -63,10 +63,9 @@
         .col-motivos { font-style: italic; color: #555; text-align: left; font-size: 0.85rem; max-width: 250px; }
 
         .summary-box {
-            margin-top: 20px; padding: 20px; border: 3px dashed var(--puebla-magenta);
+            margin-top: 20px; padding: 20px; border: 4px solid var(--comic-border);
             border-radius: 15px; background: #fff5f8; font-size: 1.3rem;
             display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px;
-            border: 4px solid var(--comic-border);
         }
 
         .badge-puesto {
@@ -89,13 +88,14 @@
         
         <h2>REPORTE ACUMULADO POR SUCURSAL</h2>
         
-        <form method="GET" class="filters">
+        <form method="GET" action="{% url 'vista_reportes' %}" class="filters">
+            
             <div class="filter-group">
                 <label>EMPLEADO:</label>
-                <input type="text" name="q" placeholder="Nombre o código..." value="{{ query }}" list="listado_empleados" autocomplete="off">
-                <datalist id="listado_empleados">
+                <input type="text" name="q" placeholder="Buscar..." value="{{ query|default:'' }}" list="empleados_list" autocomplete="off">
+                <datalist id="empleados_list">
                     {% for e in empleados %}
-                    <option value="{{ e.nombre }} {{ e.apellido_paterno }}">
+                        <option value="{{ e.nombre }} {{ e.apellido_paterno }}">
                     {% endfor %}
                 </datalist>
             </div>
@@ -154,13 +154,7 @@
                         <span style="color: var(--puebla-red); font-weight: bold;">
                             -${{ item.monto_descuentos|floatformat:2 }}
                         </span><br>
-                        <small style="color: #666; display: block; line-height: 1.1; margin-top: 4px;">
-                            {% for motivo in item.motivos_descuentos %}
-                                • {{ motivo }}{% if not forloop.last %}<br>{% endif %}
-                            {% empty %}
-                                Sin motivos
-                            {% endfor %}
-                        </small>
+                        <small style="color: #666;">{{ item.motivos_descuentos|join:", " }}</small>
                     </td>
                     <td style="color: #1A237E; font-weight: bold;">+${{ item.total_bonos|floatformat:2 }}</td>
                     <td class="col-pago">${{ item.total_fila|floatformat:2 }}</td>
@@ -170,34 +164,19 @@
         </table>
 
         <div class="summary-box">
-            <div>
-                <strong>TOTAL TURNOS:</strong> <span>{{ gran_total_turnos }}</span>
-            </div>
-            <div style="color: var(--puebla-red);">
-                <strong>TOTAL PUNTOS:</strong> <span>{{ gran_total_retardos }} pts</span>
-            </div>
-            <div>
-                <strong>TOTAL BONOS:</strong> <span style="color: #1A237E;">${{ gran_total_bonos|floatformat:2 }}</span>
-            </div>
-            <div style="border-left: 3px solid var(--comic-border); padding-left: 20px;">
-                <strong>GRAN TOTAL NÓMINA:</strong> <span style="color: #2E7D32; font-weight: bold; font-size: 1.5rem;">${{ gran_total_pagar|floatformat:2 }}</span>
+            <div><strong>TOTAL TURNOS:</strong> {{ gran_total_turnos }}</div>
+            <div style="color: var(--puebla-red);"><strong>TOTAL PUNTOS:</strong> {{ gran_total_retardos }} pts</div>
+            <div><strong>TOTAL BONOS:</strong> ${{ gran_total_bonos|floatformat:2 }}</div>
+            <div style="border-left: 2px solid black; padding-left: 20px;">
+                <strong>GRAN TOTAL NÓMINA:</strong> <span style="color: green; font-weight: bold;">${{ gran_total_pagar|floatformat:2 }}</span>
             </div>
         </div>
         {% else %}
-        <div style="text-align: center; margin-top: 50px; background: white; padding: 30px; border-radius: 20px; border: 3px dashed #ccc;">
-            <p style="font-size: 1.5rem; color: #666;">
-                ¡Sin resultados para estos filtros!
-            </p>
-            <p style="font-family: 'Bangers'; color: var(--puebla-blue);">Selecciona un rango de fechas y presiona GENERAR</p>
+        <div style="text-align: center; margin-top: 50px; border: 2px dashed #aaa; padding: 40px; border-radius: 20px; background: #fff;">
+            <p style="font-size: 1.8rem; color: #444; font-family: 'Bangers';">¡Sin resultados para estos filtros!</p>
+            <p>Verifica que el empleado tenga asistencias registradas en la sucursal y rango de fechas seleccionados.</p>
         </div>
         {% endif %}
     </div>
-
-    <script>
-        // Script opcional para limpiar filtros si es necesario
-        function limpiarFiltros() {
-            window.location.href = window.location.pathname;
-        }
-    </script>
 </body>
 </html>
