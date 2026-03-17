@@ -1319,11 +1319,14 @@ def vista_reportes(request):
         if sucursal_filtro and sucursal_filtro != "TODAS": 
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
         
+        query_nombre = request.GET.get('q', '').strip()
+
         if query_nombre:
-            # Misma lógica de búsqueda que en tu Asistencias_view
+            # icontains hace que no importen las mayúsculas/minúsculas
             asistencias_query = asistencias_query.filter(
                 Q(empleado__nombre__icontains=query_nombre) | 
                 Q(empleado__apellido_paterno__icontains=query_nombre) |
+                Q(empleado__apellido_materno__icontains=query_nombre) |
                 Q(empleado__codigo_empleado__icontains=query_nombre)
             )
 
