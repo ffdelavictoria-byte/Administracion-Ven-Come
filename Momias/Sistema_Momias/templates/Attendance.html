@@ -250,16 +250,12 @@
                 </select>
             </div>
 
-            <div class="form-group">
+            <div class="filter-group">
                 <label>Bonificación ($):</label>
-                <div class="flex-row">
-                    <input type="number" name="bonificacion" id="bonificacion" step="0.01" value="0">
-                    <select name="motivo_bonificacion" id="motivo_bonificacion">
-                        <option value="">Motivo...</option>
-                        <option value="Error en nómina">Error en nómina</option>
-                        <option value="Gratificación">Gratificación</option>
-                        <option value="Otro">Otro</option>
-                    </select>
+                <div style="display: flex; gap: 5px;">
+                    <input type="number" name="bonificacion" step="0.01" value="0" style="width: 80px;">
+                    
+                    <input type="text" name="motivo_bonificacion" placeholder="Escriba el motivo aquí..." style="flex-grow: 1;">
                 </div>
             </div>
 
