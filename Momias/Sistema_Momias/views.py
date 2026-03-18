@@ -1028,6 +1028,15 @@ def calcular_nomina_web(request):
                 total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
                 total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
 
+                motivos_bonos_semana = [
+                    reg.motivo_bonificacion 
+                    for reg in asistencias 
+                    if reg.motivo_bonificacion and reg.motivo_bonificacion.strip()
+                ]
+                
+                # Unimos los motivos con comas para que se vea como un solo texto
+                motivo_bono_texto = ", ".join(motivos_bonos_semana) if motivos_bonos_semana else ""
+                
                 # --- EN TU BUCLE DE RESULTADOS_NOMINA.APPEND ---
                 resultados_nomina.append({
                     'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
@@ -1037,6 +1046,9 @@ def calcular_nomina_web(request):
                     'pago_base': round(pago_base_total, 2),
                     'retardos': total_retardos,
                     # CORRECCIÓN: Usa la variable acumulada semanal, no la del último día
+                    'monto_bono': float(reg.bonificacion or 0),
+                    'motivo_bono': reg.motivo_bonificacion,
+                    'motivo_bonificacion': motivo_bono_texto,
                     'desc_retardos': round(total_desc_retardos_semanal, 2), 
                     'bonos': round(total_bonos, 2),
                     'descuentos': round(total_descuentos_manuales, 2),
