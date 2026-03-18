@@ -142,6 +142,12 @@
                                 {% if turno.descuento_retardo > 0 %}
                                     <span class="text-danger ms-1">| Ret: -${{ turno.descuento_retardo|floatformat:2 }}</span>
                                 {% endif %}
+                            {% if turno.monto_bono > 0 %}
+                                <span class="text-success ms-1 border-start ps-1">
+                                    | <b>Bono:</b> +${{ turno.monto_bono|floatformat:2 }} 
+                                    <em>({{ turno.motivo_bono|default:"Sin motivo" }})</em>
+                                </span>
+                            {% endif %}
                                 {% if turno.monto_descuento > 0 %}
                                     <span class="text-danger ms-1 border-start ps-1">
                                         | <b>Desc:</b> -${{ turno.monto_descuento|floatformat:2 }} 
