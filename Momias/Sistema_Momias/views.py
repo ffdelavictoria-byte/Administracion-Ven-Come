@@ -1486,3 +1486,6 @@ def borrar_usuario(request, user_id):
     usuario.delete()
     messages.success(request, "Recluta eliminado correctamente.")
     return redirect('lista_usuarios')
+
+def gestion_sueldos(request):
+    return render(request, 'Wages.html')
