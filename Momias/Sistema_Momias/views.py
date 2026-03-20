@@ -1488,28 +1488,39 @@ def borrar_usuario(request, user_id):
     return redirect('lista_usuarios')
 
 def gestion_sueldos(request):
-    if request.method == 'POST':
-        puesto_editar = request.POST.get('puesto_nombre')  # Viene del campo hidden (para editar)
-        puesto_nuevo = request.POST.get('nuevo_puesto_nombre') # Viene del input text (para nuevo)
-        monto = request.POST.get('nuevo_monto')
+    try:
+        if request.method == 'POST':
+            puesto_editar = request.POST.get('puesto_nombre')
+            puesto_nuevo = request.POST.get('nuevo_puesto_nombre')
+            monto_raw = request.POST.get('nuevo_monto')
+            
+            # Validamos que el monto sea un número válido
+            try:
+                monto = float(monto_raw) if monto_raw else 0.0
+            except ValueError:
+                monto = 0.0
 
-        if puesto_editar: # LÓGICA DE EDICIÓN
-            puesto_obj = ConfigSueldo.objects.filter(puesto=puesto_editar).first()
-            if puesto_obj:
-                puesto_obj.monto = monto
-                puesto_obj.save()
-                messages.success(request, f"¡ZAP! Sueldo de {puesto_editar} actualizado.")
-        
-        elif puesto_nuevo: # LÓGICA DE CREACIÓN
-            # Evitar duplicados
-            if ConfigSueldo.objects.filter(puesto=puesto_nuevo).exists():
-                messages.error(request, "¡RAYOS! Ese puesto ya existe.")
-            else:
-                ConfigSueldo.objects.create(puesto=puesto_nuevo, monto=monto)
-                messages.success(request, f"¡BOOM! Nuevo puesto '{puesto_nuevo}' registrado.")
+            if puesto_editar:
+                puesto_obj = ConfigSueldo.objects.filter(puesto=puesto_editar).first()
+                if puesto_obj:
+                    puesto_obj.monto = monto
+                    puesto_obj.save()
+                    messages.success(request, f"¡ZAP! {puesto_editar} actualizado.")
+            
+            elif puesto_nuevo:
+                if ConfigSueldo.objects.filter(puesto=puesto_nuevo).exists():
+                    messages.error(request, "¡RAYOS! Ese puesto ya existe.")
+                else:
+                    ConfigSueldo.objects.create(puesto=puesto_nuevo, monto=monto)
+                    messages.success(request, f"¡BOOM! {puesto_nuevo} creado.")
 
-        return redirect('gestion_sueldos')
-        
+            return redirect('gestion_sueldos')
 
-    sueldos = ConfigSueldo.objects.all().order_by('puesto')
-    return render(request, 'Wages.html', {'sueldos': sueldos})
+        # Si es GET, cargamos la lista
+        sueldos = ConfigSueldo.objects.all().order_by('puesto')
+        return render(request, 'Wages.html', {'sueldos': sueldos})
+
+    except Exception as e:
+        # Esto evitará el 500 genérico y te dirá qué pasa realmente
+        from django.http import HttpResponse
+        return HttpResponse(f"Error crítico en la vista: {e}", status=500)
