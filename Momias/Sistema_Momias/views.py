@@ -1509,6 +1509,7 @@ def gestion_sueldos(request):
                 messages.success(request, f"¡BOOM! Nuevo puesto '{puesto_nuevo}' registrado.")
 
         return redirect('gestion_sueldos')
+        
 
     sueldos = ConfigSueldo.objects.all().order_by('puesto')
     return render(request, 'Wages.html', {'sueldos': sueldos})
