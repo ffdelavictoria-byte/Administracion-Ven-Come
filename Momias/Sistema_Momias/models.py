@@ -34,8 +34,8 @@ class Asistencia(models.Model):
     salida_vespertina = models.CharField(max_length=50, blank=True, null=True)
     
     # Campos heredados o de compatibilidad
-    entrada = models.TimeField(blank=True, null=True) # General
-    salida = models.TimeField(blank=True, null=True)  # General
+    #entrada = models.TimeField(blank=True, null=True) # General
+    #salida = models.TimeField(blank=True, null=True)  # General
     
     # --- CÁLCULOS Y DINERO ---
     horas = models.FloatField(blank=True, null=True)      # Aquí guardas los puntos de retardo
