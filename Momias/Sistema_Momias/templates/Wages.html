@@ -15,7 +15,6 @@
             --comic-border: #000000;
             --success-green: #2e7d32;
         }
-        
 
         body {
             font-family: 'Patrick Hand', cursive;
@@ -50,12 +49,11 @@
             box-shadow: 15px 15px 0 var(--comic-border);
         }
 
-        /* TABLA */
         .table-container { 
             background: white; 
             border: 4px solid var(--comic-border); 
             border-radius: 15px; 
-            max-height: 70vh;
+            max-height: 65vh;
             overflow-y: auto;
         }
 
@@ -64,46 +62,30 @@
             background: var(--puebla-blue); 
             color: white; 
             font-family: 'Bangers'; 
-            position: sticky; 
-            top: 0; 
-            z-index: 10;
+            position: sticky; top: 0; z-index: 10;
         }
         th, td { padding: 12px 15px; border: 2px solid var(--comic-border); text-align: left; }
-        
         tr:nth-child(even) { background: #f9f9f9; }
         tr:hover { background: #fffde7; }
 
-        /* ESTILOS DE TEXTO */
-        .monto-actual {
-            font-family: 'Bangers';
-            font-size: 1.5rem;
-            color: var(--puebla-magenta);
-        }
+        .monto-actual { font-family: 'Bangers'; font-size: 1.5rem; color: var(--puebla-magenta); }
+        .fecha-mod { font-size: 0.9rem; color: #666; font-style: italic; }
 
-        .fecha-mod {
-            font-size: 0.9rem;
-            color: #666;
-            font-style: italic;
-        }
-
-        /* BOTONES */
         .btn-comic { 
             font-family: 'Bangers', cursive; 
             padding: 8px 15px; 
             border: 3px solid var(--comic-border); 
             border-radius: 10px; 
-            cursor: pointer; 
-            color: white; 
+            cursor: pointer; color: white; 
             box-shadow: 3px 3px 0 var(--comic-border); 
-            transition: 0.1s; 
-            text-decoration: none;
-            font-size: 1rem;
+            transition: 0.1s; text-decoration: none; font-size: 1.1rem;
         }
         .btn-comic:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0 var(--comic-border); }
         .btn-edit { background: var(--puebla-blue); }
         .btn-back { background: var(--puebla-magenta); }
+        .btn-add { background: var(--success-green); font-size: 1.4rem; }
 
-        /* MODAL */
+        /* MODALES */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;
@@ -111,14 +93,16 @@
         .modal-content {
             background: white; border: 6px solid var(--comic-border); border-radius: 25px;
             padding: 30px; width: 90%; max-width: 450px; text-align: center;
-            box-shadow: 15px 15px 0 var(--success-green);
+            box-shadow: 15px 15px 0 var(--comic-border);
         }
 
         .comic-input {
             width: 100%; padding: 10px; border: 4px solid var(--comic-border);
-            border-radius: 10px; font-family: 'Patrick Hand'; font-size: 1.8rem;
-            text-align: center; margin: 20px 0;
+            border-radius: 10px; font-family: 'Patrick Hand'; font-size: 1.5rem;
+            text-align: center; margin: 10px 0; box-sizing: border-box;
         }
+
+        .label-comic { font-family: 'Bangers'; font-size: 1.2rem; display: block; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -126,8 +110,17 @@
 <div class="container">
     <div class="comic-header">
         <a href="/main/" class="btn-comic btn-back">« REGRESAR</a>
-        <h1 class="comic-title">CONTROL DE SUELDOS</h1>
-        <div style="width: 100px;"></div> </div>
+        <h1 class="comic-title">GESTIÓN DE SUELDOS</h1>
+        <button class="btn-comic btn-add" onclick="abrirModalNuevo()">+ ¡NUEVO PUESTO!</button>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div style="background: white; border: 3px solid black; padding: 10px; margin-bottom: 15px; font-family: 'Bangers'; color: var(--puebla-magenta); border-radius: 10px;">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
 
     <div class="comic-card">
         <div class="table-container">
@@ -140,96 +133,83 @@
                         <th>ACCIÓN</th>
                     </tr>
                 </thead>
-                <tbody id="tabla-sueldos">
-                    </tbody>
+                <tbody>
+                    {% for s in sueldos %}
+                    <tr>
+                        <td style="font-weight: bold;">{{ s.puesto }}</td>
+                        <td class="monto-actual">${{ s.monto }}</td>
+                        <td class="fecha-mod">{{ s.ultima_modificacion|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <button class="btn-comic btn-edit" onclick="abrirModalEditar('{{ s.puesto|escapejs }}', '{{ s.monto }}')">EDITAR</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="text-align: center;">No hay puestos registrados. ¡Agrega uno nuevo!</td></tr>
+                    {% endfor %}
+                </tbody>
             </table>
         </div>
     </div>
 </div>
 
 <div id="modalSueldo" class="modal-overlay">
-    <div class="modal-content">
-        <h2 style="font-family: 'Bangers'; font-size: 2.5rem; color: var(--puebla-blue); margin: 0;">¡AJUSTE DE PAGO!</h2>
-        <p id="puesto-nombre" style="font-size: 1.5rem; margin-top: 10px; font-weight: bold;"></p>
+    <form method="POST" class="modal-content">
+        {% csrf_token %}
+        <h2 id="modal-titulo" style="font-family: 'Bangers'; font-size: 2.5rem; color: var(--puebla-blue); margin: 0;">¡AJUSTE!</h2>
         
-        <input type="number" id="nuevo-monto" step="0.01" class="comic-input">
-        
-        <div style="display: flex; gap: 10px;">
-            <button class="btn-comic" style="background: var(--success-green); flex: 1; font-size: 1.5rem;" onclick="guardarSueldo()">¡GUARDAR!</button>
-            <button class="btn-comic" style="background: #666; flex: 1;" onclick="cerrarModal()">CANCELAR</button>
+        <div id="campo-puesto-lectura" style="margin: 15px 0;">
+            <p id="puesto-nombre-display" style="font-size: 1.8rem; font-weight: bold; margin: 0;"></p>
+            <input type="hidden" name="puesto_nombre" id="input-puesto-hidden">
         </div>
-    </div>
+
+        <div id="campo-puesto-escritura" style="display: none;">
+            <label class="label-comic">NOMBRE DEL PUESTO:</label>
+            <input type="text" name="nuevo_puesto_nombre" id="input-puesto-nuevo" class="comic-input" placeholder="Ej: Cocina Matutino">
+        </div>
+
+        <label class="label-comic">MONTO DEL PAGO ($):</label>
+        <input type="number" name="nuevo_monto" id="nuevo-monto" step="0.01" class="comic-input" required>
+        
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" class="btn-comic" style="background: var(--success-green); flex: 1; font-size: 1.5rem;">¡GUARDAR!</button>
+            <button type="button" class="btn-comic" style="background: #666; flex: 1;" onclick="cerrarModal()">CANCELAR</button>
+        </div>
+    </form>
 </div>
 
 <script>
-    // Tu lista de sueldos convertida a objeto para el JS
-    const listaSueldos = {
-        "Caja (6 horas)": 248.00, "Caja (9 horas)": 354.50, "Gerente (12 Horas)": 600.00, 
-        "Chef de Línea (9 horas)": 531.57, "Encargado Cocina (Matutino 6 horas)": 252.00,
-        "Encargado Cocina (Matutino 9 horas)": 378.00, "Encargado Cocina (Matutino 12 horas)": 519.00,
-        "Encargado de Cocina (12 horas)": 519.00, "Cocina y Barra (6 hrs)": 236.50,
-        "Cocina y Barra (9 hrs)": 354.50, "Barra (6 horas) Entregas": 236.50,
-        "Barra (9 horas) Entregas": 354.50, "Fin de Semana": 473.00, "Aux Produccion": 177.00,
-        "Produccion": 370.00, "Encargado Victoria (6 Horas)": 316.00, "Encargado Sucursales (6 Horas)": 262.00,
-        "Encargado Sucursales (9 Horas)": 393.00, "Freidor (6 horas)": 248.00, "Despacho (6 horas)": 236.50,
-        "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50, "Perrioni": 236.50, "PP": 236.50,
-        "Yommy": 236.50, "PM": 236.50, "Rappi": 354.75, "Fabrica Crystal": 262.00, "Hamburguesas Momias": 0.00,
-        "Tuppers": 0.00, "Benny": 171.00, "Caja Capacitacion": 236.50, "Freidor Capacitacion": 236.50,
-        "Encargado Capacitacion": 248.00, "Caja Matutina (6 horas)": 236.50, "Caja Vespertina (6 horas)": 236.50,
-        "Caja Matutina (9 horas)": 354.50, "Caja Vespertina (9 horas)": 354.50, "Cocina Matutina (6 horas)": 236.50,
-        "Cocina Vespertina (6 horas)": 236.50, "Cocina Matutina (9 horas)": 354.50, "Cocina Vespertina (9 horas)": 354.50,
-        "Crepas Intermedio (9 horas)": 354.50, "Barra y Cocina Fin De Semana (12 horas)": 473.00,
-        "Limpieza Fin De Semana (9 horas)": 408.00, "Limpieza 1 Matutino (6 horas L)": 272.00,
-        "Limpieza 2 Matutino (6 horas)": 236.50, "Limpieza 3 Vespertino (6 horas A)": 272.00,
-        "Limpieza 4 Vespertino (6 horas)": 236.50
-    };
+    const modal = document.getElementById('modalSueldo');
+    const titulo = document.getElementById('modal-titulo');
+    const displayPuesto = document.getElementById('campo-puesto-lectura');
+    const inputPuestoNuevo = document.getElementById('campo-puesto-escritura');
 
-    const tabla = document.getElementById('tabla-sueldos');
-
-    // Función para llenar la tabla
-    function cargarTabla() {
-        tabla.innerHTML = "";
-        for (const [puesto, monto] of Object.entries(listaSueldos)) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="font-weight: bold;">${puesto}</td>
-                <td class="monto-actual">$${monto.toFixed(2)}</td>
-                <td class="fecha-mod">19/03/2026</td>
-                <td>
-                    <button class="btn-comic btn-edit" onclick="abrirModal('${puesto}', ${monto})">EDITAR</button>
-                </td>
-            `;
-            tabla.appendChild(tr);
-        }
+    function abrirModalEditar(puesto, monto) {
+        titulo.innerText = "¡EDITAR PAGO!";
+        displayPuesto.style.display = "block";
+        inputPuestoNuevo.style.display = "none";
+        
+        document.getElementById('puesto-nombre-display').innerText = puesto;
+        document.getElementById('input-puesto-hidden').value = puesto;
+        document.getElementById('nuevo-monto').value = monto;
+        
+        modal.style.display = 'flex';
     }
 
-    let puestoSeleccionado = "";
-
-    function abrirModal(nombre, monto) {
-        puestoSeleccionado = nombre;
-        document.getElementById('puesto-nombre').innerText = nombre;
-        document.getElementById('nuevo-monto').value = monto;
-        document.getElementById('modalSueldo').style.display = 'flex';
+    function abrirModalNuevo() {
+        titulo.innerText = "¡NUEVO PUESTO!";
+        displayPuesto.style.display = "none";
+        inputPuestoNuevo.style.display = "block";
+        
+        document.getElementById('input-puesto-hidden').value = ""; // Limpiar para que la vista sepa que es nuevo
+        document.getElementById('input-puesto-nuevo').value = "";
+        document.getElementById('nuevo-monto').value = "";
+        
+        modal.style.display = 'flex';
     }
 
     function cerrarModal() {
-        document.getElementById('modalSueldo').style.display = 'none';
+        modal.style.display = 'none';
     }
-
-    function guardarSueldo() {
-        const nuevoMonto = parseFloat(document.getElementById('nuevo-monto').value);
-        if (isNaN(nuevoMonto)) return alert("¡RAYOS! Ingresa un número válido.");
-        
-        // Aquí es donde en el futuro harás el fetch al servidor
-        listaSueldos[puestoSeleccionado] = nuevoMonto;
-        
-        cargarTabla(); // Refrescamos visualmente
-        cerrarModal();
-        alert("¡ZAP! Sueldo actualizado correctamente.");
-    }
-
-    // Inicializar
-    cargarTabla();
 </script>
 
 </body>
