@@ -194,15 +194,16 @@
                     Asistencias FF
                 </a>
             
+                <a href="/gestion_sueldos/" class="btn-comic">
+                    Gestion Sueldos
+                </a>
+            
             {% if user.is_superuser %}
                 <a href="{% url 'registrar_usuario' %}" class="btn-comic" style="background-color: var(--puebla-magenta); color: white;">
                     + AGREGAR USUARIO
                 </a>
                 <a href="{% url 'lista_usuarios' %}" class="btn-comic btn-admin">
                     Gestionar Usuarios
-                </a>
-                <a href="{% url 'gestion_sueldos' %}" class="btn-comic btn-admin">
-                    Gestionar Sueldos
                 </a>
             {% endif %}
             
