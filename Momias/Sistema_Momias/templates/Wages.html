@@ -1,67 +1,183 @@
 {% load static %}
-{% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">Configuración de Sueldos por Puesto</h2>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración de Puestos | Estilo Cómic</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --puebla-yellow: #FFD700;
+            --puebla-blue: #1A237E;
+            --puebla-magenta: #9D174D;
+            --comic-border: #000000;
+            --success-green: #2e7d32;
+        }
 
-    <div class="card shadow">
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Sucursal</th>
-                        <th>Nombre del Puesto</th>
-                        <th>Sueldo Base (6hrs)</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in puestos %}
-                    <tr>
-                        <td><span class="badge {% if p.sucursal == 'Victoria' %}bg-primary{% else %}bg-success{% endif %}">{{ p.sucursal }}</span></td>
-                        <td>{{ p.nombre }}</td>
-                        <td><strong>${{ p.sueldo_base }}</strong></td>
-                        <td>
-                            <button class="btn btn-sm btn-warning" onclick="abrirModalEditar('{{ p.id }}', '{{ p.nombre }}', '{{ p.sueldo_base }}')">
-                                <i class="fas fa-edit"></i> Editar
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        body {
+            font-family: 'Patrick Hand', cursive;
+            background-color: var(--puebla-yellow);
+            margin: 0; padding: 20px;
+            background-image: radial-gradient(var(--puebla-blue) 1px, transparent 1px);
+            background-size: 25px 25px;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        .comic-title { 
+            font-family: 'Bangers', cursive; 
+            font-size: 3.5rem; 
+            color: var(--puebla-blue); 
+            text-shadow: 3px 3px 0 white, 6px 6px 0 var(--comic-border); 
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .comic-card { 
+            background: white; 
+            border: 5px solid var(--comic-border); 
+            border-radius: 20px; 
+            padding: 20px; 
+            box-shadow: 15px 15px 0 var(--comic-border);
+        }
+
+        /* TABLA ESTILO COMIC */
+        .table-container { 
+            background: white; 
+            border: 4px solid var(--comic-border); 
+            border-radius: 15px; 
+            overflow: hidden; 
+        }
+
+        table { width: 100%; border-collapse: collapse; background: white; }
+        thead { background: var(--puebla-blue); color: white; font-family: 'Bangers'; font-size: 1.4rem; }
+        th, td { padding: 15px; border: 3px solid var(--comic-border); text-align: left; }
+        
+        tr:nth-child(even) { background: #f2f2f2; }
+        tr:hover { background: #fff9c4; }
+
+        .badge-sucursal {
+            font-family: 'Bangers';
+            padding: 5px 12px;
+            border: 2px solid var(--comic-border);
+            border-radius: 8px;
+            color: white;
+            text-transform: uppercase;
+        }
+        .bg-victoria { background: var(--puebla-magenta); }
+        .bg-ff { background: var(--success-green); }
+
+        /* BOTONES */
+        .btn-comic { 
+            font-family: 'Bangers', cursive; 
+            padding: 8px 20px; 
+            border: 3px solid var(--comic-border); 
+            border-radius: 10px; 
+            cursor: pointer; 
+            color: white; 
+            box-shadow: 4px 4px 0 var(--comic-border); 
+            transition: 0.1s; 
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-comic:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0 var(--comic-border); }
+        .btn-edit { background: var(--puebla-blue); }
+        .btn-save { background: var(--success-green); width: 100%; font-size: 1.5rem; }
+
+        /* MODAL */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; border: 6px solid var(--comic-border); border-radius: 25px;
+            padding: 30px; width: 90%; max-width: 500px; position: relative;
+            box-shadow: 20px 20px 0 var(--puebla-magenta);
+        }
+
+        .comic-input {
+            width: 100%; padding: 12px; border: 4px solid var(--comic-border);
+            border-radius: 12px; font-family: 'Patrick Hand'; font-size: 1.5rem;
+            margin: 15px 0; box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <a href="/main/" class="btn-comic" style="background: var(--puebla-magenta);">« VOLVER</a>
+            <h1 class="comic-title">LISTA DE PRECIOS Y PUESTOS</h1>
+            <div style="width: 100px;"></div>
+        </div>
+
+        <div class="comic-card">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>SUCURSAL</th>
+                            <th>PUESTO / CONCEPTO</th>
+                            <th>SUELDO BASE (6H)</th>
+                            <th>ACCIÓN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for puesto in puestos %}
+                        <tr>
+                            <td>
+                                <span class="badge-sucursal {% if puesto.sucursal == 'Victoria' %}bg-victoria{% else %}bg-ff{% endif %}">
+                                    {{ puesto.sucursal }}
+                                </span>
+                            </td>
+                            <td style="font-weight: bold; font-size: 1.2rem;">{{ puesto.nombre }}</td>
+                            <td style="font-size: 1.3rem; color: var(--puebla-blue);">
+                                <strong>${{ puesto.sueldo_base }}</strong>
+                            </td>
+                            <td>
+                                <button class="btn-comic btn-edit" 
+                                    onclick="abrirModal('{{ puesto.id }}', '{{ puesto.nombre }}', '{{ puesto.sueldo_base }}')">
+                                    EDITAR
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-</div>
 
-<div class="modal fade" id="modalEditarPuesto" tabindex="-1">
-    <div class="modal-dialog">
+    <div id="modalEditar" class="modal-overlay">
         <form method="POST" class="modal-content">
             {% csrf_token %}
-            <div class="modal-header">
-                <h5 class="modal-title">Editar Sueldo</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" name="puesto_id" id="edit_puesto_id">
-                <p>Puesto: <strong id="edit_nombre_puesto"></strong></p>
-                <div class="mb-3">
-                    <label class="form-label">Nuevo Sueldo Base</label>
-                    <input type="number" step="0.01" name="sueldo" id="edit_sueldo" class="form-control" required>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-            </div>
+            <h2 class="comic-title" style="font-size: 2rem; margin-top: 0;">¡CAMBIO DE SUELDO!</h2>
+            <input type="hidden" name="puesto_id" id="puesto_id">
+            
+            <p style="font-size: 1.2rem; margin-bottom: 0;">Puesto seleccionado:</p>
+            <p id="nombre_puesto_display" style="font-family: 'Bangers'; font-size: 1.8rem; color: var(--puebla-magenta); margin-top: 5px;"></p>
+
+            <label style="font-size: 1.2rem; font-weight: bold;">NUEVO MONTO ($):</label>
+            <input type="number" step="0.01" name="nuevo_sueldo" id="input_sueldo" class="comic-input" required>
+
+            <button type="submit" class="btn-comic btn-save">¡ACTUALIZAR YA!</button>
+            <button type="button" onclick="cerrarModal()" class="btn-comic" style="background: #666; width: 100%; margin-top: 10px;">CANCELAR</button>
         </form>
     </div>
-</div>
 
-<script>
-function abrirModalEditar(id, nombre, sueldo) {
-    document.getElementById('edit_puesto_id').value = id;
-    document.getElementById('edit_nombre_puesto').innerText = nombre;
-    document.getElementById('edit_sueldo').value = sueldo;
-    new bootstrap.Modal(document.getElementById('modalEditarPuesto')).show();
-}
-</script>
-{% endblock %}
+    <script>
+        function abrirModal(id, nombre, sueldo) {
+            document.getElementById('puesto_id').value = id;
+            document.getElementById('nombre_puesto_display').innerText = nombre;
+            document.getElementById('input_sueldo').value = sueldo;
+            document.getElementById('modalEditar').style.display = 'flex';
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalEditar').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
