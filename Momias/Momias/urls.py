@@ -40,7 +40,7 @@ urlpatterns = [
     path('nomina/excel/', exportar_excel_nomina, name='exportar_excel'),
     path('nomina/pdf/', exportar_pdf_nomina, name='exportar_pdf'),
     path('reportes/', vista_reportes, name='reportes'),
-    path('gestion-sueldos/', gestion_sueldos, name='gestion_sueldos'),
+    path('gestion-sueldos/', views.gestion_sueldos, name='gestion_sueldos'),
     path('registro/', gestion_usuario_admin, name='registro_usuario'),
     path('cambiar-password/<int:user_id>/', gestion_usuario_admin, name='admin_cambiar_password'),
 ]
