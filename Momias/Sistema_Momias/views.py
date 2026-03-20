@@ -1489,21 +1489,26 @@ def borrar_usuario(request, user_id):
 
 def gestion_sueldos(request):
     if request.method == 'POST':
-        puesto_nombre = request.POST.get('puesto_nombre')
-        nuevo_monto = request.POST.get('nuevo_monto')
+        puesto_editar = request.POST.get('puesto_nombre')  # Viene del campo hidden (para editar)
+        puesto_nuevo = request.POST.get('nuevo_puesto_nombre') # Viene del input text (para nuevo)
+        monto = request.POST.get('nuevo_monto')
+
+        if puesto_editar: # LÓGICA DE EDICIÓN
+            puesto_obj = ConfigSueldo.objects.filter(puesto=puesto_editar).first()
+            if puesto_obj:
+                puesto_obj.monto = monto
+                puesto_obj.save()
+                messages.success(request, f"¡ZAP! Sueldo de {puesto_editar} actualizado.")
         
-        # Buscamos el puesto en la DB y actualizamos
-        puesto_obj = ConfigSueldo.objects.filter(puesto=puesto_nombre).first()
-        if puesto_obj:
-            puesto_obj.monto = nuevo_monto
-            puesto_obj.save()
-            messages.success(request, f"¡ZAP! El sueldo de {puesto_nombre} se actualizó a ${nuevo_monto}")
-        else:
-            messages.error(request, "¡RAYOS! No se encontró el puesto.")
-            
+        elif puesto_nuevo: # LÓGICA DE CREACIÓN
+            # Evitar duplicados
+            if ConfigSueldo.objects.filter(puesto=puesto_nuevo).exists():
+                messages.error(request, "¡RAYOS! Ese puesto ya existe.")
+            else:
+                ConfigSueldo.objects.create(puesto=puesto_nuevo, monto=monto)
+                messages.success(request, f"¡BOOM! Nuevo puesto '{puesto_nuevo}' registrado.")
+
         return redirect('gestion_sueldos')
 
-    # Obtenemos todos los sueldos ordenados alfabéticamente
     sueldos = ConfigSueldo.objects.all().order_by('puesto')
-    
     return render(request, 'Wages.html', {'sueldos': sueldos})
