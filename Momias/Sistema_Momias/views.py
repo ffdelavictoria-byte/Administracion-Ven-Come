@@ -1488,4 +1488,22 @@ def borrar_usuario(request, user_id):
     return redirect('lista_usuarios')
 
 def gestion_sueldos(request):
-    return render(request, 'Wages.html')
+    if request.method == 'POST':
+        puesto_nombre = request.POST.get('puesto_nombre')
+        nuevo_monto = request.POST.get('nuevo_monto')
+        
+        # Buscamos el puesto en la DB y actualizamos
+        puesto_obj = ConfigSueldo.objects.filter(puesto=puesto_nombre).first()
+        if puesto_obj:
+            puesto_obj.monto = nuevo_monto
+            puesto_obj.save()
+            messages.success(request, f"¡ZAP! El sueldo de {puesto_nombre} se actualizó a ${nuevo_monto}")
+        else:
+            messages.error(request, "¡RAYOS! No se encontró el puesto.")
+            
+        return redirect('gestion_sueldos')
+
+    # Obtenemos todos los sueldos ordenados alfabéticamente
+    sueldos = ConfigSueldo.objects.all().order_by('puesto')
+    
+    return render(request, 'Wages.html', {'sueldos': sueldos})
