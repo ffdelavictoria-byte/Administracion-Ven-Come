@@ -702,6 +702,7 @@ def Asistencias_FF_view(request):
             desc = float(request.POST.get('descuento') or 0)
             monto_final = monto_calculado + bono - desc
 
+
             # --- 5. GESTIÓN DE INSTANCIA Y GUARDADO ---
             if asistencia_id and asistencia_id.isdigit():
                 asistencia = get_object_or_404(Asistencia, id=int(asistencia_id))
@@ -713,6 +714,22 @@ def Asistencias_FF_view(request):
             asistencia.estatus = estatus_jornada
             asistencia.puesto = puesto_seleccionado
             asistencia.pago_dia = round(monto_final, 2)
+            
+            # --- INTEGRACIÓN DE MOTIVOS ESCRITOS ---
+            # Estos campos deben existir en tu modelo 'Asistencia'
+            asistencia.bonificacion = bono
+            asistencia.descuento = desc
+            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
+            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
+            
+            # Campos adicionales de control
+            asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
+            asistencia.observaciones = request.POST.get('observaciones')
+            
+            # Puntos de retardo (calculados previamente en tu función)
+            asistencia.horas = float(total_puntos) if 'total_puntos' in locals() else 0.0
+
+            asistencia.save()
             
             
             def calcular_puntos(valor):
