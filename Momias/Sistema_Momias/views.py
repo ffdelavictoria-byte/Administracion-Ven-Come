@@ -314,7 +314,6 @@ def Asistencias_view(request):
         "Benny": 171.00,
         "Rappi": 354.75,
         "Fabrica Crystal": 262.00,
-        "Hamburguesas Momias": 0.00, # Dinámico por cargas
         "Tuppers": 0.00,             # Dinámico por cargas
     }
     hoy_dt = date.today()
@@ -347,7 +346,7 @@ def Asistencias_view(request):
         except (ValueError, ZeroDivisionError):
             return float(base_puesto)
 
-    # --- LÓGICA DE ELIMINACIÓN ---
+
     # --- LÓGICA DE ELIMINACIÓN ---
     if request.method == 'POST' and 'eliminar_id' in request.POST:
         CLAVE_SEGURIDAD = "1234"  # <--- Cambia aquí tu contraseña de borrado
@@ -411,15 +410,10 @@ def Asistencias_view(request):
                 monto_final = 0.0
             
             elif estatus == "Descanso":
-                if puesto_seleccionado in ["Hamburguesas Momias", "Tuppers"]:
+                if puesto_seleccionado in ["Tuppers"]:
                     monto_final = DESCANSO_DESTAJO
                 else:
-                    monto_final = 0.0
-
-            elif puesto_seleccionado == "Hamburguesas Momias":
-                cargas = float(request.POST.get('cantidad_cargas') or 0)
-                monto_final = cargas * 51.50
-            
+                    monto_final = 0.0       
             elif puesto_seleccionado == "Tuppers":
                 cargas = float(request.POST.get('cantidad_cargas') or 0)
                 monto_final = cargas * 46.50
