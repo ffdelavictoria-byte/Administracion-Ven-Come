@@ -348,17 +348,30 @@ def Asistencias_view(request):
             return float(base_puesto)
 
     # --- LÓGICA DE ELIMINACIÓN ---
+    # --- LÓGICA DE ELIMINACIÓN ---
     if request.method == 'POST' and 'eliminar_id' in request.POST:
-        asistencia = get_object_or_404(Asistencia, id=request.POST.get('eliminar_id'))
+        CLAVE_SEGURIDAD = "1234"  # <--- Cambia aquí tu contraseña de borrado
         
-        # VALIDACIÓN: ¿Es de la semana actual?
+        # 1. Obtener datos del POST
+        asistencia_id = request.POST.get('eliminar_id')
+        clave_ingresada = request.POST.get('clave_borrado') # Viene del prompt de JS
+        
+        # 2. Validar Clave
+        if clave_ingresada != CLAVE_SEGURIDAD:
+            messages.error(request, "❌ Clave de seguridad incorrecta. No se pudo eliminar.")
+            return redirect('asistencias')
+
+        # 3. Validar existencia y semana
+        asistencia = get_object_or_404(Asistencia, id=asistencia_id)
         fecha_reg = asistencia.fecha
+        
         if fecha_reg.isocalendar()[1] != semana_actual or fecha_reg.isocalendar()[0] != anio_actual:
-            messages.error(request, "No puedes eliminar registros de semanas anteriores.")
+            messages.error(request, "🔒 No puedes eliminar registros de semanas anteriores.")
             return redirect('asistencias')
             
+        # 4. Proceder al borrado
         asistencia.delete()
-        messages.success(request, "¡Registro eliminado!")
+        messages.success(request, "✅ Registro eliminado correctamente.")
         return redirect('asistencias')
 
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
