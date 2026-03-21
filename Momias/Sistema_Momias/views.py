@@ -719,7 +719,29 @@ def Asistencias_FF_view(request):
 
     # --- 3. LÓGICA GET ---
     hoy_str = datetime.now().strftime('%Y-%m-%d')
-    registros = Asistencia.objects.filter(sucursal="FastFood").order_by('-fecha', '-id')[:20]
+    
+    # Capturamos los parámetros de búsqueda del HTML
+    fecha_filtro = request.GET.get('fecha_filtro')
+    query = request.GET.get('q')
+
+    # Empezamos filtrando solo por la sucursal
+    registros = Asistencia.objects.filter(sucursal="FastFood")
+
+    # Si el usuario eligió una fecha, filtramos por ella
+    if fecha_filtro:
+        registros = registros.filter(fecha=fecha_filtro)
+    
+    # Si el usuario escribió un nombre o código, filtramos
+    if query:
+        registros = registros.filter(
+            Q(empleado__nombre__icontains=query) | 
+            Q(empleado__apellido_paterno__icontains=query) |
+            Q(empleado__codigo_empleado__icontains=query)
+        )
+
+    # Ordenamos y limitamos (puedes quitar el [:20] si quieres ver todos los resultados del filtro)
+    registros = registros.order_by('-fecha', '-id')[:30]
+
     return render(request, 'AttendanceFF.html', {
         'lista_puestos': puestos_salarios_ff.keys(),
         'empleados': Empleado.objects.filter(estatus='Activo'),
@@ -728,6 +750,9 @@ def Asistencias_FF_view(request):
         'puestos_json': json.dumps(puestos_salarios_ff),
         'semana_actual': semana_actual,
         'anio_actual': anio_actual,
+        # Importante: devolver los valores al HTML para que se queden escritos en los inputs
+        'fecha_filtro': fecha_filtro,
+        'query': query,
     })
 
 
