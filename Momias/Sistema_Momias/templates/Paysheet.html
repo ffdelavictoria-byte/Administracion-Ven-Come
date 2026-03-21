@@ -21,7 +21,6 @@
     .btn-edit { background-color: #4CAF50; color: white; }
     .btn-comic:hover { transform: translate(-2px, -2px); box-shadow: var(--comic-shadow); color: white; }
 
-    /* --- ESTILO TICKET DETALLADO --- */
     .tira-compacta {
         border: 1px solid #000;
         padding: 8px;
@@ -44,9 +43,10 @@
         display: inline-block;
         margin-right: 4px;
         padding: 1px 3px;
-        border: 1px solid #eee;
-        background: #f9f9f9;
-        font-size: 0.62rem;
+        border: 1px solid #ddd;
+        background: #fdfdfd;
+        font-size: 0.65rem;
+        border-radius: 2px;
     }
 
     .total-neto-box {
@@ -54,14 +54,14 @@
         color: #fff;
         padding: 4px 8px;
         font-weight: bold;
-        font-size: 0.95rem;
+        font-size: 1rem;
         text-align: right;
-        min-width: 100px;
+        min-width: 110px;
     }
 
     .firma-espacio {
         border-top: 1px solid #000;
-        width: 140px;
+        width: 150px;
         text-align: center;
         font-size: 0.55rem;
         margin-top: 8px;
@@ -119,9 +119,8 @@
                     </div>
                 </div>
                 <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-comic btn-edit flex-grow-1"><i class="fas fa-calculator"></i></button>
+                    <button type="submit" class="btn btn-comic btn-edit flex-grow-1"><i class="fas fa-calculator"></i> CALCULAR</button>
                     <button type="button" onclick="window.print();" class="btn-comic" style="background: #546e7a; color: white; padding: 0 15px;"><i class="fas fa-print"></i></button>
-                    <button type="button" onclick="descargaDirecta('excel')" class="btn-comic" style="background: #2e7d32; color: white; padding: 0 15px;"><i class="fas fa-file-excel"></i></button>
                 </div>
             </form>
         </div>
@@ -131,8 +130,8 @@
         {% for n in nominas %}
         <div class="tira-compacta">
             <div class="header-nomina">
-                <span class="fw-bold text-uppercase" style="font-size: 0.8rem;">{{ n.nombre }}</span>
-                <span class="fw-bold text-muted" style="font-size: 0.6rem;">
+                <span class="fw-bold text-uppercase" style="font-size: 0.85rem;">{{ n.nombre }}</span>
+                <span class="fw-bold text-muted" style="font-size: 0.65rem;">
                     {{ n.puesto_principal }}{% if n.puestos_adicionales %}/{{ n.puestos_adicionales }}{% endif %}
                 </span>
             </div>
@@ -141,17 +140,20 @@
                 {% for dia_list in n.dias %}
                     {% for t in dia_list %}
                     <span class="item-desglose">
-                        <b>{{ t.fecha_dia|slice:":1" }}</b>({{ t.fecha_dia|slice:"3:8" }})
+                        <b>{{ t.fecha_dia|slice:":1" }}</b>({{ t.fecha_dia|slice:"2:" }})
                         {% if t.estatus == "DESCANSO" %} <span class="text-info">DESC</span>
                         {% else %} <b>{{ t.cantidad_turnos }}T</b>{% endif %}
                         <span class="text-success">${{ t.pago_dia|floatformat:0 }}</span>
+                        {% if t.puesto and t.puesto != n.puesto_principal %}
+                            <small class="text-muted">[{{ t.puesto|slice:":4" }}]</small>
+                        {% endif %}
                     </span>
                     {% endfor %}
                 {% endfor %}
             </div>
 
             <div class="d-flex border-top border-bottom py-1 my-1 justify-content-between align-items-center">
-                <div style="font-size: 0.65rem;">
+                <div style="font-size: 0.65rem; line-height: 1.4;">
                     <span>Base: <b>${{ n.pago_base|floatformat:2 }}</b></span> |
                     <span>Retardos: <b class="text-danger">{{ n.retardos }}</b></span> |
                     <span>Bonos: <b class="text-success">+${{ n.bonos|floatformat:2 }}</b></span> |
@@ -168,13 +170,12 @@
                         {% if t.monto_bono > 0 %} <span class="text-success">● {{ t.motivo_bono }}: +${{ t.monto_bono|floatformat:0 }}</span><br> {% endif %}
                         {% if t.monto_descuento > 0 %} <span class="text-danger">● {{ t.motivo_descuento }}: -${{ t.monto_descuento|floatformat:0 }}</span><br> {% endif %}
                     {% endfor %}{% endfor %}
-                    <i class="text-muted">Periodo: {{ inicio }} al {{ fin }}</i>
                 </div>
                 <div class="firma-espacio">FIRMA DE RECIBIDO</div>
             </div>
         </div>
         {% empty %}
-            <div class="alert alert-info text-center">No hay datos.</div>
+            <div class="alert alert-info text-center">No hay datos para el periodo.</div>
         {% endfor %}
     </div>
 </div>
@@ -183,20 +184,6 @@
     function toggleAll(source) {
         let checkboxes = document.getElementsByName('sucursal');
         for(let cb of checkboxes) { cb.checked = source.checked; }
-    }
-
-    function descargaDirecta(tipo) {
-        const inicio = document.querySelector('[name="inicio"]').value;
-        const fin = document.querySelector('[name="fin"]').value;
-        const nombre = document.querySelector('[name="nombre"]').value.trim();
-        const sucursales = Array.from(document.querySelectorAll('input[name="sucursal"]:checked')).map(cb => cb.value);
-        let baseUrl = (tipo === 'excel') ? "{% url 'exportar_excel' %}" : "{% url 'exportar_pdf' %}";
-        let url = new URL(window.location.origin + baseUrl);
-        url.searchParams.append('inicio', inicio);
-        url.searchParams.append('fin', fin);
-        url.searchParams.append('nombre', nombre);
-        sucursales.forEach(s => url.searchParams.append('sucursal', s));
-        window.location.href = url.toString();
     }
 </script>
 </body>
