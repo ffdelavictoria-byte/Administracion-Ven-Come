@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cálculo de Nómina - Momias de la Victoria</title>
+    <title>Nómina Compacta - Momias de la Victoria</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
@@ -13,25 +13,71 @@
     :root { --comic-border: 2px solid #000; --comic-shadow: 4px 4px 0px #000; }
     body { background-color: #f0f0f0; font-family: 'Open Sans', sans-serif; padding: 20px; }
     h2 { font-family: 'Bangers', cursive; letter-spacing: 2px; color: #2c3e50; text-shadow: 2px 2px 0px #fff; }
+    
     .comic-container { max-width: 1400px; margin: 0 auto; background: white; padding: 30px; border: var(--comic-border); box-shadow: 10px 10px 0px rgba(0,0,0,0.1); }
     .card-comic { border: var(--comic-border); box-shadow: var(--comic-shadow); background-color: #fff9c4 !important; margin-bottom: 25px; }
     .form-control, .form-select { border: var(--comic-border); border-radius: 0; }
     .btn-comic { font-family: 'Bangers', cursive; font-size: 1.2rem; letter-spacing: 1px; border: var(--comic-border) !important; border-radius: 0; transition: 0.1s; text-transform: uppercase; }
     .btn-edit { background-color: #4CAF50; color: white; }
     .btn-comic:hover { transform: translate(-2px, -2px); box-shadow: var(--comic-shadow); color: white; }
-    
-    .tira-recortable { border: 2px solid #000; padding: 15px; margin-bottom: 50px; background-color: white; position: relative; page-break-inside: avoid; }
-    .tira-recortable::after { content: "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"; position: absolute; bottom: -30px; left: 0; width: 100%; font-family: monospace; text-align: center; color: #777; font-size: 1rem; }
-    .tira-recortable h5 { font-family: 'Open Sans', sans-serif; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 5px; }
-    .text-magenta { color: #9D174D; font-weight: bold; }
-    
+
+    /* --- ESTILOS DE TIRA COMPACTA --- */
+    .tira-compacta {
+        border: 1px solid #000;
+        padding: 10px;
+        margin-bottom: 15px;
+        background-color: white;
+        page-break-inside: avoid;
+        font-size: 0.75rem;
+        position: relative;
+    }
+
+    .header-nomina {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1.5px solid #000;
+        margin-bottom: 5px;
+        padding-bottom: 2px;
+    }
+
+    .total-destacado {
+        background: #000;
+        color: #fff;
+        padding: 2px 10px;
+        font-weight: bold;
+        font-size: 1rem;
+        border-radius: 2px;
+    }
+
+    .firma-espacio {
+        border-top: 1px solid #000;
+        width: 150px;
+        text-align: center;
+        font-size: 0.6rem;
+        margin-top: 10px;
+        font-weight: bold;
+    }
+
+    /* --- CONFIGURACIÓN DE IMPRESIÓN --- */
     @media print {
         .no-print { display: none !important; }
         .comic-container { border: none; box-shadow: none; width: 100%; max-width: 100%; padding: 0; }
         body { background: white; padding: 0; }
-        .tira-recortable { border: 1px solid #000; margin-bottom: 60px; }
-        .tira-recortable::after { color: #000; }
-        @page { size: landscape; margin: 0.5cm; }
+        
+        /* División en 2 columnas para aprovechar espacio */
+        #contenedor-nominas {
+            column-count: 2;
+            column-gap: 15px;
+        }
+
+        .tira-compacta {
+            margin-bottom: 20px;
+            border: 1px solid #000;
+            break-inside: avoid;
+        }
+
+        @page { size: landscape; margin: 0.8cm; }
     }
 </style>
 </head>
@@ -86,94 +132,48 @@
 
     <div id="contenedor-nominas">
         {% for n in nominas %}
-        <div class="tira-recortable mb-5 p-3 border border-dark bg-white shadow-sm" style="page-break-inside: avoid;">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="m-0 text-uppercase fw-bold"><i class="fas fa-user-circle"></i> {{ n.nombre }}</h5>
-                <span class="small fw-bold text-muted">Periodo: {{ inicio }} al {{ fin }}</span>
+        <div class="tira-compacta">
+            <div class="header-nomina">
+                <span class="fw-bold text-uppercase" style="font-size: 0.85rem;">{{ n.nombre }}</span>
+                <span class="text-muted" style="font-size: 0.65rem;">{{ n.puesto_principal }}</span>
             </div>
 
-            <table class="table table-bordered table-sm align-middle mb-2" style="font-size: 0.75rem;">
-                <thead class="table-dark text-center text-uppercase">
-                    <tr>
-                        <th>Puesto</th>
-                        <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
-                        <th>Ret</th><th>Bonif.</th><th>Desc.</th>
-                        <th class="bg-primary text-white">TOTAL NETO</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr class="align-middle">
-                        <td class="text-center fw-bold">{{ n.puesto_principal|default:"--" }}</td>
-                        {% for dia_list in n.dias %}
-                        <td class="text-center p-1" style="vertical-align: top;">
-                            {% for turno in dia_list %}
-                            <div class="border-bottom mb-1" style="font-size: 0.6rem;">
-                                <span class="fw-bold">{{ turno.fecha_dia }}</span><br>
-                                {% if turno.estatus == "DESCANSO" %}
-                                    <span class="badge bg-info">DESCANSO</span>
-                                {% else %}
-                                    <span class="badge {% if turno.cantidad_turnos > 1 %}bg-danger{% else %}bg-secondary{% endif %}">{{ turno.cantidad_turnos }} T</span>
-                                {% endif %}
-                                <div class="fw-bold text-success">${{ turno.pago_dia|floatformat:2 }}</div>
-                            </div>
-                            {% endfor %}
-                        </td>
-                        {% endfor %}
-                        <td class="text-center fw-bold">{{ n.retardos }}</td>
-                        <td class="text-end px-2 text-success fw-bold">+${{ n.bonos|floatformat:2 }}</td>
-                        <td class="text-end px-2 text-danger fw-bold">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</td>
-                        <td class="text-end px-2 fw-bold bg-light" style="font-size: 1rem;">${{ n.total_neto|floatformat:2 }}</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <div class="table-light p-2 border">
-                <div class="d-flex flex-wrap gap-2 align-items-center" style="font-size: 0.65rem;">
-                    <strong class="text-dark">Desglose:</strong>
-                    {% for dia_list in n.dias %}
-                        {% for turno in dia_list %}
-                        <div class="border rounded px-1 bg-white shadow-sm">
-                            {{ turno.fecha_dia }} | 
-                            {% if turno.estatus == "DESCANSO" %}
-                                <span class="text-muted fw-bold">DESCANSO | PAGO: ${{ turno.pago_dia|floatformat:2 }}</span>
-                            {% else %}
-                                <b>{{ turno.sucursal }}</b> | {{ turno.puesto }} | 
-                                <b>{{ turno.cantidad_turnos }} T</b> | <b>${{ turno.pago_dia|floatformat:2 }}</b>
-                                {% if turno.descuento_retardo > 0 %}
-                                    <span class="text-danger ms-1">| Ret: -${{ turno.descuento_retardo|floatformat:2 }}</span>
-                                {% endif %}
-                            {% if turno.monto_bono > 0 %}
-                                <span class="text-success ms-1 border-start ps-1">
-                                    | <b>Bono:</b> +${{ turno.monto_bono|floatformat:2 }} 
-                                    <em class="text-muted">({{ turno.motivo_bono|default:"Sin motivo" }})</em>
-                                </span>
-                            {% endif %}
-                                {% if turno.monto_descuento > 0 %}
-                                    <span class="text-danger ms-1 border-start ps-1">
-                                        | <b>Desc:</b> -${{ turno.monto_descuento|floatformat:2 }} 
-                                        <em>({{ turno.motivo_descuento|default:"Sin motivo" }})</em>
-                                    </span>
-                                {% endif %}
-                            {% endif %}
-                        </div>
-                        {% endfor %}
+            <div class="mb-1" style="line-height: 1.2;">
+                <strong style="font-size: 0.6rem;">ASISTENCIA:</strong> 
+                <span style="font-size: 0.65rem; color: #444;">
+                {% for dia_list in n.dias %}
+                    {% for turno in dia_list %}
+                        {{ turno.fecha_dia|slice:":3" }} (${{ turno.pago_dia|floatformat:0 }}) |
                     {% endfor %}
-                    <div class="fw-bold ms-auto text-primary border-start ps-2">
-                        TOTAL BASE: ${{ n.pago_base|floatformat:2 }}
-                        <small class="d-block text-muted" style="font-size: 9px;">* Máx. 1 descanso pagado.</small>
-                    </div>
+                {% endfor %}
+                </span>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center bg-light p-1 border">
+                <div>
+                    <span class="me-2">Base: <b>${{ n.pago_base|floatformat:2 }}</b></span>
+                    <span class="me-2 text-success">Bono: <b>+${{ n.bonos|floatformat:2 }}</b></span>
+                    <span class="text-danger">Desc: <b>-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</b></span>
+                </div>
+                <div class="total-destacado">
+                    $ {{ n.total_neto|floatformat:2 }}
                 </div>
             </div>
 
-            <div class="d-flex justify-content-between mt-2 pt-2 border-top border-dashed">
-                <small class="fst-italic text-muted">Momias de la Victoria - Sistema Administrativo</small>
-                <div style="border-top: 1px solid #000; width: 180px; text-align: center; margin-top: 10px;">
-                    <small class="fw-bold">Firma de Recibido</small>
+            <div class="d-flex justify-content-between align-items-end mt-2">
+                <div style="font-size: 0.55rem; color: #666; max-width: 60%;">
+                    {% for dia_list in n.dias %}{% for t in dia_list %}
+                        {% if t.monto_bono > 0 or t.monto_descuento > 0 %}
+                            *{{ t.fecha_dia }}: {{ t.motivo_bono|default:"" }} {{ t.motivo_descuento|default:"" }}
+                        {% endif %}
+                    {% endfor %}{% endfor %}
+                    <br><i>Periodo: {{ inicio }} al {{ fin }}</i>
                 </div>
+                <div class="firma-espacio">FIRMA DE RECIBIDO</div>
             </div>
         </div>
         {% empty %}
-            <div class="alert alert-info text-center">No hay datos para el periodo seleccionado.</div>
+            <div class="alert alert-info text-center no-print">No hay datos para el periodo seleccionado.</div>
         {% endfor %}
     </div>
 </div>
