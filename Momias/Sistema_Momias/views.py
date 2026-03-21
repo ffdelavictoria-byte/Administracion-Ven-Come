@@ -505,16 +505,32 @@ def Asistencias_view(request):
     registros_qs = Asistencia.objects.exclude(sucursal="FastFood").order_by('-fecha', '-id')
         
     # Filtro por Fecha (Independiente)
+    fecha_filtro = request.GET.get('fecha_filtro')
+    query = request.GET.get('q', '').strip() 
+        
+    registros_qs = Asistencia.objects.exclude(sucursal="FastFood").order_by('-fecha', '-id')
+        
     if fecha_filtro:
         registros_qs = registros_qs.filter(fecha=fecha_filtro)
         
-    # Filtro por Nombre o Código
     if query:
-        registros_qs = registros_qs.filter(
-            Q(empleado__nombre__icontains=query) | 
-            Q(empleado__apellido_paterno__icontains=query) |
-            Q(empleado__codigo_empleado__icontains=query)
-        )
+        # 1. Dividimos la búsqueda en palabras (ej: "Juan Perez" -> ["Juan", "Perez"])
+        palabras = query.split()
+        
+        # 2. Creamos un objeto Q base
+        q_busqueda = Q()
+
+        for palabra in palabras:
+            # Para cada palabra, buscamos que coincida en nombre OR apellido OR código
+            # Esto permite que "Perez Juan" también funcione
+            q_busqueda &= (
+                Q(empleado__nombre__icontains=palabra) | 
+                Q(empleado__apellido_paterno__icontains=palabra) |
+                Q(empleado__apellido_materno__icontains=palabra) |
+                Q(empleado__codigo_empleado__icontains=palabra)
+            )
+        
+        registros_qs = registros_qs.filter(q_busqueda).distinct()
         
     # Paginación
     paginator = Paginator(registros_qs, 20)
