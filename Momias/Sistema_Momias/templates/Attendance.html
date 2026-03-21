@@ -379,10 +379,14 @@
                             EDITAR
                         </button>
 
-                        <form method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este registro?')">
+                        <form method="POST" id="form-eliminar-{{ registro.id }}" style="display:inline;">
                             {% csrf_token %}
                             <input type="hidden" name="eliminar_id" value="{{ registro.id }}">
-                            <button type="submit" class="btn-comic btn-delete">BORRAR</button>
+                            <input type="hidden" name="clave_borrado" id="clave-{{ registro.id }}">
+                            
+                            <button type="button" class="btn btn-danger" onclick="confirmarBorrado('{{ registro.id }}')">
+                                Eliminar
+                            </button>
                         </form>
 
                         {% else %}
@@ -514,6 +518,17 @@
         });
 
     }
+
+    function confirmarBorrado(id) {
+    // Pedir la clave al usuario
+    let clave = prompt("Por favor, ingresa la clave de seguridad para eliminar este registro:");
+    
+    if (clave !== null && clave !== "") {
+        // Asignar la clave al input oculto y enviar el formulario
+        document.getElementById('clave-' + id).value = clave;
+        document.getElementById('form-eliminar-' + id).submit();
+    }
+        }
 
 
 
