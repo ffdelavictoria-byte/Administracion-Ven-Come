@@ -607,9 +607,19 @@ def Asistencias_FF_view(request):
             
     # --- 1. LÓGICA DE ELIMINACIÓN (IGUAL QUE EN MOMIAS) ---
     if request.method == 'POST' and 'eliminar_id' in request.POST:
-        asistencia = get_object_or_404(Asistencia, id=request.POST.get('eliminar_id'))
+        CLAVE_BORRADO = "1234" # <--- Cambia aquí tu clave
         
-        # Validar si el registro a eliminar es de la semana actual
+        asistencia_id = request.POST.get('eliminar_id')
+        clave_ingresada = request.POST.get('clave_borrado')
+
+        # Validación de clave
+        if clave_ingresada != CLAVE_BORRADO:
+            messages.error(request, "❌ Clave incorrecta. No se eliminó el registro.")
+            return redirect('asistenciasff')
+
+        asistencia = get_object_or_404(Asistencia, id=asistencia_id)
+        
+        # Validar si es de la semana actual
         sem_reg = asistencia.fecha.isocalendar()[1]
         anio_reg = asistencia.fecha.isocalendar()[0]
         
@@ -617,7 +627,7 @@ def Asistencias_FF_view(request):
             messages.error(request, "🔒 No puedes eliminar registros de semanas pasadas.")
         else:
             asistencia.delete()
-            messages.success(request, "¡Registro eliminado de FF!")
+            messages.success(request, "✅ Registro eliminado de FF.")
         return redirect('asistenciasff')
 
     # --- 2. LÓGICA DE GUARDADO / MODIFICACIÓN ---
@@ -734,17 +744,14 @@ def Asistencias_FF_view(request):
     hoy_str = datetime.now().strftime('%Y-%m-%d')
     
     # Capturamos los parámetros de búsqueda del HTML
-    fecha_filtro = request.GET.get('fecha_filtro')
-    query = request.GET.get('q')
+    fecha_filtro = request.GET.get('fecha_filtro') or ''
+    query = request.GET.get('q') or ''
 
-    # Empezamos filtrando solo por la sucursal
     registros = Asistencia.objects.filter(sucursal="FastFood")
 
-    # Si el usuario eligió una fecha, filtramos por ella
     if fecha_filtro:
         registros = registros.filter(fecha=fecha_filtro)
     
-    # Si el usuario escribió un nombre o código, filtramos
     if query:
         registros = registros.filter(
             Q(empleado__nombre__icontains=query) | 
@@ -752,22 +759,20 @@ def Asistencias_FF_view(request):
             Q(empleado__codigo_empleado__icontains=query)
         )
 
-    # Ordenamos y limitamos (puedes quitar el [:20] si quieres ver todos los resultados del filtro)
     registros = registros.order_by('-fecha', '-id')[:30]
 
     return render(request, 'AttendanceFF.html', {
         'lista_puestos': puestos_salarios_ff.keys(),
         'empleados': Empleado.objects.filter(estatus='Activo'),
         'registros': registros,
-        'hoy': hoy_str,
+        'hoy': hoy_dt.strftime('%Y-%m-%d'),
         'puestos_json': json.dumps(puestos_salarios_ff),
         'semana_actual': semana_actual,
         'anio_actual': anio_actual,
-        # Importante: devolver los valores al HTML para que se queden escritos en los inputs
+        # Al pasar cadenas vacías '', los inputs del HTML se verán limpios
         'fecha_filtro': fecha_filtro,
         'query': query,
     })
-
 
 
 
