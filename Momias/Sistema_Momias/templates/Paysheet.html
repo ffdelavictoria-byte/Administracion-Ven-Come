@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nómina Compacta - Momias de la Victoria</title>
+    <title>Nómina Detallada Compacta - Momias de la Victoria</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
@@ -21,15 +21,14 @@
     .btn-edit { background-color: #4CAF50; color: white; }
     .btn-comic:hover { transform: translate(-2px, -2px); box-shadow: var(--comic-shadow); color: white; }
 
-    /* --- ESTILOS DE TIRA COMPACTA --- */
+    /* --- ESTILO TICKET DETALLADO --- */
     .tira-compacta {
         border: 1px solid #000;
-        padding: 10px;
-        margin-bottom: 15px;
+        padding: 8px;
+        margin-bottom: 12px;
         background-color: white;
         page-break-inside: avoid;
-        font-size: 0.75rem;
-        position: relative;
+        font-size: 0.7rem;
     }
 
     .header-nomina {
@@ -37,47 +36,47 @@
         justify-content: space-between;
         align-items: center;
         border-bottom: 1.5px solid #000;
-        margin-bottom: 5px;
+        margin-bottom: 4px;
         padding-bottom: 2px;
     }
 
-    .total-destacado {
+    .item-desglose {
+        display: inline-block;
+        margin-right: 4px;
+        padding: 1px 3px;
+        border: 1px solid #eee;
+        background: #f9f9f9;
+        font-size: 0.62rem;
+    }
+
+    .total-neto-box {
         background: #000;
         color: #fff;
-        padding: 2px 10px;
+        padding: 4px 8px;
         font-weight: bold;
-        font-size: 1rem;
-        border-radius: 2px;
+        font-size: 0.95rem;
+        text-align: right;
+        min-width: 100px;
     }
 
     .firma-espacio {
         border-top: 1px solid #000;
-        width: 150px;
+        width: 140px;
         text-align: center;
-        font-size: 0.6rem;
-        margin-top: 10px;
+        font-size: 0.55rem;
+        margin-top: 8px;
         font-weight: bold;
     }
 
-    /* --- CONFIGURACIÓN DE IMPRESIÓN --- */
     @media print {
         .no-print { display: none !important; }
         .comic-container { border: none; box-shadow: none; width: 100%; max-width: 100%; padding: 0; }
         body { background: white; padding: 0; }
-        
-        /* División en 2 columnas para aprovechar espacio */
         #contenedor-nominas {
             column-count: 2;
             column-gap: 15px;
         }
-
-        .tira-compacta {
-            margin-bottom: 20px;
-            border: 1px solid #000;
-            break-inside: avoid;
-        }
-
-        @page { size: landscape; margin: 0.8cm; }
+        @page { size: landscape; margin: 0.6cm; }
     }
 </style>
 </head>
@@ -93,11 +92,11 @@
         <div class="card-body">
             <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-2">
-                    <label class="form-label fw-bold small text-uppercase">Fecha Inicio:</label>
+                    <label class="form-label fw-bold small text-uppercase">Inicio:</label>
                     <input type="date" name="inicio" class="form-control" value="{{ inicio }}" required>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-bold small text-uppercase">Fecha Fin:</label>
+                    <label class="form-label fw-bold small text-uppercase">Fin:</label>
                     <input type="date" name="fin" class="form-control" value="{{ fin }}" required>
                 </div>
                 <div class="col-md-2">
@@ -105,26 +104,24 @@
                     <input type="text" name="nombre" class="form-control" placeholder="Nombre..." value="{{ nombre_busqueda|default_if_none:'' }}">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-bold small text-uppercase">Filtrar Sucursales:</label>
-                    <div class="border p-2 bg-white" style="height: 100px; overflow-y: scroll; border: 1px solid #ced4da; border-radius: 4px;">
+                    <label class="form-label fw-bold small text-uppercase">Sucursales:</label>
+                    <div class="border p-2 bg-white" style="height: 80px; overflow-y: scroll; font-size: 0.8rem;">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="check_todas" onclick="toggleAll(this)">
                             <label class="form-check-label fw-bold text-primary" for="check_todas">TODAS</label>
                         </div>
-                        <hr class="my-1">
                         {% for s in todas_sucursales %}
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="sucursal" value="{{ s }}" {% if s in sucursales_seleccionadas %}checked{% endif %}>
-                            <label class="form-check-label small">{{ s }}</label>
+                            <label class="form-check-label">{{ s }}</label>
                         </div>
                         {% endfor %}
                     </div>
                 </div>
                 <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-comic btn-edit flex-grow-1"><i class="fas fa-calculator"></i> CALCULAR</button>
+                    <button type="submit" class="btn btn-comic btn-edit flex-grow-1"><i class="fas fa-calculator"></i></button>
                     <button type="button" onclick="window.print();" class="btn-comic" style="background: #546e7a; color: white; padding: 0 15px;"><i class="fas fa-print"></i></button>
                     <button type="button" onclick="descargaDirecta('excel')" class="btn-comic" style="background: #2e7d32; color: white; padding: 0 15px;"><i class="fas fa-file-excel"></i></button>
-                    <button type="button" onclick="descargaDirecta('pdf')" class="btn-comic" style="background: #c62828; color: white; padding: 0 15px;"><i class="fas fa-file-pdf"></i></button>
                 </div>
             </form>
         </div>
@@ -134,46 +131,50 @@
         {% for n in nominas %}
         <div class="tira-compacta">
             <div class="header-nomina">
-                <span class="fw-bold text-uppercase" style="font-size: 0.85rem;">{{ n.nombre }}</span>
-                <span class="text-muted" style="font-size: 0.65rem;">{{ n.puesto_principal }}</span>
-            </div>
-
-            <div class="mb-1" style="line-height: 1.2;">
-                <strong style="font-size: 0.6rem;">ASISTENCIA:</strong> 
-                <span style="font-size: 0.65rem; color: #444;">
-                {% for dia_list in n.dias %}
-                    {% for turno in dia_list %}
-                        {{ turno.fecha_dia|slice:":3" }} (${{ turno.pago_dia|floatformat:0 }}) |
-                    {% endfor %}
-                {% endfor %}
+                <span class="fw-bold text-uppercase" style="font-size: 0.8rem;">{{ n.nombre }}</span>
+                <span class="fw-bold text-muted" style="font-size: 0.6rem;">
+                    {{ n.puesto_principal }}{% if n.puestos_adicionales %}/{{ n.puestos_adicionales }}{% endif %}
                 </span>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center bg-light p-1 border">
-                <div>
-                    <span class="me-2">Base: <b>${{ n.pago_base|floatformat:2 }}</b></span>
-                    <span class="me-2 text-success">Bono: <b>+${{ n.bonos|floatformat:2 }}</b></span>
-                    <span class="text-danger">Desc: <b>-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</b></span>
+            <div class="mb-1">
+                {% for dia_list in n.dias %}
+                    {% for t in dia_list %}
+                    <span class="item-desglose">
+                        <b>{{ t.fecha_dia|slice:":1" }}</b>({{ t.fecha_dia|slice:"3:8" }})
+                        {% if t.estatus == "DESCANSO" %} <span class="text-info">DESC</span>
+                        {% else %} <b>{{ t.cantidad_turnos }}T</b>{% endif %}
+                        <span class="text-success">${{ t.pago_dia|floatformat:0 }}</span>
+                    </span>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+
+            <div class="d-flex border-top border-bottom py-1 my-1 justify-content-between align-items-center">
+                <div style="font-size: 0.65rem;">
+                    <span>Base: <b>${{ n.pago_base|floatformat:2 }}</b></span> |
+                    <span>Retardos: <b class="text-danger">{{ n.retardos }}</b></span> |
+                    <span>Bonos: <b class="text-success">+${{ n.bonos|floatformat:2 }}</b></span> |
+                    <span>Desc: <b class="text-danger">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</b></span>
                 </div>
-                <div class="total-destacado">
-                    $ {{ n.total_neto|floatformat:2 }}
+                <div class="total-neto-box">
+                    NETO: ${{ n.total_neto|floatformat:2 }}
                 </div>
             </div>
 
-            <div class="d-flex justify-content-between align-items-end mt-2">
-                <div style="font-size: 0.55rem; color: #666; max-width: 60%;">
+            <div class="d-flex justify-content-between align-items-end">
+                <div style="font-size: 0.55rem; color: #444; max-width: 65%; line-height: 1.1;">
                     {% for dia_list in n.dias %}{% for t in dia_list %}
-                        {% if t.monto_bono > 0 or t.monto_descuento > 0 %}
-                            *{{ t.fecha_dia }}: {{ t.motivo_bono|default:"" }} {{ t.motivo_descuento|default:"" }}
-                        {% endif %}
+                        {% if t.monto_bono > 0 %} <span class="text-success">● {{ t.motivo_bono }}: +${{ t.monto_bono|floatformat:0 }}</span><br> {% endif %}
+                        {% if t.monto_descuento > 0 %} <span class="text-danger">● {{ t.motivo_descuento }}: -${{ t.monto_descuento|floatformat:0 }}</span><br> {% endif %}
                     {% endfor %}{% endfor %}
-                    <br><i>Periodo: {{ inicio }} al {{ fin }}</i>
+                    <i class="text-muted">Periodo: {{ inicio }} al {{ fin }}</i>
                 </div>
                 <div class="firma-espacio">FIRMA DE RECIBIDO</div>
             </div>
         </div>
         {% empty %}
-            <div class="alert alert-info text-center no-print">No hay datos para el periodo seleccionado.</div>
+            <div class="alert alert-info text-center">No hay datos.</div>
         {% endfor %}
     </div>
 </div>
@@ -188,18 +189,13 @@
         const inicio = document.querySelector('[name="inicio"]').value;
         const fin = document.querySelector('[name="fin"]').value;
         const nombre = document.querySelector('[name="nombre"]').value.trim();
-        
-        if (!inicio || !fin) { alert("¡Rayos! Por favor selecciona las fechas."); return; }
-
         const sucursales = Array.from(document.querySelectorAll('input[name="sucursal"]:checked')).map(cb => cb.value);
         let baseUrl = (tipo === 'excel') ? "{% url 'exportar_excel' %}" : "{% url 'exportar_pdf' %}";
-        
         let url = new URL(window.location.origin + baseUrl);
         url.searchParams.append('inicio', inicio);
         url.searchParams.append('fin', fin);
         url.searchParams.append('nombre', nombre);
         sucursales.forEach(s => url.searchParams.append('sucursal', s));
-
         window.location.href = url.toString();
     }
 </script>
