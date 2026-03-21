@@ -356,6 +356,7 @@
                     <td>{{ registro.puesto|default:"--" }}</td>
                     <td>{{ registro.estatus_jornada }}</td>
                     <td style="display: flex; gap: 5px; justify-content: center;">
+                        {% if registro.fecha|date:"W"|add:"0" == semana_actual and registro.fecha|date:"Y"|add:"0" == anio_actual %}
                         <button type="button" class="btn-comic btn-edit" 
                             data-id="{{ registro.id }}"
                             data-emp="{{ registro.empleado.id }}"
@@ -383,6 +384,13 @@
                             <input type="hidden" name="eliminar_id" value="{{ registro.id }}">
                             <button type="submit" class="btn-comic btn-delete">BORRAR</button>
                         </form>
+
+                        {% else %}
+                            {# Mensaje o icono para registros bloqueados #}
+                            <span style="color: #666; font-style: italic; font-size: 0.8rem;">
+                                🔒 Registro Cerrado
+                            </span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
