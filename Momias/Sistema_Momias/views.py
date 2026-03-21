@@ -428,13 +428,17 @@ def Asistencias_view(request):
 
                 pago_m = obtener_monto_bloque(base_6h, ent_m, sal_m)
                 pago_v = obtener_monto_bloque(base_6h, ent_v, sal_v)
+                
+                # --- CORRECCIÓN AQUÍ ---
+                # Guardamos la suma en monto_final primero
                 monto_final = pago_m + pago_v
                 
                 multiplicador = 1.0
                 if estatus in ["Descanso trabajado", "Festivo"]:
                     multiplicador = 2.0
                 
-                monto_final = monto_base_calculado * multiplicador
+                # Ahora multiplicamos monto_final por sí mismo
+                monto_final = monto_final * multiplicador
 
             # [Aquí continuaría el resto de tu lógica: calcular_puntos, validación de duplicados y .save()]
 
