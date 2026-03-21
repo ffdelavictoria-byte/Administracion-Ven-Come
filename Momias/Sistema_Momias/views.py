@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from datetime import datetime, date, timedelta
 from django.db.models import Q, Value, CharField
 from django.db.models.functions import Concat
 from django.contrib import messages
@@ -316,6 +317,10 @@ def Asistencias_view(request):
         "Hamburguesas Momias": 0.00, # Dinámico por cargas
         "Tuppers": 0.00,             # Dinámico por cargas
     }
+    hoy_dt = date.today()
+    # Obtenemos el número de semana actual (ISO) y el año
+    semana_actual = hoy_dt.isocalendar()[1]
+    anio_actual = hoy_dt.isocalendar()[0]
 
     def obtener_monto_bloque(base_puesto, entrada, salida):
         if not entrada or not salida:
@@ -345,6 +350,13 @@ def Asistencias_view(request):
     # --- LÓGICA DE ELIMINACIÓN ---
     if request.method == 'POST' and 'eliminar_id' in request.POST:
         asistencia = get_object_or_404(Asistencia, id=request.POST.get('eliminar_id'))
+        
+        # VALIDACIÓN: ¿Es de la semana actual?
+        fecha_reg = asistencia.fecha
+        if fecha_reg.isocalendar()[1] != semana_actual or fecha_reg.isocalendar()[0] != anio_actual:
+            messages.error(request, "No puedes eliminar registros de semanas anteriores.")
+            return redirect('asistencias')
+            
         asistencia.delete()
         messages.success(request, "¡Registro eliminado!")
         return redirect('asistencias')
@@ -352,6 +364,22 @@ def Asistencias_view(request):
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
+            # 0. VALIDACIÓN DE SEGURIDAD: Bloqueo por semana actual
+            fecha_captura_str = request.POST.get('fecha')
+            fecha_dt = datetime.strptime(fecha_captura_str, '%Y-%m-%d').date()
+            
+            hoy_dt = date.today()
+            semana_actual = hoy_dt.isocalendar()[1]
+            anio_actual = hoy_dt.isocalendar()[0]
+            
+            semana_registro = fecha_dt.isocalendar()[1]
+            anio_registro = fecha_dt.isocalendar()[0]
+
+            if semana_registro != semana_actual or anio_registro != anio_actual:
+                messages.error(request, "⚠️ Error: Solo se permite gestionar asistencias de la semana actual.")
+                return redirect('asistencias')
+
+            # --- Continuación de tu lógica original ---
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
             puesto_seleccionado = (request.POST.get('puesto') or "").strip()
@@ -370,7 +398,6 @@ def Asistencias_view(request):
                 monto_final = 0.0
             
             elif estatus == "Descanso":
-                # Lógica específica para puestos de destajo
                 if puesto_seleccionado in ["Hamburguesas Momias", "Tuppers"]:
                     monto_final = DESCANSO_DESTAJO
                 else:
@@ -385,10 +412,7 @@ def Asistencias_view(request):
                 monto_final = cargas * 46.50
 
             else:
-                # Lógica proporcional para puestos con horario
                 salario_real = float(puestos_salarios.get(puesto_seleccionado, 0))
-                
-                # Normalizar a base 6h según el nombre del puesto
                 base_6h = salario_real
                 if "(9 horas)" in puesto_seleccionado or "(9 Horas)" in puesto_seleccionado:
                     base_6h = salario_real / 1.5
@@ -398,6 +422,8 @@ def Asistencias_view(request):
                 pago_m = obtener_monto_bloque(base_6h, ent_m, sal_m)
                 pago_v = obtener_monto_bloque(base_6h, ent_v, sal_v)
                 monto_final = pago_m + pago_v
+
+            # [Aquí continuaría el resto de tu lógica: calcular_puntos, validación de duplicados y .save()]
 
             # 2. Puntos de Retardo (Referencia en campo horas)
             def calcular_puntos(valor):
@@ -496,6 +522,8 @@ def Asistencias_view(request):
         'puestos_json': json.dumps(puestos_salarios),
         'fecha_filtro': fecha_filtro or '', 
         'query': query or '',
+        'semana_actual': semana_actual,
+        'anio_actual': anio_actual,
     })
     
 def Asistencias_FF_view(request):
