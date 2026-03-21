@@ -667,7 +667,13 @@ def Asistencias_FF_view(request):
             elif estatus_jornada == "Descanso":
                 monto_calculado = DESCANSO_ESPECIFICO if puesto_seleccionado in ["Hamburguesas FF", "Tuppers"] else 0.0
             elif puesto_seleccionado == "Hamburguesas FF":
-                monto_calculado = float(request.POST.get('cantidad_cargas') or 0) * 62.00
+                cargas_ff = float(request.POST.get('cantidad_cargas') or 0)
+                cargas_momias = float(request.POST.get('cantidad_cargas_momias') or 0) # Nuevo campo
+                
+                total_ff = cargas_ff * 62.00
+                total_momias = cargas_momias * 51.50
+                
+                monto_calculado = total_ff + total_momias
             elif puesto_seleccionado == "Tuppers":
                 monto_calculado = float(request.POST.get('cantidad_cargas') or 0) * 46.50
             elif puesto_seleccionado in sueldos_fijos_ff:
