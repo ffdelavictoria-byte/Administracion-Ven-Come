@@ -979,15 +979,31 @@ def calcular_nomina_web(request):
         for sem_inicio, sem_fin in intervalos_semanas:
             filtros_asistencia = Q(fecha__range=[sem_inicio, sem_fin])
             
-            # Filtro corregido para selección múltiple
-            if sucursales_seleccionadas and "TODAS" not in sucursales_seleccionadas:
+            # Filtro para selección múltiple de sucursales
+            if sucursal_filtro and "TODAS" not in sucursales_seleccionadas:
                 filtros_asistencia &= Q(sucursal__in=sucursales_seleccionadas)
             
+            # --- NUEVA LÓGICA DE FILTRADO POR NOMBRE COMPLETO ---
+            asistencias_query = Asistencia.objects.filter(filtros_asistencia)
+        
             if nombre_filtro:
-                filtros_asistencia &= (Q(empleado__nombre__icontains=nombre_filtro) | 
-                                       Q(empleado__apellido_paterno__icontains=nombre_filtro))
-
-            empleados_ids = Asistencia.objects.filter(filtros_asistencia).values_list('empleado_id', flat=True).distinct()
+                # Creamos el campo virtual 'full_name' igual que en tu vista_reporte
+                asistencias_query = asistencias_query.annotate(
+                    full_name=Concat(
+                        'empleado__nombre', Value(' '), 
+                        'empleado__apellido_paterno', Value(' '), 
+                        'empleado__apellido_materno',
+                        output_field=CharField()
+                    )
+                ).filter(
+                    Q(full_name__icontains=nombre_filtro) |
+                    Q(empleado__nombre__icontains=nombre_filtro) |
+                    Q(empleado__apellido_paterno__icontains=nombre_filtro) |
+                    Q(empleado__codigo_empleado__icontains=nombre_filtro)
+                )
+        
+            # Obtenemos los IDs de los empleados que cumplen con los filtros
+            empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
             
             # ... resto de tu lógica para procesar empleados_ids
 
