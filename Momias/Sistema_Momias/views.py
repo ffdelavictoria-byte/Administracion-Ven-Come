@@ -419,26 +419,30 @@ def Asistencias_view(request):
                 monto_final = cargas * 46.50
 
             else:
+                # 1. Obtener salario base del diccionario
                 salario_real = float(puestos_salarios.get(puesto_seleccionado, 0))
                 base_6h = salario_real
+                
+                # 2. Ajuste de base según la duración del puesto
                 if "(9 horas)" in puesto_seleccionado or "(9 Horas)" in puesto_seleccionado:
                     base_6h = salario_real / 1.5
                 elif "(12 Horas)" in puesto_seleccionado:
                     base_6h = salario_real / 2
 
+                # 3. Calcular lo devengado por cada turno (Mañana y Tarde)
                 pago_m = obtener_monto_bloque(base_6h, ent_m, sal_m)
                 pago_v = obtener_monto_bloque(base_6h, ent_v, sal_v)
                 
-                # --- CORRECCIÓN AQUÍ ---
-                # Guardamos la suma en monto_final primero
-                monto_final = pago_m + pago_v
+                # 4. Sumar el total trabajado en el día
+                total_trabajado_dia = pago_m + pago_v
                 
+                # 5. Aplicar multiplicador por Estatus Especial
                 multiplicador = 1.0
                 if estatus in ["Descanso trabajado", "Festivo"]:
                     multiplicador = 2.0
                 
-                # Ahora multiplicamos monto_final por sí mismo
-                monto_final = monto_final * multiplicador
+                # 6. Asignar resultado final a monto_final
+                monto_final = total_trabajado_dia * multiplicador
 
             # [Aquí continuaría el resto de tu lógica: calcular_puntos, validación de duplicados y .save()]
 
