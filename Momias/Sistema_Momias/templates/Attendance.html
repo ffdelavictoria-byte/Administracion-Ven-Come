@@ -379,13 +379,13 @@
                             EDITAR
                         </button>
 
-                        <form method="POST" id="form-eliminar-{{ registro.id }}" style="display:inline;">
+                         <form method="POST" id="form-eliminar-{{ registro.id }}" style="display:inline;">
                             {% csrf_token %}
                             <input type="hidden" name="eliminar_id" value="{{ registro.id }}">
                             <input type="hidden" name="clave_borrado" id="clave-{{ registro.id }}">
                             
-                            <button type="button" class="btn btn-danger" onclick="confirmarBorrado('{{ registro.id }}')">
-                                Eliminar
+                            <button type="button" class="btn-comic" onclick="confirmarBorrado('{{ registro.id }}')">
+                                <i class="fas fa-trash-alt"></i> ELIMINAR
                             </button>
                         </form>
 
