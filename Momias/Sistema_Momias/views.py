@@ -791,9 +791,7 @@ def Asistencias_FF_view(request):
     if query:
         palabras = query.split()
         q_busqueda = Q()
-
         for palabra in palabras:
-            # Creamos una condición AND: cada palabra debe estar en algún campo del empleado
             q_busqueda &= (
                 Q(empleado__nombre__icontains=palabra) | 
                 Q(empleado__apellido_paterno__icontains=palabra) |
@@ -802,17 +800,17 @@ def Asistencias_FF_view(request):
             )
         registros_qs = registros_qs.filter(q_busqueda).distinct()
 
-    registros = registros.order_by('-fecha', '-id')[:30]
+    # CORRECCIÓN AQUÍ: Usar registros_qs para definir registros
+    registros = registros_qs.order_by('-fecha', '-id')[:30]
 
     return render(request, 'AttendanceFF.html', {
-        'lista_puestos': puestos_salarios_ff.keys(),
+        'lista_puestos': list(puestos_salarios_ff.keys()), # Convertir a lista por seguridad
         'empleados': Empleado.objects.filter(estatus='Activo'),
         'registros': registros,
         'hoy': hoy_dt.strftime('%Y-%m-%d'),
         'puestos_json': json.dumps(puestos_salarios_ff),
         'semana_actual': semana_actual,
         'anio_actual': anio_actual,
-        # Al pasar cadenas vacías '', los inputs del HTML se verán limpios
         'fecha_filtro': fecha_filtro,
         'query': query,
     })
