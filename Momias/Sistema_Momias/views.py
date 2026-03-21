@@ -676,26 +676,30 @@ def Asistencias_FF_view(request):
                 messages.error(request, "¡ERROR! Ya existe un registro vespertino para este empleado.")
                 return redirect('asistenciasff')
 
-            # --- 3. CÁLCULO DE MONTO BASE ---
+
             monto_calculado = 0.0
             DESCANSO_ESPECIFICO = 138.00
             sueldos_fijos_ff = {"Produccion": 370.00, "Aux Produccion": 177.00}
 
             if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
                 monto_calculado = 0.0
+            
             elif estatus_jornada == "Descanso":
                 monto_calculado = DESCANSO_ESPECIFICO if puesto_seleccionado in ["Hamburguesas FF", "Tuppers"] else 0.0
+            
             elif puesto_seleccionado == "Hamburguesas FF":
                 cargas_ff = float(request.POST.get('cantidad_cargas') or 0)
                 cargas_momias = float(request.POST.get('cantidad_cargas_momias') or 0)
-                total_ff = cargas_ff * 62.00
-                total_momias = cargas_momias * 51.50
-                monto_calculado = total_ff + total_momias
+                monto_calculado = (cargas_ff * 62.00) + (cargas_momias * 51.50)
+            
             elif puesto_seleccionado == "Tuppers":
                 monto_calculado = float(request.POST.get('cantidad_cargas') or 0) * 46.50
+            
             elif puesto_seleccionado in sueldos_fijos_ff:
                 monto_calculado = float(sueldos_fijos_ff[puesto_seleccionado])
+            
             else:
+                # Cálculo por horas/bloques
                 base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
                 if "(9 horas)" in puesto_seleccionado or "9HRS" in puesto_seleccionado:
                     base_6h = base_real / 1.5
@@ -712,8 +716,8 @@ def Asistencias_FF_view(request):
                     else:
                         monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
 
-            # --- NUEVA LÓGICA: MULTIPLICADOR POR DÍA ESPECIAL ---
-            # Se aplica a todos los casos (Cargas, Fijos y Horas)
+            # --- APLICACIÓN DEL MULTIPLICADOR (ANTES DE BONOS) ---
+            # Esto evita que se cuatriplique el sueldo o se dupliquen los bonos
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calculado = monto_calculado * 2.0
 
