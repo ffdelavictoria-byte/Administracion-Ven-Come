@@ -429,6 +429,12 @@ def Asistencias_view(request):
                 pago_m = obtener_monto_bloque(base_6h, ent_m, sal_m)
                 pago_v = obtener_monto_bloque(base_6h, ent_v, sal_v)
                 monto_final = pago_m + pago_v
+                
+                multiplicador = 1.0
+                if estatus in ["Descanso trabajado", "Festivo"]:
+                    multiplicador = 2.0
+                
+                monto_final = monto_base_calculado * multiplicador
 
             # [Aquí continuaría el resto de tu lógica: calcular_puntos, validación de duplicados y .save()]
 
@@ -673,11 +679,9 @@ def Asistencias_FF_view(request):
                 monto_calculado = DESCANSO_ESPECIFICO if puesto_seleccionado in ["Hamburguesas FF", "Tuppers"] else 0.0
             elif puesto_seleccionado == "Hamburguesas FF":
                 cargas_ff = float(request.POST.get('cantidad_cargas') or 0)
-                cargas_momias = float(request.POST.get('cantidad_cargas_momias') or 0) # Nuevo campo
-                
+                cargas_momias = float(request.POST.get('cantidad_cargas_momias') or 0)
                 total_ff = cargas_ff * 62.00
                 total_momias = cargas_momias * 51.50
-                
                 monto_calculado = total_ff + total_momias
             elif puesto_seleccionado == "Tuppers":
                 monto_calculado = float(request.POST.get('cantidad_cargas') or 0) * 46.50
@@ -685,7 +689,6 @@ def Asistencias_FF_view(request):
                 monto_calculado = float(sueldos_fijos_ff[puesto_seleccionado])
             else:
                 base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
-                # Ajuste de base según horas del puesto
                 if "(9 horas)" in puesto_seleccionado or "9HRS" in puesto_seleccionado:
                     base_6h = base_real / 1.5
                 elif "(12 horas)" in puesto_seleccionado or "(12 Horas)" in puesto_seleccionado:
@@ -693,7 +696,6 @@ def Asistencias_FF_view(request):
                 else:
                     base_6h = base_real
 
-                # Lógica de Retardo R1 (Paga base completa sin importar horas)
                 if "R1" in [ent_m.upper(), sal_m.upper(), ent_v.upper(), sal_v.upper()]:
                     monto_calculado = base_real
                 else:
@@ -701,6 +703,11 @@ def Asistencias_FF_view(request):
                         monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_v)
                     else:
                         monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
+
+            # --- NUEVA LÓGICA: MULTIPLICADOR POR DÍA ESPECIAL ---
+            # Se aplica a todos los casos (Cargas, Fijos y Horas)
+            if estatus_jornada in ["Descanso trabajado", "Festivo"]:
+                monto_calculado = monto_calculado * 2.0
 
             # --- 4. INTEGRACIÓN DE BONOS Y DESCUENTOS ---
             bono = float(request.POST.get('bonificacion') or 0)
