@@ -1,6 +1,6 @@
 from django.db import models
 
-class ConfigSueldo(models.Model):
+class ConfigSalario(models.Model):
     puesto = models.CharField(max_length=150, unique=True)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     ultima_modificacion = models.DateTimeField(auto_now=True)
