@@ -140,12 +140,20 @@
                 {% for dia_list in n.dias %}
                     {% for t in dia_list %}
                     <span class="item-desglose">
-                        <b>{{ t.fecha_dia|slice:":1" }}</b>({{ t.fecha_dia|slice:"2:" }})
-                        {% if t.estatus == "DESCANSO" %} <span class="text-info">DESC</span>
-                        {% else %} <b>{{ t.cantidad_turnos }}T</b>{% endif %}
+                        <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
+                        
+                        {% if t.estatus == "DESCANSO" %} 
+                            <span class="text-info fw-bold">DESC</span>
+                        {% else %} 
+                            <b>{{ t.cantidad_turnos }}T</b>
+                        {% endif %}
+            
                         <span class="text-success">${{ t.pago_dia|floatformat:0 }}</span>
-                        {% if t.puesto and t.puesto != n.puesto_principal %}
-                            <small class="text-muted">[{{ t.puesto|slice:":4" }}]</small>
+            
+                        {% if t.puesto %}
+                            <small class="text-muted" style="font-size: 0.55rem;">
+                                [{{ t.puesto|slice:":4" }}]
+                            </small>
                         {% endif %}
                     </span>
                     {% endfor %}
