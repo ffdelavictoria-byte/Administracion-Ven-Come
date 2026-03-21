@@ -626,14 +626,14 @@ function verificarTodo() {
     function prepararEdicion(boton) {
     const d = boton.dataset;
     
-    // 1. Limpiar estados previos de horarios
+    // 1. Limpiar estados previos y resetear visibilidad de horarios
     resetHorarios();
     
     // 2. Cargar IDs básicos
     asistenciaIdInput.value = d.id;
     empleadoHidden.value = d.emp;
 
-    // 3. Buscar el nombre en el datalist para mostrarlo en el buscador visual
+    // 3. Sincronizar el buscador visual del empleado
     const opciones = datalist.options;
     for (let i = 0; i < opciones.length; i++) {
         if (opciones[i].getAttribute('data-id') == d.emp) {
@@ -642,51 +642,93 @@ function verificarTodo() {
         }
     }
 
-    // 4. Cargar datos de la jornada
+    // 4. Cargar datos generales de la jornada
     puestoSelect.value = d.pue;
     document.getElementById('fecha').value = d.fec;
     estatusJornada.value = d.est;
 
-    // 5. Cargar Bonificaciones y Descuentos (Montos y Motivos de texto libre)
+    // 5. Lógica de Horarios (Sincronización de Selects y Custom Inputs)
+    // Mapeamos las llaves del dataset a los IDs de los selectores
+    const mapeoHorarios = {
+        'mat': 'entrada_matutina',
+        'smat': 'salida_matutina',
+        'ves': 'entrada_vespertina',
+        'sves': 'salida_vespertina'
+    };
+
+    // Primero actualizamos las opciones del select según el puesto cargado
+    actualizarHorariosPorPuesto();
+
+    Object.entries(mapeoHorarios).forEach(([dataKey, selectId]) => {
+        const valorGuardado = d[dataKey];
+        const selectElement = document.getElementById(selectId);
+        const customInput = document.getElementById('custom_' + selectId);
+
+        if (valorGuardado && valorGuardado !== "None" && valorGuardado !== "") {
+            // Intentamos encontrar el valor en las opciones existentes
+            const existeOpcion = Array.from(selectElement.options).some(opt => opt.value === valorGuardado);
+
+            if (existeOpcion) {
+                selectElement.value = valorGuardado;
+            } else {
+                // Si el valor no está en la lista (es una hora manual), activamos el modo OTRO
+                selectElement.value = "OTRO";
+                selectElement.style.display = "none";
+                customInput.style.display = "block";
+                customInput.value = valorGuardado;
+                
+                // Actualizamos el valor del select para que el POST lo reconozca
+                const optionOtro = selectElement.querySelector('option[value="OTRO"]');
+                if (optionOtro) optionOtro.value = valorGuardado;
+            }
+        } else {
+            selectElement.value = "";
+        }
+    });
+
+    // 6. Cargar Bonificaciones y Descuentos
     document.getElementById('bonificacion').value = d.bon || 0;
     document.getElementById('motivo_bonificacion').value = d.mbon || "";
-    
     document.getElementById('descuento').value = d.des || 0;
     document.getElementById('motivo_descuento').value = d.mdes || "";
 
-    // 6. Cargar Observaciones
+    // 7. Cargar Observaciones
     document.getElementById('observaciones').value = d.obs || "";
 
-    // 7. Cambiar estética del botón principal para modo edición
+    // 8. Cambiar estética del botón a modo Edición
     btnPrincipal.innerText = "CORREGIR REGISTRO";
     btnPrincipal.style.background = "#FFC107";
     btnPrincipal.style.color = "black";
     
-    // 8. Ejecutar validaciones visuales (mostrar/ocultar campos de cargas, etc.)
+    // 9. IMPORTANTE: Ejecutar verificaciones visuales (Cargas FF/Sueldos sugeridos)
     verificarTodo();
     
-    // 9. Subir el scroll para que el usuario vea el formulario lleno
+    // 10. Scroll suave al inicio para editar
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-    // --- LIMPIAR FORMULARIO ---
-    // --- LIMPIAR FORMULARIO ---
+
     // --- LIMPIAR SOLO LA TABLA VISUAL ---
     function limpiarFormulario() {
-        const tablaBody = document.getElementById('tabla-asistencias-body');
-        
-        if (tablaBody) {
-            // Reemplazamos todo el contenido por una fila que indique que está vacío
-            tablaBody.innerHTML = `
-                <tr id="fila-vacia">
-                    <td colspan="6" style="text-align: center; padding: 20px; color: #999;">
-                        La tabla ha sido limpiada visualmente. 
-                        <br><small>(Los datos siguen en la base de datos)</small>
-                    </td>
-                </tr>
-            `;
-        }
-    }
+    // Reset del ID oculto para que no intente editar el anterior
+    document.getElementById('asistencia_id').value = "";
+    
+    // Reset del formulario completo
+    document.getElementById('formAsistencia').reset();
+    
+    // Limpiar campos visuales adicionales
+    document.getElementById('empleado_id_hidden').value = "";
+    document.getElementById('empleado_search').value = "";
+    document.getElementById('sueldo_sugerido').innerHTML = "";
+    
+    // Restaurar el botón a modo "Capturar"
+    const btn = document.getElementById('btn-principal');
+    btn.innerText = "CAPTURAR MOVIMIENTO";
+    btn.style.background = "var(--success-green)";
+    btn.style.color = "white";
+
+    verificarTodo(); // Para resetear estados de selects
+}
 
     // --- FUNCIÓN PARA BORRAR ---
     function eliminarRegistro(id, nombre) {
