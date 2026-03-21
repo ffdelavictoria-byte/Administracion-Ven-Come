@@ -280,7 +280,7 @@
         </div>
         <button type="submit" class="btn-comic btn-clear" style="padding: 10px 20px;">FILTRAR</button>
         
-        <a href="{% url 'asistenciasff' %}" class="btn-comic btn-delete" style="padding: 10px 20px;">LIMPIAR</a>
+        <a href="{% url 'asistenciasff' %}" class="btn-comic btn-delete" style="padding: 10px 20px;">LIMPIAR FILTROS</a>
     </form>
 </div>
 
@@ -638,22 +638,27 @@ function verificarTodo() {
 
     // --- FUNCIÓN PARA BORRAR ---
     function eliminarRegistro(id, nombre) {
-    // Verificación extra en JS
-        if (confirm(`¿Estás seguro de que deseas eliminar el registro de ${nombre}?`)) {
-            const formBorrar = document.createElement('form');
-            formBorrar.method = 'POST';
-            
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            
-            formBorrar.innerHTML = `
-                <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
-                <input type="hidden" name="eliminar_id" value="${id}">
-            `;
-            
-            document.body.appendChild(formBorrar);
-            formBorrar.submit();
-        }
+    // Pedir la contraseña al usuario
+    let clave = prompt(`⚠️ ELIMINAR REGISTRO DE: ${nombre}\n\nIngresa la clave de seguridad para confirmar:`);
+    
+    // Si el usuario cancela o deja vacío, no hace nada
+    if (clave !== null && clave !== "") {
+        const formBorrar = document.createElement('form');
+        formBorrar.method = 'POST';
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        // Agregamos el campo 'clave_borrado' que espera tu vista de Django
+        formBorrar.innerHTML = `
+            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+            <input type="hidden" name="eliminar_id" value="${id}">
+            <input type="hidden" name="clave_borrado" value="${clave}">
+        `;
+        
+        document.body.appendChild(formBorrar);
+        formBorrar.submit();
     }
+}
         puestoSelect.addEventListener('change', verificarTodo);
     window.onload = verificarTodo;
 </script>
