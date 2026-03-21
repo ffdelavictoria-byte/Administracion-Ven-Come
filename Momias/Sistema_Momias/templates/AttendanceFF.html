@@ -167,9 +167,18 @@
                 <div id="sueldo_sugerido"></div> 
             </div>
 
-            <div class="form-group" id="group_cargas" style="display:none;">
-                <label id="label_cargas">Cantidad de Cargas:</label>
-                <input type="number" step="0.1" name="cantidad_cargas" id="cantidad_cargas" value="0" oninput="verificarTodo()">
+            <div class="form-group" id="group_cargas" style="display:none; background: #e3f2fd; border: 2px dashed #1A237E; padding: 15px; border-radius: 10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label id="label_cargas" style="color: #1A237E;">Cargas FF ($62.00):</label>
+                        <input type="number" step="0.1" name="cantidad_cargas" id="cantidad_cargas" value="0" oninput="verificarTodo()">
+                    </div>
+                    <div id="div_momias_extra" style="display: none;">
+                        <label style="color: #9D174D;">Cargas Momias ($51.50):</label>
+                        <input type="number" step="0.1" name="cantidad_cargas_momias" id="cantidad_cargas_momias" value="0" oninput="verificarTodo()">
+                    </div>
+                </div>
+                <small style="display: block; margin-top: 5px; color: #666;">* Ingrese cantidades por separado, el sistema sumará ambos.</small>
             </div>
 
                         <div class="form-group">
@@ -546,10 +555,15 @@
     // --- FUNCIÓN MAESTRA DE VERIFICACIÓN ---
 function verificarTodo() {
     actualizarHorariosPorPuesto(); 
-        
+    
     const puesto = puestoSelect.value.trim();
     const estatus = estatusJornada.value;
-    const cargas = parseFloat(inputCargas.value) || 0;
+    
+    // Capturamos ambos valores de cargas
+    const cargasFF = parseFloat(document.getElementById('cantidad_cargas').value) || 0;
+    const cargasMomias = parseFloat(document.getElementById('cantidad_cargas_momias')?.value) || 0;
+    
+    const divMomiasExtra = document.getElementById('div_momias_extra');
     const sueldosFijos = { "Produccion": 370.00, "Aux Produccion": 177.00 };
     
     // Referencia al input de descuento para controlarlo
@@ -558,6 +572,7 @@ function verificarTodo() {
     // 1. Reset visual de horas y campos bloqueados
     [entMat, entVes, salMat, salVes].forEach(el => el.disabled = false);
     divCargas.style.display = "none";
+    if (divMomiasExtra) divMomiasExtra.style.display = "none"; // Ocultar momias por defecto
     inputMonto.readOnly = true;
 
     // 2. Lógica de Puestos Fijos (Producción)
@@ -577,15 +592,23 @@ function verificarTodo() {
     }
     else if (puesto === "Hamburguesas FF") {
         divCargas.style.display = "block";
-        inputMonto.value = (cargas * 62).toFixed(2);
-        sueldoMsg.innerHTML = `<b>Destajo: ${cargas} cargas ($62.00 c/u)</b>`;
+        if (divMomiasExtra) divMomiasExtra.style.display = "block"; // Mostrar campo de momias
+        
+        // Cálculo Mixto
+        let totalFF = cargasFF * 62.00;
+        let totalMomias = cargasMomias * 51.50;
+        let sumaTotal = totalFF + totalMomias;
+
+        inputMonto.value = sumaTotal.toFixed(2);
+        sueldoMsg.innerHTML = `<b style="color: #1A237E;">FF: $${totalFF.toFixed(2)}</b> + <b style="color: #9D174D;">Momias: $${totalMomias.toFixed(2)}</b> = <b>$${sumaTotal.toFixed(2)}</b>`;
     } 
     else if (puesto === "Tuppers") {
         divCargas.style.display = "block";
-        inputMonto.value = (cargas * 46.50).toFixed(2);
-        sueldoMsg.innerHTML = `<b>Destajo: ${cargas} unidades ($46.50 c/u)</b>`;
+        // Aquí no mostramos momias, solo el campo base de cargas
+        inputMonto.value = (cargasFF * 46.50).toFixed(2);
+        sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u)</b>`;
     }
-    // 4. Lógica Estándar
+    // 4. Lógica Estándar (Sueldos por hora/puesto)
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
         inputMonto.value = base.toFixed(2);
@@ -593,8 +616,6 @@ function verificarTodo() {
     }
 
     // --- CORRECCIÓN CRÍTICA ---
-    // Si el usuario no ha ingresado un descuento manualmente (o es 0), 
-    // nos aseguramos de que el campo esté en 0 para no arrastrar valores de ediciones previas.
     if (!inputDescuento.value || inputDescuento.value === "") {
         inputDescuento.value = "0";
     }
