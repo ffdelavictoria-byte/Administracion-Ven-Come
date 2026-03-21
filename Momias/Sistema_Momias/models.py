@@ -84,16 +84,6 @@ class Documento(models.Model):
     def __str__(self):
         return f"{self.nombre_archivo} ({self.empleado.nombre})"
         
-class DefinicionSueldosPuebla(models.Model): # Nombre totalmente nuevo
-    puesto_trabajo = models.CharField(max_length=150, unique=True)
-    pago_monto = models.DecimalField(max_digits=10, decimal_places=2)
-    fecha_actualizacion = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = 'tabla_sueldos_nueva' # Forzamos un nombre de tabla que NO exista
-
-    def __str__(self):
-        return f"{self.puesto_trabajo} - ${self.pago_monto}"
 
 
 
