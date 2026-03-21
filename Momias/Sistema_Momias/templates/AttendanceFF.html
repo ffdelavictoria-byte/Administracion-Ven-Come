@@ -233,25 +233,36 @@
             <div class="form-group">
                 <label>Bonificación ($):</label>
                 <div class="flex-row">
-                    <input type="number" name="bonificacion" id="bonificacion" step="0.01" value="0">
-                    <select name="motivo_bonificacion" id="motivo_bonificacion">
-                        <option value="">Motivo...</option>
-                        <option value="Error en nómina">Error en nómina</option>
-                        <option value="Gratificación">Gratificación</option>
-                        <option value="Otro">Otro</option>
-                    </select>
+                    <input type="number" 
+                           name="bonificacion" 
+                           id="bonificacion" 
+                           step="0.01" 
+                           value="0" 
+                           style="width: 30%;">
+                    
+                    <input type="text" 
+                           name="motivo_bonificacion" 
+                           id="motivo_bonificacion" 
+                           placeholder="Escriba el motivo aquí..."
+                           style="width: 70%;">
                 </div>
             </div>
-
+            
             <div class="form-group">
                 <label>Descuento ($):</label>
                 <div class="flex-row">
-                    <input type="number" name="descuento" id="descuento" step="0.01" value="0">
-                    <select name="motivo_descuento" id="motivo_descuento">
-                        <option value="">Motivo...</option>
-                        <option value="Error en nómina">Error en nómina</option>
-                        <option value="Otro">Otro</option>
-                    </select>
+                    <input type="number" 
+                           name="descuento" 
+                           id="descuento" 
+                           step="0.01" 
+                           value="0" 
+                           style="width: 30%;">
+                    
+                    <input type="text" 
+                           name="motivo_descuento" 
+                           id="motivo_descuento" 
+                           placeholder="Escriba el motivo aquí..."
+                           style="width: 70%;">
                 </div>
             </div>
 
@@ -318,6 +329,8 @@
                             data-sves="{{ registro.salida_vespertina }}"
                             data-est="{{ registro.estatus }}"
                             data-bon="{{ registro.bonificacion }}"
+                            data-mbon="{{ registro.motivo_bonificacion }}"
+                            data-mdes="{{ registro.motivo_descuento }}"
                             data-des="{{ registro.descuento }}"
                             data-obs="{{ registro.observaciones }}"
                             onclick="prepararEdicion(this)">EDITAR</button>
@@ -588,34 +601,50 @@ function verificarTodo() {
 }
     // --- PREPARAR EDICIÓN ---
     function prepararEdicion(boton) {
-        const d = boton.dataset;
-        resetHorarios();
-        asistenciaIdInput.value = d.id;
-        empleadoHidden.value = d.emp;
+    const d = boton.dataset;
+    
+    // 1. Limpiar estados previos de horarios
+    resetHorarios();
+    
+    // 2. Cargar IDs básicos
+    asistenciaIdInput.value = d.id;
+    empleadoHidden.value = d.emp;
 
-        // Buscar el nombre en el datalist para mostrarlo en el search
-        const opciones = datalist.options;
-        for (let i = 0; i < opciones.length; i++) {
-            if (opciones[i].getAttribute('data-id') == d.emp) {
-                empleadoSearch.value = opciones[i].value;
-                break;
-            }
+    // 3. Buscar el nombre en el datalist para mostrarlo en el buscador visual
+    const opciones = datalist.options;
+    for (let i = 0; i < opciones.length; i++) {
+        if (opciones[i].getAttribute('data-id') == d.emp) {
+            empleadoSearch.value = opciones[i].value;
+            break;
         }
-
-        puestoSelect.value = d.pue;
-        document.getElementById('fecha').value = d.fec;
-        estatusJornada.value = d.est;
-        document.getElementById('bonificacion').value = d.bon;
-        document.getElementById('descuento').value = d.des;
-        document.getElementById('observaciones').value = d.obs;
-
-        btnPrincipal.innerText = "CORREGIR REGISTRO";
-        btnPrincipal.style.background = "#FFC107";
-        btnPrincipal.style.color = "black";
-        
-        verificarTodo();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
+    // 4. Cargar datos de la jornada
+    puestoSelect.value = d.pue;
+    document.getElementById('fecha').value = d.fec;
+    estatusJornada.value = d.est;
+
+    // 5. Cargar Bonificaciones y Descuentos (Montos y Motivos de texto libre)
+    document.getElementById('bonificacion').value = d.bon || 0;
+    document.getElementById('motivo_bonificacion').value = d.mbon || "";
+    
+    document.getElementById('descuento').value = d.des || 0;
+    document.getElementById('motivo_descuento').value = d.mdes || "";
+
+    // 6. Cargar Observaciones
+    document.getElementById('observaciones').value = d.obs || "";
+
+    // 7. Cambiar estética del botón principal para modo edición
+    btnPrincipal.innerText = "CORREGIR REGISTRO";
+    btnPrincipal.style.background = "#FFC107";
+    btnPrincipal.style.color = "black";
+    
+    // 8. Ejecutar validaciones visuales (mostrar/ocultar campos de cargas, etc.)
+    verificarTodo();
+    
+    // 9. Subir el scroll para que el usuario vea el formulario lleno
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
     // --- LIMPIAR FORMULARIO ---
     // --- LIMPIAR FORMULARIO ---
