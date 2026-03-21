@@ -777,20 +777,30 @@ def Asistencias_FF_view(request):
     hoy_str = datetime.now().strftime('%Y-%m-%d')
     
     # Capturamos los parámetros de búsqueda del HTML
-    fecha_filtro = request.GET.get('fecha_filtro') or ''
-    query = request.GET.get('q') or ''
+    fecha_filtro = request.GET.get('fecha_filtro', '').strip()
+    query = request.GET.get('q', '').strip()
 
-    registros = Asistencia.objects.filter(sucursal="FastFood")
+    # Base de registros para FastFood
+    registros_qs = Asistencia.objects.filter(sucursal="FastFood")
 
+    # Filtro por Fecha
     if fecha_filtro:
-        registros = registros.filter(fecha=fecha_filtro)
+        registros_qs = registros_qs.filter(fecha=fecha_filtro)
     
+    # --- FILTRO SENSIBLE POR NOMBRE, APELLIDOS O CÓDIGO ---
     if query:
-        registros = registros.filter(
-            Q(empleado__nombre__icontains=query) | 
-            Q(empleado__apellido_paterno__icontains=query) |
-            Q(empleado__codigo_empleado__icontains=query)
-        )
+        palabras = query.split()
+        q_busqueda = Q()
+
+        for palabra in palabras:
+            # Creamos una condición AND: cada palabra debe estar en algún campo del empleado
+            q_busqueda &= (
+                Q(empleado__nombre__icontains=palabra) | 
+                Q(empleado__apellido_paterno__icontains=palabra) |
+                Q(empleado__apellido_materno__icontains=palabra) |
+                Q(empleado__codigo_empleado__icontains=palabra)
+            )
+        registros_qs = registros_qs.filter(q_busqueda).distinct()
 
     registros = registros.order_by('-fecha', '-id')[:30]
 
