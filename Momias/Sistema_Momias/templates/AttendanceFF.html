@@ -638,12 +638,11 @@ function verificarTodo() {
 
     // --- FUNCIÓN PARA BORRAR ---
     function eliminarRegistro(id, nombre) {
+    // Verificación extra en JS
         if (confirm(`¿Estás seguro de que deseas eliminar el registro de ${nombre}?`)) {
-            // Creamos un formulario temporal para enviar el POST
             const formBorrar = document.createElement('form');
             formBorrar.method = 'POST';
             
-            // El CSRF Token es necesario en Django
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             
             formBorrar.innerHTML = `
@@ -655,7 +654,7 @@ function verificarTodo() {
             formBorrar.submit();
         }
     }
-    puestoSelect.addEventListener('change', verificarTodo);
+        puestoSelect.addEventListener('change', verificarTodo);
     window.onload = verificarTodo;
 </script>
 </body>
