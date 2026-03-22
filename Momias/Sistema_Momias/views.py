@@ -769,11 +769,13 @@ def Asistencias_FF_view(request):
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calculado = monto_calculado * 2.0
 
-            # --- 4. INTEGRACIÓN DE BONOS Y DESCUENTOS ---
+            # --- 4. INTEGRACIÓN DE MONTOS PARA NÓMINA ---
             bono = float(request.POST.get('bonificacion') or 0)
-            desc = float(request.POST.get('descuento') or 0)
-            monto_final = monto_calculado + bono - desc - desc_retardo
-
+            desc_manual = float(request.POST.get('descuento') or 0)
+            
+            # ASIGNACIÓN CLAVE: El descuento de nómina es la suma del manual + el de retardo
+            descuento_para_nomina = desc_manual + desc_retardo
+            monto_final = monto_calculado + bono - descuento_para_nomina
 
             # --- 5. GESTIÓN DE INSTANCIA Y GUARDADO ---
             if asistencia_id and asistencia_id.isdigit():
@@ -785,23 +787,36 @@ def Asistencias_FF_view(request):
             asistencia.fecha = fecha_captura
             asistencia.estatus = estatus_jornada
             asistencia.puesto = puesto_seleccionado
-            asistencia.pago_dia = round(monto_final, 2)
             
-            # --- INTEGRACIÓN DE MOTIVOS ESCRITOS ---
-            # Estos campos deben existir en tu modelo 'Asistencia'
+            # VALORES QUE LEE LA NÓMINA:
+            asistencia.pago_dia = round(monto_final, 2)
             asistencia.bonificacion = bono
-            asistencia.descuento = desc
+            asistencia.descuento = descuento_para_nomina  # <--- Esto activa el "Desc: -$XXX" en rojo
+            
+            # TOTAL DE RETARDOS:
+            # La nómina suele leer el campo 'horas' para mostrar el número de retardos acumulados
+            asistencia.horas = float(total_r_semana) # <--- Esto activa el "Retardos: 2"
+            
+            # Guardamos las entradas/salidas
+            asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
+            asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
+
+            # Motivos y observaciones
             asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
             asistencia.motivo_descuento = request.POST.get('motivo_descuento')
             
-            # Campos adicionales de control
-            asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
-            asistencia.observaciones = request.POST.get('observaciones')
-            
-            # Puntos de retardo (calculados previamente en tu función)
-            asistencia.horas = float(total_puntos) if 'total_puntos' in locals() else 0.0
+            # Si hubo descuento por retardo, lo anotamos automáticamente en observaciones
+            obs_previas = request.POST.get('observaciones') or ""
+            if desc_retardo > 0:
+                asistencia.observaciones = f"{obs_previas} | Aplicado desc. por {total_r_semana} retardos.".strip()
+            else:
+                asistencia.observaciones = obs_previas
 
+            # UN SOLO SAVE AL FINAL
             asistencia.save()
+            
+            messages.success(request, f"✅ Registro Guardado. Retardos: {total_r_semana}")
+            return redirect('asistenciasff')
             
             
             def calcular_puntos(valor):
