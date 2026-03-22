@@ -430,7 +430,6 @@
     const familiaKey = mapaPuestos[puesto];
     const selectIds = ['entrada_matutina', 'salida_matutina', 'entrada_vespertina', 'salida_vespertina'];
 
-    // Función interna mejorada para formatear tiempo sin depender de la configuración regional del navegador
     const fmt = (hr, min) => {
         let totalMins = hr * 60 + min;
         let h = Math.floor(totalMins / 60) % 24;
@@ -440,7 +439,7 @@
 
     selectIds.forEach(id => {
         const select = document.getElementById(id);
-        if (!select) return; // Salto de seguridad si el elemento no existe
+        if (!select) return;
 
         const valorPrevio = select.value;
         select.disabled = false;
@@ -448,8 +447,11 @@
         // Reiniciar opciones
         select.innerHTML = '<option value="">--- No aplica ---</option><option value="OTRO">--- OTRO (Personalizado) ---</option>';
         
-        // 1. Lógica de bloqueo por familia de horario
-        if (familiaKey === "INTERMEDIO" || familiaKey === "INTERMEDIOh") {
+        // --- 1. LÓGICA DE BLOQUEO ACTUALIZADA ---
+        if (familiaKey === "JORNADA_12" || familiaKey === "JORNADA_12h") {
+            // Para jornadas de 12 horas, habilitamos todo siempre
+            select.disabled = false;
+        } else if (familiaKey === "INTERMEDIO" || familiaKey === "INTERMEDIOh") {
             if (id === 'salida_matutina' || id === 'entrada_vespertina') { 
                 select.disabled = true; 
                 select.value = ""; 
@@ -466,15 +468,14 @@
             }
         }
 
-        // 2. Poblado de opciones si el select está habilitado
+        // --- 2. POBLADO DE OPCIONES ---
         if (!select.disabled && familiaKey && familiaHorarios[familiaKey]) {
             const tipo = id.includes('entrada') ? 'entradas' : 'salidas';
             const opcionesBase = familiaHorarios[familiaKey][tipo] || [];
 
-            // Agregar horarios base (Ej: 09:00, 15:30)
             opcionesBase.forEach(h => select.add(new Option(h, h)));
             
-            // Generar rangos de retardo R1 y R2 (solo para Entradas)
+            // Generar R1 y R2 solo en entradas habilitadas
             if (id.includes('entrada') && opcionesBase.length > 0) {
                 const horaBaseStr = opcionesBase[0].split(' ')[0];
                 const [h, m] = horaBaseStr.split(':').map(Number);
@@ -491,11 +492,12 @@
             }
         }
         
-        // 3. Intentar restaurar el valor previo (si sigue existiendo en las nuevas opciones)
+        // --- 3. RESTAURACIÓN DE VALOR (MANUAL O PREVIO) ---
         if (valorPrevio && select.querySelector(`option[value="${valorPrevio}"]`)) {
             select.value = valorPrevio;
-        } else if (valorPrevio && valorPrevio.includes(':')) {
-            // Caso especial: Si era una hora manual ("OTRO"), restauramos el estado visual
+        } else if (valorPrevio && (valorPrevio.includes(':') || valorPrevio.startsWith('R'))) {
+            // Esto asegura que si ya había una hora manual o un retardo (R1/R2) seleccionado, 
+            // la opción "OTRO" adopte ese valor y no se bloquee.
             const optionOtro = select.querySelector('option[value="OTRO"]');
             if (optionOtro) {
                 optionOtro.value = valorPrevio;
