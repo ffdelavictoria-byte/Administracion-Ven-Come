@@ -1724,7 +1724,7 @@ def admin_cambiar_password(request, user_id):
     else:
         form = AdminPasswordChangeForm(usuario_objetivo)
     
-    return render(request, 'admin_cambiar_password.html', {
+    return render(request, 'Lista_Usuarios.html', {
         'form': form,
         'usuario_objetivo': usuario_objetivo
     })
