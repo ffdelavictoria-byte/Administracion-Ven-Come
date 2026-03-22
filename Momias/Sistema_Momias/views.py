@@ -1696,17 +1696,26 @@ def vista_reportes(request):
     }
     return render(request, 'Reports.html', context)
     
-@staff_member_required  # Solo usuarios con acceso al staff/admin
+from django.contrib.auth import update_session_auth_hash # <--- IMPORTANTE: No olvides esta importación
+
+@staff_member_required
 def admin_cambiar_password(request, user_id):
-    # Obtenemos al empleado (usuario) específico
     usuario_objetivo = get_object_or_404(User, id=user_id)
     
     if request.method == 'POST':
         form = AdminPasswordChangeForm(usuario_objetivo, request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, f'¡Contraseña de {usuario_objetivo.username} actualizada!')
-            return redirect('gestion_usuarios') # Cambia esto a tu lista de usuarios
+            user = form.save() # Guardamos el usuario con la nueva clave
+            
+            # --- EL TRUCO ESTÁ AQUÍ ---
+            # Si el usuario que estamos editando es el mismo que tiene la sesión iniciada...
+            if request.user == usuario_objetivo:
+                update_session_auth_hash(request, user) # Mantiene la sesión activa
+                messages.success(request, '¡Tu contraseña ha sido actualizada y tu sesión sigue activa!')
+            else:
+                messages.success(request, f'¡Contraseña de {usuario_objetivo.username} actualizada!')
+            
+            return redirect('lista_usuarios') # Asegúrate de que este nombre de URL sea el correcto
     else:
         form = AdminPasswordChangeForm(usuario_objetivo)
     
