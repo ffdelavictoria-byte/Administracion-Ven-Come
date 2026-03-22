@@ -1731,11 +1731,10 @@ def admin_cambiar_password(request, user_id):
 
 @staff_member_required
 def gestion_usuario_admin(request, user_id=None):
-    # Definimos el estado inicial
     edit_mode = False
     usuario_objetivo = None
 
-    # Si hay un ID, cambiamos al estado "Actualización"
+    # Si hay un ID, estamos en modo "Cambiar Password"
     if user_id:
         edit_mode = True
         usuario_objetivo = get_object_or_404(User, id=user_id)
@@ -1744,24 +1743,32 @@ def gestion_usuario_admin(request, user_id=None):
         pass1 = request.POST.get('password')
         pass2 = request.POST.get('password_confirm')
 
-        if pass1 != pass2:
-            messages.error(request, "¡Las contraseñas no coinciden, recluta!")
+        if not pass1 or pass1 != pass2:
+            messages.error(request, "¡Las contraseñas no coinciden o están vacías!")
         else:
             if edit_mode:
-                # Estado: Actualizar
+                # Actualizar contraseña existente
                 usuario_objetivo.set_password(pass1)
                 usuario_objetivo.save()
-                messages.success(request, f"¡Contraseña de {usuario_objetivo.username} actualizada!")
+                
+                # Si me estoy editando a mí mismo, mantengo la sesión
+                if request.user.id == usuario_objetivo.id:
+                    update_session_auth_hash(request, usuario_objetivo)
+                    messages.success(request, "¡Tu contraseña ha sido actualizada con éxito!")
+                else:
+                    messages.success(request, f"¡Contraseña de {usuario_objetivo.username} actualizada!")
             else:
-                # Estado: Nuevo Registro
+                # Crear nuevo usuario
                 username = request.POST.get('username')
                 if User.objects.filter(username=username).exists():
                     messages.error(request, "Ese nombre ya está en las filas.")
-                    return render(request, 'registro.html', {'edit_mode': edit_mode})
+                    return render(request, 'Register.html', {'edit_mode': edit_mode})
+                
                 User.objects.create_user(username=username, password=pass1)
                 messages.success(request, f"¡Recluta {username} registrado!")
             
-            return redirect('lista_usuarios')
+            # EL REDIRECT CORRECTO según tu urls.py
+            return redirect('lista_usuarios') 
 
     return render(request, 'Register.html', {
         'edit_mode': edit_mode,
@@ -1770,8 +1777,9 @@ def gestion_usuario_admin(request, user_id=None):
 
 @staff_member_required
 def borrar_usuario(request, user_id):
+    # Nota: Tu url usa 'usuario_id', asegúrate que el parámetro coincida
     if request.user.id == user_id:
-        messages.error(request, "¡No puedes borrarte a ti mismo, eres el líder!")
+        messages.error(request, "¡No puedes borrarte a ti mismo!")
         return redirect('lista_usuarios')
     
     usuario = get_object_or_404(User, id=user_id)
