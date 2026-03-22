@@ -1,4 +1,24 @@
 from django.db import models
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+class Perfil(models.Model):
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
+    can_ver_empleados = models.BooleanField(default=False)
+    can_ver_asistencias = models.BooleanField(default=False)
+    can_ver_nomina = models.BooleanField(default=False)
+    can_ver_reportes = models.BooleanField(default=False)
+    can_ver_sueldos = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Permisos de {self.usuario.username}"
+
+# Esto crea un perfil automático cada vez que registras un usuario nuevo
+@receiver(post_save, sender=User)
+def crear_perfil_usuario(sender, instance, created, **kwargs):
+    if created:
+        Perfil.objects.create(usuario=instance)
 
 class Empleado(models.Model):
     codigo_empleado = models.CharField(max_length=20, unique=True)
