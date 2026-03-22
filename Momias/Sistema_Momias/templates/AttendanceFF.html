@@ -502,11 +502,12 @@
         if (input.value) {
             const optionOtro = select.querySelector('option[value="OTRO"]');
             if (optionOtro) {
-                optionOtro.value = input.value;
+                optionOtro.value = input.value; // Aquí guardamos la hora real (ej: "10:30")
                 select.value = input.value;
             }
         }
-        verificarTodo();
+        // IMPORTANTE: Esto le avisa al resto del script que algo cambió
+        verificarTodo(); 
     }
 
     // --- CÁLCULO DE HORAS ---
@@ -568,14 +569,17 @@ function verificarTodo() {
     // 1. Reset visual de horas y campos bloqueados
     [entMat, entVes, salMat, salVes].forEach(el => el.disabled = false);
     divCargas.style.display = "none";
-    if (divMomiasExtra) divMomiasExtra.style.display = "none"; // Ocultar momias por defecto
+    if (divMomiasExtra) divMomiasExtra.style.display = "none"; 
     inputMonto.readOnly = true;
 
     // 2. Lógica de Puestos Fijos (Producción)
     if (sueldosFijos.hasOwnProperty(puesto)) {
         inputMonto.value = sueldosFijos[puesto].toFixed(2);
         sueldoMsg.innerHTML = `<b style="color: purple;">Producción: $${sueldosFijos[puesto].toFixed(2)} (Fijo)</b>`;
-        [entMat, entVes, salMat, salVes].forEach(el => el.disabled = true);
+        [entMat, entVes, salMat, salVes].forEach(el => {
+            el.disabled = true;
+            el.value = "";
+        });
     } 
     // 3. Lógica de Destajos y Estatus Especiales
     else if (["Falta", "Permiso", "Vacaciones"].includes(estatus)) {
@@ -588,9 +592,8 @@ function verificarTodo() {
     }
     else if (puesto === "Hamburguesas FF") {
         divCargas.style.display = "block";
-        if (divMomiasExtra) divMomiasExtra.style.display = "block"; // Mostrar campo de momias
+        if (divMomiasExtra) divMomiasExtra.style.display = "block"; 
         
-        // Cálculo Mixto
         let totalFF = cargasFF * 62.00;
         let totalMomias = cargasMomias * 51.50;
         let sumaTotal = totalFF + totalMomias;
@@ -600,7 +603,6 @@ function verificarTodo() {
     } 
     else if (puesto === "Tuppers") {
         divCargas.style.display = "block";
-        // Aquí no mostramos momias, solo el campo base de cargas
         inputMonto.value = (cargasFF * 46.50).toFixed(2);
         sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u)</b>`;
     }
@@ -608,10 +610,20 @@ function verificarTodo() {
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
         inputMonto.value = base.toFixed(2);
-        sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: blue;">(Retardos se aplicarán en cálculo final)</small>`;
+
+        // --- DETECCIÓN DE HORAS MANUALES ---
+        // Verificamos si algún selector tiene una hora manual (contiene ":")
+        const hayHoraManual = [entMat.value, salMat.value, entVes.value, salVes.value]
+                              .some(v => v && v.includes(":"));
+
+        if (hayHoraManual) {
+            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: #E53935; font-weight: bold;">⚠️ Hora personalizada detectada. El descuento se calculará al guardar.</small>`;
+        } else {
+            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: blue;">(Los retardos R1/R2 se aplicarán al guardar)</small>`;
+        }
     }
 
-    // --- CORRECCIÓN CRÍTICA ---
+    // --- CORRECCIÓN CRÍTICA DESCUENTOS ---
     if (!inputDescuento.value || inputDescuento.value === "") {
         inputDescuento.value = "0";
     }
