@@ -676,6 +676,28 @@ def Asistencias_FF_view(request):
                 return redirect('asistenciasff')
 
 
+            inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday())
+            
+            # Contamos retardos previos en la semana (Matutinos y Vespertinos)
+            r_previos = Asistencia.objects.filter(
+                empleado=empleado_obj,
+                fecha__range=[inicio_semana, fecha_dt - timedelta(days=1)]
+            ).filter(
+                Q(entrada_matutina__icontains='R1') | Q(entrada_vespertina__icontains='R1')
+            ).count()
+
+            # Verificamos si el registro actual es un retardo
+            es_r_actual = 1 if ('R1' in ent_m.upper() or 'R1' in ent_v.upper()) else 0
+            
+            total_r_semana = r_previos + es_r_actual
+            desc_retardo = 0.0
+            
+            # Si es el segundo (o cuarto, o sexto...) retardo, aplicamos descuento
+            if total_r_semana > 0 and total_r_semana % 2 == 0:
+                # Aquí defines cuánto descontar (ejemplo: 50 pesos)
+                desc_retardo = 50.00 
+            # --------------------------------------------------
+
             monto_calculado = 0.0
             DESCANSO_ESPECIFICO = 138.00
             sueldos_fijos_ff = {"Produccion": 370.00, "Aux Produccion": 177.00}
@@ -745,7 +767,7 @@ def Asistencias_FF_view(request):
             # --- 4. INTEGRACIÓN DE BONOS Y DESCUENTOS ---
             bono = float(request.POST.get('bonificacion') or 0)
             desc = float(request.POST.get('descuento') or 0)
-            monto_final = monto_calculado + bono - desc
+            monto_final = monto_calculado + bono - desc - desc_retardo
 
 
             # --- 5. GESTIÓN DE INSTANCIA Y GUARDADO ---
