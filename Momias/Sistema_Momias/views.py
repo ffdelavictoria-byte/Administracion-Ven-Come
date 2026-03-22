@@ -678,25 +678,30 @@ def Asistencias_FF_view(request):
 
             inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday())
             
-            # Contamos retardos previos en la semana (Matutinos y Vespertinos)
-            r_previos = Asistencia.objects.filter(
+            # 1. Buscamos TODOS los registros de la semana (incluyendo hoy)
+            # Excluimos el ID actual para no contar doble si estamos editando
+            registros_semana = Asistencia.objects.filter(
                 empleado=empleado_obj,
-                fecha__range=[inicio_semana, fecha_dt - timedelta(days=1)]
-            ).filter(
-                Q(entrada_matutina__icontains='R1') | Q(entrada_vespertina__icontains='R1')
-            ).count()
+                fecha__range=[inicio_semana, fecha_dt]
+            ).exclude(id=asistencia_id or -1)
 
-            # Verificamos si el registro actual es un retardo
-            es_r_actual = 1 if ('R1' in ent_m.upper() or 'R1' in ent_v.upper()) else 0
+            r_acumulados = 0
+            for reg in registros_semana:
+                if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper(): r_acumulados += 1
+                if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper(): r_acumulados += 1
+
+            # 2. Sumamos los R1 que vienen en el formulario actual
+            r_actuales = 0
+            if 'R1' in ent_m.upper(): r_actuales += 1
+            if 'R1' in ent_v.upper(): r_actuales += 1
             
-            total_r_semana = r_previos + es_r_actual
+            total_r_semana = r_acumulados + r_actuales
             desc_retardo = 0.0
             
-            # Si es el segundo (o cuarto, o sexto...) retardo, aplicamos descuento
+            # 3. Aplicamos el descuento de MEDIO TURNO si es par
             if total_r_semana > 0 and total_r_semana % 2 == 0:
-                # Aquí defines cuánto descontar (ejemplo: 50 pesos)
-                desc_retardo = 50.00 
-            # --------------------------------------------------
+                base_puesto_actual = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
+                desc_retardo = base_puesto_actual / 2  # <--- Aquí está el medio turno
 
             monto_calculado = 0.0
             DESCANSO_ESPECIFICO = 138.00
