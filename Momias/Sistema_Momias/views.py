@@ -698,34 +698,41 @@ def Asistencias_FF_view(request):
                 monto_calculado = float(sueldos_fijos_ff[puesto_seleccionado])
             
             else:
-                # 1. Obtener salario base
+                # 1. Obtener salario base y limpiar texto
                 base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
                 puesto_up = puesto_seleccionado.upper()
                 
-                # 2. DETERMINAR DIVISOR DE BASE (6h, 9h o 12h)
-                # Agregamos FIN DE SEMANA y GERENTE a las 12 horas
+                # 2. DETERMINAR EL DIVISOR SEGÚN LA JORNADA DEL PUESTO
+                # Esto nos da el "valor por hora" real de ese puesto específico
                 if "(9 HORAS)" in puesto_up or "9HRS" in puesto_up or "CREPAS" in puesto_up:
-                    base_6h = base_real / 1.5
+                    divisor_horas = 9.0
                 elif "(12 HORAS)" in puesto_up or "FIN DE SEMANA" in puesto_up or "GERENTE" in puesto_up:
-                    base_6h = base_real / 2  # Porque 12 horas son dos bloques de 6
+                    divisor_horas = 12.0
                 else:
-                    base_6h = base_real
+                    divisor_horas = 6.0 # Por defecto para turnos matutinos/vespertinos estándar
 
-                # 3. CÁLCULO SEGÚN TIPO DE TURNO
+                # 3. NORMALIZAR A BASE 6 (Para que sea compatible con obtener_monto_bloque)
+                # Tu función obtener_monto_bloque divide entre 6, así que ajustamos la base:
+                # Formula: (Sueldo_Original / Divisor_Real) * 6
+                base_6h_equivalente = (base_real / divisor_horas) * 6
+
+                # 4. CÁLCULO DE TIEMPO TRABAJADO
                 if "R1" in [ent_m.upper(), sal_m.upper(), ent_v.upper(), sal_v.upper()]:
                     monto_calculado = base_real
                 else:
-                    # Identificar si es un turno de bloque único (Largo)
+                    # Definimos si se trata como bloque único o doble
                     es_bloque_unico = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
                     
                     if es_bloque_unico:
-                        # Tomamos la entrada más temprana y la salida más tardía disponible
+                        # Rango total: desde la primera entrada hasta la última salida
                         inicio = ent_m if ent_m else ent_v
                         fin = sal_v if sal_v else sal_m
-                        monto_calculado = obtener_monto_bloque(base_6h, inicio, fin)
+                        monto_calculado = obtener_monto_bloque(base_6h_equivalente, inicio, fin)
                     else:
-                        # Suma normal de dos turnos de 6 horas
-                        monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
+                        # Suma de bloques independientes (Mañana + Tarde)
+                        pago_m = obtener_monto_bloque(base_6h_equivalente, ent_m, sal_m)
+                        pago_v = obtener_monto_bloque(base_6h_equivalente, ent_v, sal_v)
+                        monto_calculado = pago_m + pago_v
 
             # --- APLICACIÓN DEL MULTIPLICADOR (ANTES DE BONOS) ---
             # Esto evita que se cuatriplique el sueldo o se dupliquen los bonos
