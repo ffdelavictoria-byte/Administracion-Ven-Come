@@ -701,25 +701,31 @@ def Asistencias_FF_view(request):
             else:
                 # 1. Obtener salario base
                 base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
-                
-                # 2. CORRECCIÓN DE BASE: Añadimos "Crepas" a la validación de 9 horas
                 puesto_up = puesto_seleccionado.upper()
+                
+                # 2. DETERMINAR DIVISOR DE BASE (6h, 9h o 12h)
+                # Agregamos FIN DE SEMANA y GERENTE a las 12 horas
                 if "(9 HORAS)" in puesto_up or "9HRS" in puesto_up or "CREPAS" in puesto_up:
                     base_6h = base_real / 1.5
-                elif "(12 HORAS)" in puesto_up:
-                    base_6h = base_real / 2
+                elif "(12 HORAS)" in puesto_up or "FIN DE SEMANA" in puesto_up or "GERENTE" in puesto_up:
+                    base_6h = base_real / 2  # Porque 12 horas son dos bloques de 6
                 else:
                     base_6h = base_real
 
-                # 3. Cálculo de montos
+                # 3. CÁLCULO SEGÚN TIPO DE TURNO
                 if "R1" in [ent_m.upper(), sal_m.upper(), ent_v.upper(), sal_v.upper()]:
                     monto_calculado = base_real
                 else:
-                    # Si es Crepas o Intermedio, sumamos los campos de entrada/salida extremos
-                    if "INTERMEDIO" in puesto_up or "CREPAS" in puesto_up:
-                        salida_final = sal_v if sal_v else sal_m
-                        monto_calculado = obtener_monto_bloque(base_6h, ent_m, salida_final)
+                    # Identificar si es un turno de bloque único (Largo)
+                    es_bloque_unico = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
+                    
+                    if es_bloque_unico:
+                        # Tomamos la entrada más temprana y la salida más tardía disponible
+                        inicio = ent_m if ent_m else ent_v
+                        fin = sal_v if sal_v else sal_m
+                        monto_calculado = obtener_monto_bloque(base_6h, inicio, fin)
                     else:
+                        # Suma normal de dos turnos de 6 horas
                         monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
 
             # --- APLICACIÓN DEL MULTIPLICADOR (ANTES DE BONOS) ---
