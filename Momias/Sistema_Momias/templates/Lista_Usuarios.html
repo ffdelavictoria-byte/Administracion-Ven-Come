@@ -25,6 +25,10 @@
             background: var(--badge-super); color: white; font-size: 0.7rem; padding: 2px 8px;
             border-radius: 5px; font-family: 'Bangers', cursive; vertical-align: middle; margin-left: 5px;
         }
+        .badge-self {
+            background: #2196F3; color: white; font-size: 0.7rem; padding: 2px 8px;
+            border-radius: 5px; font-family: 'Bangers', cursive; vertical-align: middle; margin-left: 5px;
+        }
 
         /* Botones Estilo Cómic */
         .btn-action { 
@@ -43,6 +47,9 @@
         .btn-back:hover { color: var(--puebla-magenta); transform: translateX(-5px); }
         
         .alert { background: #d4edda; color: #155724; padding: 12px; border-radius: 8px; border: 2px solid #155724; margin-bottom: 15px; font-weight: bold; }
+        
+        /* Texto de bloqueo para usuario propio */
+        .self-block { font-size: 0.85rem; color: var(--puebla-magenta); font-weight: bold; display: block; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -70,6 +77,9 @@
                         {% if u.is_superuser %}
                             <span class="badge-admin">SUPER USER</span>
                         {% endif %}
+                        {% if u.id == request.user.id %}
+                            <span class="badge-self">TÚ</span>
+                        {% endif %}
                     </td>
                     <td>
                         <a href="{% url 'admin_cambiar_password' u.id %}" class="btn-action btn-edit">
@@ -77,13 +87,13 @@
                         </a>
 
                         {% if u.id != request.user.id %}
-                        <a href="{% url 'borrar_usuario' u.id %}" 
-                           class="btn-action btn-delete" 
-                           onclick="return confirm('¿Seguro que quieres borrar a este recluta? No habrá vuelta atrás desde la tumba.')">
-                            🗑️ BORRAR
-                        </a>
+                            <a href="{% url 'borrar_usuario' u.id %}" 
+                               class="btn-action btn-delete" 
+                               onclick="return confirm('¿Seguro que quieres borrar a este recluta? No habrá vuelta atrás desde la tumba.')">
+                                🗑️ BORRAR
+                            </a>
                         {% else %}
-                        <span style="font-size: 0.8rem; color: #999; font-style: italic;">(Eres tú)</span>
+                            <span class="self-block">🚫 EL LÍDER NO SE BORRA</span>
                         {% endif %}
                     </td>
                 </tr>
