@@ -430,42 +430,55 @@
     const familiaKey = mapaPuestos[puesto];
     const selectIds = ['entrada_matutina', 'salida_matutina', 'entrada_vespertina', 'salida_vespertina'];
 
+    // Función interna mejorada para formatear tiempo sin depender de la configuración regional del navegador
+    const fmt = (hr, min) => {
+        let totalMins = hr * 60 + min;
+        let h = Math.floor(totalMins / 60) % 24;
+        let m = totalMins % 60;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+
     selectIds.forEach(id => {
         const select = document.getElementById(id);
-        select.disabled = false;
+        if (!select) return; // Salto de seguridad si el elemento no existe
+
         const valorPrevio = select.value;
+        select.disabled = false;
         
+        // Reiniciar opciones
         select.innerHTML = '<option value="">--- No aplica ---</option><option value="OTRO">--- OTRO (Personalizado) ---</option>';
         
-        // Lógica de bloqueo (mantenemos tu estructura anterior)
-        if (familiaKey === "INTERMEDIO") {
-            if (id === 'salida_matutina' || id === 'entrada_vespertina') { select.disabled = true; select.value = ""; }
+        // 1. Lógica de bloqueo por familia de horario
+        if (familiaKey === "INTERMEDIO" || familiaKey === "INTERMEDIOh") {
+            if (id === 'salida_matutina' || id === 'entrada_vespertina') { 
+                select.disabled = true; 
+                select.value = ""; 
+            }
         } else if (familiaKey?.includes("MATUTINO")) {
-            if (id.includes('vespertina')) { select.disabled = true; select.value = ""; }
+            if (id.includes('vespertina')) { 
+                select.disabled = true; 
+                select.value = ""; 
+            }
         } else if (familiaKey?.includes("VESPERTINO")) {
-            if (id.includes('matutina')) { select.disabled = true; select.value = ""; }
+            if (id.includes('matutina')) { 
+                select.disabled = true; 
+                select.value = ""; 
+            }
         }
 
+        // 2. Poblado de opciones si el select está habilitado
         if (!select.disabled && familiaKey && familiaHorarios[familiaKey]) {
             const tipo = id.includes('entrada') ? 'entradas' : 'salidas';
-            const opcionesBase = familiaHorarios[familiaKey][tipo];
+            const opcionesBase = familiaHorarios[familiaKey][tipo] || [];
 
-            // 1. Agregar horarios base
+            // Agregar horarios base (Ej: 09:00, 15:30)
             opcionesBase.forEach(h => select.add(new Option(h, h)));
             
-            // 2. Generar R1 y R2 con tus reglas específicas
-            if (tipo === 'entradas' && opcionesBase.length > 0) {
+            // Generar rangos de retardo R1 y R2 (solo para Entradas)
+            if (id.includes('entrada') && opcionesBase.length > 0) {
                 const horaBaseStr = opcionesBase[0].split(' ')[0];
                 const [h, m] = horaBaseStr.split(':').map(Number);
                 
-                const fmt = (hr, min) => {
-                    let d = new Date(); d.setHours(hr, min, 0);
-                    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                };
-
-                // Normal: HH:MM a HH:MM+5
-                // R1: HH:MM+6 a HH:MM+10
-                // R2: HH:MM+11 a HH:MM+30
                 const rangos = [
                     { label: "R1", start: m + 6, end: m + 10 },
                     { label: "R2", start: m + 11, end: m + 30 }
@@ -478,7 +491,17 @@
             }
         }
         
-        if (select.querySelector(`option[value="${valorPrevio}"]`)) select.value = valorPrevio;
+        // 3. Intentar restaurar el valor previo (si sigue existiendo en las nuevas opciones)
+        if (valorPrevio && select.querySelector(`option[value="${valorPrevio}"]`)) {
+            select.value = valorPrevio;
+        } else if (valorPrevio && valorPrevio.includes(':')) {
+            // Caso especial: Si era una hora manual ("OTRO"), restauramos el estado visual
+            const optionOtro = select.querySelector('option[value="OTRO"]');
+            if (optionOtro) {
+                optionOtro.value = valorPrevio;
+                select.value = valorPrevio;
+            }
+        }
     });
 }
     // --- LÓGICA DE HORARIOS PERSONALIZADOS ---
@@ -496,19 +519,26 @@
         }
         verificarTodo();
     }
-
-    function sincronizarTiempo(input, selectId) {
-        const select = document.getElementById(selectId);
-        if (input.value) {
-            const optionOtro = select.querySelector('option[value="OTRO"]');
-            if (optionOtro) {
-                optionOtro.value = input.value; // Aquí guardamos la hora real (ej: "10:30")
-                select.value = input.value;
-            }
+function sincronizarTiempo(input, selectId) {
+    const select = document.getElementById(selectId);
+    if (input.value) {
+        let optionOtro = select.querySelector('option[value="OTRO"]');
+        if (!optionOtro) {
+            // Si por error se borró, la recreamos
+            optionOtro = new Option("--- OTRO ---", "OTRO");
+            select.add(optionOtro);
         }
-        // IMPORTANTE: Esto le avisa al resto del script que algo cambió
-        verificarTodo(); 
+        // Asignamos el valor del reloj directamente al value de la opción
+        optionOtro.value = input.value;
+        select.value = input.value;
+    } else {
+        // Si limpian el reloj, volvemos al estado inicial
+        const optionOtro = select.querySelector('option[text*="OTRO"]');
+        if (optionOtro) optionOtro.value = "OTRO";
+        select.value = "";
     }
+    verificarTodo(); 
+}
 
     // --- CÁLCULO DE HORAS ---
     function calcularHorasTrabajadas(inicio, fin) {
@@ -551,45 +581,42 @@
 
     // --- FUNCIÓN MAESTRA DE VERIFICACIÓN ---
 function verificarTodo() {
-    actualizarHorariosPorPuesto(); 
+    // ELIMINADO: actualizarHorariosPorPuesto() de aquí para evitar bucles.
     
     const puesto = puestoSelect.value.trim();
     const estatus = estatusJornada.value;
     
-    // Capturamos ambos valores de cargas
-    const cargasFF = parseFloat(document.getElementById('cantidad_cargas').value) || 0;
-    const cargasMomias = parseFloat(document.getElementById('cantidad_cargas_momias')?.value) || 0;
+    // Validar existencia de elementos antes de usarlos
+    const inputCargasMomias = document.getElementById('cantidad_cargas_momias');
+    const cargasFF = parseFloat(inputCargas.value) || 0;
+    const cargasMomias = inputCargasMomias ? (parseFloat(inputCargasMomias.value) || 0) : 0;
     
     const divMomiasExtra = document.getElementById('div_momias_extra');
     const sueldosFijos = { "Produccion": 370.00, "Aux Produccion": 177.00 };
-    
-    // Referencia al input de descuento para controlarlo
     const inputDescuento = document.getElementById('descuento');
 
-    // 1. Reset visual de horas y campos bloqueados
-    [entMat, entVes, salMat, salVes].forEach(el => el.disabled = false);
-    divCargas.style.display = "none";
-    if (divMomiasExtra) divMomiasExtra.style.display = "none"; 
+    // 1. Reset visual
     inputMonto.readOnly = true;
+    divCargas.style.display = "none";
+    if (divMomiasExtra) divMomiasExtra.style.display = "none";
 
-    // 2. Lógica de Puestos Fijos (Producción)
+    // 2. Lógica de Puestos Fijos
     if (sueldosFijos.hasOwnProperty(puesto)) {
-        inputMonto.value = sueldosFijos[puesto].toFixed(2);
-        sueldoMsg.innerHTML = `<b style="color: purple;">Producción: $${sueldosFijos[puesto].toFixed(2)} (Fijo)</b>`;
-        [entMat, entVes, salMat, salVes].forEach(el => {
-            el.disabled = true;
-            el.value = "";
-        });
+        const monto = sueldosFijos[puesto].toFixed(2);
+        inputMonto.value = monto;
+        sueldoMsg.innerHTML = `<b style="color: purple;">Producción: $${monto} (Fijo)</b>`;
     } 
-    // 3. Lógica de Destajos y Estatus Especiales
+    // 3. Estatus Especiales
     else if (["Falta", "Permiso", "Vacaciones"].includes(estatus)) {
         inputMonto.value = "0.00";
         sueldoMsg.innerHTML = `<span style="color: grey;">Sin pago por ${estatus}</span>`;
     } 
     else if (estatus === "Descanso") {
-        inputMonto.value = (puesto === "Hamburguesas FF" || puesto === "Tuppers") ? "138.00" : "0.00";
-        sueldoMsg.innerHTML = `<b>Descanso: $${inputMonto.value}</b>`;
+        const pagoDescanso = (puesto === "Hamburguesas FF" || puesto === "Tuppers") ? "138.00" : "0.00";
+        inputMonto.value = pagoDescanso;
+        sueldoMsg.innerHTML = `<b>Descanso: $${pagoDescanso}</b>`;
     }
+    // 4. Destajos
     else if (puesto === "Hamburguesas FF") {
         divCargas.style.display = "block";
         if (divMomiasExtra) divMomiasExtra.style.display = "block"; 
@@ -606,25 +633,22 @@ function verificarTodo() {
         inputMonto.value = (cargasFF * 46.50).toFixed(2);
         sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u)</b>`;
     }
-    // 4. Lógica Estándar (Sueldos por hora/puesto)
+    // 5. Sueldo por Puesto (Base)
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
         inputMonto.value = base.toFixed(2);
 
-        // --- DETECCIÓN DE HORAS MANUALES ---
-        // Verificamos si algún selector tiene una hora manual (contiene ":")
         const hayHoraManual = [entMat.value, salMat.value, entVes.value, salVes.value]
                               .some(v => v && v.includes(":"));
 
         if (hayHoraManual) {
-            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: #E53935; font-weight: bold;">⚠️ Hora personalizada detectada. El descuento se calculará al guardar.</small>`;
+            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: #E53935; font-weight: bold;">⚠️ Hora manual: El descuento se calculará en sistema.</small>`;
         } else {
-            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: blue;">(Los retardos R1/R2 se aplicarán al guardar)</small>`;
+            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: blue;">(Retardos R1/R2 automáticos)</small>`;
         }
     }
 
-    // --- CORRECCIÓN CRÍTICA DESCUENTOS ---
-    if (!inputDescuento.value || inputDescuento.value === "") {
+    if (inputDescuento && (!inputDescuento.value || inputDescuento.value === "")) {
         inputDescuento.value = "0";
     }
 }
@@ -759,8 +783,24 @@ function verificarTodo() {
         formBorrar.submit();
     }
 }
-        puestoSelect.addEventListener('change', verificarTodo);
-    window.onload = verificarTodo;
+        // Eventos de cambio
+puestoSelect.addEventListener('change', function() {
+    actualizarHorariosPorPuesto(); // Primero reconstruye los selects
+    verificarTodo();               // Luego calcula montos
+});
+
+estatusJornada.addEventListener('change', verificarTodo);
+inputCargas.addEventListener('input', verificarTodo);
+
+// Si tienes el input de momias, también escúchalo
+const inputMomias = document.getElementById('cantidad_cargas_momias');
+if (inputMomias) inputMomias.addEventListener('input', verificarTodo);
+
+// Ejecución inicial
+window.onload = function() {
+    actualizarHorariosPorPuesto();
+    verificarTodo();
+};
 </script>
 </body>
 </html>
