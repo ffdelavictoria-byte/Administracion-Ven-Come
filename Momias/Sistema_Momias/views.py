@@ -920,6 +920,11 @@ def Lista_Usuarios_View(request):
     if not request.user.is_superuser:
         return redirect('main')
     
+    # CAMBIO: Quitamos el exclude para que TÚ también aparezcas en la tabla
+    usuarios = User.objects.all().order_by('username')
+    
+    return render(request, 'Lista_Usuarios.html', {'usuarios': usuarios})
+    
     # Obtenemos todos los usuarios excepto al superusuario logueado (para que no se borre a sí mismo por error)
     usuarios = User.objects.exclude(id=request.user.id)
     return render(request, 'Lista_Usuarios.html', {'usuarios': usuarios})
