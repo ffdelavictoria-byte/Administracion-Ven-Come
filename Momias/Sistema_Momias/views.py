@@ -580,7 +580,6 @@ def Asistencias_FF_view(request):
         "Limpieza 2 Matutino (6 horas)": 236.50,
         "Limpieza 3 Vespertino (6 horas A)": 272.00,
         "Limpieza 4 Vespertino (6 horas)": 236.50,
-        "Fin de Semana": 473.00,
         "Aux Produccion": 177.00,
         "Produccion": 370.00,
         "Hamburguesas FF": 0.0,
