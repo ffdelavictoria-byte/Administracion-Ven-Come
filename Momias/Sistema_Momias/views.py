@@ -711,9 +711,16 @@ def Asistencias_FF_view(request):
                 if "R1" in [ent_m.upper(), sal_m.upper(), ent_v.upper(), sal_v.upper()]:
                     monto_calculado = base_real
                 else:
-                    if "INTERMEDIO" in puesto_seleccionado.upper():
-                        monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_v)
+                    # Agregamos "CREPAS" a la lista de excepciones intermedias
+                    es_intermedio = "INTERMEDIO" in puesto_seleccionado.upper() or "CREPAS" in puesto_seleccionado.upper()
+                    
+                    if es_intermedio:
+                        # Calculamos desde la primera entrada hasta la última salida
+                        # Usamos sal_v si existe, de lo contrario sal_m
+                        salida_final = sal_v if sal_v else sal_m
+                        monto_calculado = obtener_monto_bloque(base_6h, ent_m, salida_final)
                     else:
+                        # Cálculo estándar: suma de dos bloques independientes
                         monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
 
             # --- APLICACIÓN DEL MULTIPLICADOR (ANTES DE BONOS) ---
