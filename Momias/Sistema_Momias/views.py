@@ -699,28 +699,27 @@ def Asistencias_FF_view(request):
                 monto_calculado = float(sueldos_fijos_ff[puesto_seleccionado])
             
             else:
-                # Cálculo por horas/bloques
+                # 1. Obtener salario base
                 base_real = float(puestos_salarios_ff.get(puesto_seleccionado, 0))
-                if "(9 horas)" in puesto_seleccionado or "9HRS" in puesto_seleccionado:
+                
+                # 2. CORRECCIÓN DE BASE: Añadimos "Crepas" a la validación de 9 horas
+                puesto_up = puesto_seleccionado.upper()
+                if "(9 HORAS)" in puesto_up or "9HRS" in puesto_up or "CREPAS" in puesto_up:
                     base_6h = base_real / 1.5
-                elif "(12 horas)" in puesto_seleccionado or "(12 Horas)" in puesto_seleccionado:
+                elif "(12 HORAS)" in puesto_up:
                     base_6h = base_real / 2
                 else:
                     base_6h = base_real
 
+                # 3. Cálculo de montos
                 if "R1" in [ent_m.upper(), sal_m.upper(), ent_v.upper(), sal_v.upper()]:
                     monto_calculado = base_real
                 else:
-                    # Agregamos "CREPAS" a la lista de excepciones intermedias
-                    es_intermedio = "INTERMEDIO" in puesto_seleccionado.upper() or "CREPAS" in puesto_seleccionado.upper()
-                    
-                    if es_intermedio:
-                        # Calculamos desde la primera entrada hasta la última salida
-                        # Usamos sal_v si existe, de lo contrario sal_m
+                    # Si es Crepas o Intermedio, sumamos los campos de entrada/salida extremos
+                    if "INTERMEDIO" in puesto_up or "CREPAS" in puesto_up:
                         salida_final = sal_v if sal_v else sal_m
                         monto_calculado = obtener_monto_bloque(base_6h, ent_m, salida_final)
                     else:
-                        # Cálculo estándar: suma de dos bloques independientes
                         monto_calculado = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
 
             # --- APLICACIÓN DEL MULTIPLICADOR (ANTES DE BONOS) ---
