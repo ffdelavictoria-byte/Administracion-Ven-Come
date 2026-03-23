@@ -1699,6 +1699,14 @@ def borrar_usuario(request, user_id):
 def gestion_sueldos(request):
     try:
         if request.method == 'POST':
+            # 1. LÓGICA DE ELIMINACIÓN
+            puesto_a_borrar = request.POST.get('eliminar_puesto')
+            if puesto_a_borrar:
+                ConfigSueldo.objects.filter(puesto=puesto_a_borrar).delete()
+                # messages.success(request, f"💥 {puesto_a_borrar} eliminado.") # Opcional: Desactivado
+                return redirect('gestion_sueldos')
+
+            # 2. LÓGICA DE EDICIÓN / CREACIÓN
             puesto_editar = request.POST.get('puesto_nombre')
             puesto_nuevo = request.POST.get('nuevo_puesto_nombre')
             monto_raw = request.POST.get('nuevo_monto')
@@ -1710,26 +1718,27 @@ def gestion_sueldos(request):
                 monto = 0.0
 
             if puesto_editar:
+                # Edición de monto
                 puesto_obj = ConfigSueldo.objects.filter(puesto=puesto_editar).first()
                 if puesto_obj:
                     puesto_obj.monto = monto
                     puesto_obj.save()
-                    messages.success(request, f"¡ZAP! {puesto_editar} actualizado.")
+                    # messages.success(request, f"¡ZAP! {puesto_editar} actualizado.") # Desactivado
             
             elif puesto_nuevo:
-                if ConfigSueldo.objects.filter(puesto=puesto_nuevo).exists():
-                    messages.error(request, "¡RAYOS! Ese puesto ya existe.")
-                else:
+                # Creación de nuevo puesto
+                if not ConfigSueldo.objects.filter(puesto=puesto_nuevo).exists():
                     ConfigSueldo.objects.create(puesto=puesto_nuevo, monto=monto)
-                    messages.success(request, f"¡BOOM! {puesto_nuevo} creado.")
+                    # messages.success(request, f"¡BOOM! {puesto_nuevo} creado.") # Desactivado
+                # else:
+                #     messages.error(request, "¡RAYOS! Ese puesto ya existe.") # Desactivado
 
             return redirect('gestion_sueldos')
 
-        # Si es GET, cargamos la lista
+        # 3. LÓGICA GET (Carga de lista)
         sueldos = ConfigSueldo.objects.all().order_by('puesto')
         return render(request, 'Wages.html', {'sueldos': sueldos})
 
     except Exception as e:
         # Esto evitará el 500 genérico y te dirá qué pasa realmente
-        from django.http import HttpResponse
         return HttpResponse(f"Error crítico en la vista: {e}", status=500)
