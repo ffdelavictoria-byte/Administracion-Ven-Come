@@ -406,19 +406,23 @@ def Asistencias_view(request):
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
-            # 0. VALIDACIÓN DE SEGURIDAD: Bloqueo por semana actual
+            # 0. VALIDACIÓN DE SEGURIDAD MEJORADA
             fecha_captura_str = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura_str, '%Y-%m-%d').date()
             
             hoy_dt = date.today()
-            semana_actual = hoy_dt.isocalendar()[1]
-            anio_actual = hoy_dt.isocalendar()[0]
             
-            semana_registro = fecha_dt.isocalendar()[1]
-            anio_registro = fecha_dt.isocalendar()[0]
+            # Calculamos la diferencia de días
+            diferencia_dias = (hoy_dt - fecha_dt).days
 
-            if semana_registro != semana_actual or anio_registro != anio_actual:
-                messages.error(request, "⚠️ Error: Solo se permite gestionar asistencias de la semana actual.")
+            # REGLA: No dejar guardar si la fecha es del FUTURO 
+            # o si es de hace más de 8 días (para asegurar que sea la semana en curso o cierre de la anterior)
+            if diferencia_dias < 0:
+                messages.error(request, "⚠️ No puedes registrar fechas futuras.")
+                return redirect('asistencias')
+            
+            if diferencia_dias > 8:
+                messages.error(request, "🔒 Registro bloqueado: La fecha es demasiado antigua (más de 8 días).")
                 return redirect('asistencias')
 
             # --- LÓGICA DINÁMICA DE SUELDOS ---
