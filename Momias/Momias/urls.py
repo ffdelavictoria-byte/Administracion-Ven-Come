@@ -24,6 +24,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Ruta raíz: Mandamos el inicio directamente al Login
     path('', Login_View, name='login'), # Esta es la que reconoce el formulario 
+    path('actualizar-permisos/', actualizar_permisos_masivo, name='actualizar_permisos_masivo'),
     
     # Si prefieres mantener /login/ explícito, usa este name:
     path('login/', Login_View, name='login_page'), 
