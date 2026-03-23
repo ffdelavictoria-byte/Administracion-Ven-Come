@@ -1509,7 +1509,8 @@ def vista_reportes(request):
         "Produccion": 370.00,
         "Hamburguesas FF": 0.0,
     }
-
+    
+    FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
     agrupados_dict = {}
     resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0, 'total_turnos': 0, 'total_descuentos': 0}
 
@@ -1538,64 +1539,86 @@ def vista_reportes(request):
         for asis in asistencias_query:
             emp = asis.empleado
             estatus_limpio = (asis.estatus or "").strip().upper()
-            
             es_descanso = "DESCANSO" in estatus_limpio
             pue_original = asis.puesto or emp.puesto or "GENERAL"
-            pue_display = "DESCANSO" if es_descanso else pue_original
             suc = asis.sucursal or "Victoria"
-
-            # Detección de turnos
-            cantidad_turnos = 2 if (asis.entrada_matutina and asis.salida_vespertina) else 1
             
-            pago_dia = float(asis.pago_dia or 0)
+            # --- LÓGICA DE RECONSTRUCCIÓN DE MONTO BASE ---
+            salario_referencia = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
+            
+            # Si el pago_dia es 0 (típico en descansos), usamos el salario de referencia
+            pago_registrado = float(asis.pago_dia or 0)
+            if pago_registrado > 0:
+                pago_base_dia = pago_registrado
+            else:
+                # Si es descanso, se le asigna su salario base; de lo contrario queda en 0
+                pago_base_dia = salario_referencia if es_descanso else 0
+
             bono_dia = float(asis.bonificacion or 0)
             desc_manual = float(asis.descuento or 0)
-            
             puntos_retardo = int(float(asis.horas or 0))
-            salario_ref = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
-            
-            # Cálculo de descuento por retardo (Si aplica)
-            desc_retardo_inf = (salario_ref / 6) * puntos_retardo if (not es_descanso and puntos_retardo > 0) else 0
 
-            # Llave única por empleado, sucursal y puesto para agrupar
+            # --- CÁLCULO DE DESCUENTO POR RETARDO GENUINO ---
+            # Definimos FACTORES aquí mismo si no lo tienes global
+            FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
+            factor = FACTORES_RETARDO.get(puntos_retardo, 0)
+            
+            # Determinamos el valor del turno según el puesto
+            if "9 horas" in pue_original.lower():
+                valor_turno = salario_referencia / 1.5
+            elif "12 horas" in pue_original.lower():
+                valor_turno = salario_referencia / 2
+            else:
+                valor_turno = salario_referencia # Por defecto (6 horas o similar)
+
+            desc_retardo_calculado = valor_turno * factor if (not es_descanso) else 0
+            monto_descuento_total_dia = desc_manual + desc_retardo_calculado
+
+            # --- DETECCIÓN DE TURNOS ---
+            cantidad_turnos = 2 if (asis.entrada_matutina and asis.salida_vespertina) else 1
+
+            # --- AGRUPACIÓN ---
+            pue_display = "DESCANSO" if es_descanso else pue_original
             key = (emp.id, suc, pue_display)
+            
             if key not in agrupados_dict:
                 agrupados_dict[key] = {
                     'empleado': f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip(),
-                    'sucursal': suc, 
+                    'sucursal': suc,
                     'puesto': pue_display,
-                    'total_turnos': 0, 
+                    'total_turnos': 0,
                     'total_retardos': 0,
-                    'monto_descuentos': 0.0, 
-                    'motivos_descuentos': [],
-                    'total_bonos': 0.0, 
-                    'total_fila': 0.0
+                    'monto_descuentos': 0.0,
+                    'total_bonos': 0.0,
+                    'total_fila': 0.0,
+                    'motivos_descuentos': []
                 }
-            
+
             fila = agrupados_dict[key]
             
-            # Gestión de motivos de descuento únicos
+            # Gestión de motivos
             if asis.motivo_descuento:
                 m_txt = str(asis.motivo_descuento).strip()
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
+            # Acumuladores por fila
             fila['total_turnos'] += cantidad_turnos
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
-            fila['monto_descuentos'] += (desc_manual + desc_retardo_inf)
+            fila['monto_descuentos'] += monto_descuento_total_dia
             
-            # Pago Neto = (Pago del día + Bonos) - Descuentos
-            pago_neto_dia = (pago_dia + bono_dia) - desc_manual
+            # PAGO NETO REAL DEL DÍA
+            pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
 
-            # Acumuladores Globales
+            # --- ACTUALIZAR RESUMEN GLOBAL ---
             resumen_global['total_pagar'] += pago_neto_dia
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
-            resumen_global['total_descuentos'] += (desc_manual + desc_retardo_inf)
+            resumen_global['total_descuentos'] += monto_descuento_total_dia
             resumen_global['total_turnos'] += cantidad_turnos
-
+            
     # Ordenar resultados por nombre de empleado
     lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
 
