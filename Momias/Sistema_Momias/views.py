@@ -598,6 +598,7 @@ def Asistencias_view(request):
         'empleados': Empleado.objects.filter(estatus='Activo'),
         'registros': page_obj,
         'hoy': hoy_dt.strftime('%Y-%m-%d'),
+        'limite_bloqueo': limite_bloqueo, # <--- AGREGA ESTO
         'puestos_json': json.dumps(puestos_salarios_dinamico),
         'fecha_filtro': fecha_filtro or '', 
         'query': query or '',
