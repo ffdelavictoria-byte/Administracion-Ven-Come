@@ -592,7 +592,7 @@ def Asistencias_view(request):
         'lista_puestos': sorted(puestos_salarios_dinamico.keys()), 
         'empleados': Empleado.objects.filter(estatus='Activo'),
         'registros': page_obj,
-        'hoy': datetime.now().strftime('%Y-%m-%d'),
+        'hoy': hoy_dt.strftime('%Y-%m-%d'),
         'puestos_json': json.dumps(puestos_salarios_dinamico),
         'fecha_filtro': fecha_filtro or '', 
         'query': query or '',
