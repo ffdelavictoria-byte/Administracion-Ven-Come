@@ -189,53 +189,53 @@
                 <input type="hidden" name="monto_dia" id="monto_dia">
             </div>
 
-            <div class="form-group">
-                <label>Entrada Matutina:</label>
-                <select name="entrada_matutina" id="entrada_matutina">
-                    <option value="OTRO">OTRO (Manual)</option>
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="09:00">09:00 - 09:05</option>
-                    <option value="R2">09:06 - 09:10 (R1)</option>
-                    <option value="R3">09:11 - 10:00 (R2)</option>
-                </select>
-                <input type="time" id="custom_entrada_matutina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_matutina')">
-            </div>
+            <div class="form-group" id="fila_entrada_mat">
+    <label>Entrada Matutina:</label>
+    <select name="entrada_matutina" id="entrada_matutina">
+        <option value="OTRO">OTRO (Manual)</option>
+        <option value="" selected>--- No aplica ---</option>
+        <option value="09:00">09:00 - 09:05</option>
+        <option value="R2">09:06 - 09:10 (R1)</option>
+        <option value="R3">09:11 - 10:00 (R2)</option>
+    </select>
+    <input type="time" id="custom_entrada_matutina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_matutina')">
+</div>
 
-            <div class="form-group">
-                <label>Salida Matutina:</label>
-                <select name="salida_matutina" id="salida_matutina">
-                    <option value="OTRO">OTRO (Manual)</option>
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="15:00">15:00 (Normal)</option>
-                    <option value="15:30">15:30</option>
-                    <option value="16:00">16:00</option>        
-                </select>
-                <input type="time" id="custom_salida_matutina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_matutina')">
-            </div>
+<div class="form-group" id="fila_salida_mat">
+    <label>Salida Matutina:</label>
+    <select name="salida_matutina" id="salida_matutina">
+        <option value="OTRO">OTRO (Manual)</option>
+        <option value="" selected>--- No aplica ---</option>
+        <option value="15:00">15:00 (Normal)</option>
+        <option value="15:30">15:30</option>
+        <option value="16:00">16:00</option>        
+    </select>
+    <input type="time" id="custom_salida_matutina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_matutina')">
+</div>
 
-            <div class="form-group">
-                <label>Entrada Vespertina:</label>
-                <select name="entrada_vespertina" id="entrada_vespertina">
-                    <option value="OTRO">OTRO (Manual)</option>
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="15:00">15:00 - 15:05</option>
-                    <option value="R2">15:06 - 15:10 (R1)</option>
-                    <option value="R3">15:11 - 16:00 (R2)</option>
-                </select>
-                <input type="time" id="custom_entrada_vespertina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_vespertina')">
-            </div>
+<div class="form-group" id="fila_entrada_ves">
+    <label>Entrada Vespertina:</label>
+    <select name="entrada_vespertina" id="entrada_vespertina">
+        <option value="OTRO">OTRO (Manual)</option>
+        <option value="" selected>--- No aplica ---</option>
+        <option value="15:00">15:00 - 15:05</option>
+        <option value="R2">15:06 - 15:10 (R1)</option>
+        <option value="R3">15:11 - 16:00 (R2)</option>
+    </select>
+    <input type="time" id="custom_entrada_vespertina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_vespertina')">
+</div>
 
-            <div class="form-group">
-                <label>Salida Vespertina:</label>
-                <select name="salida_vespertina" id="salida_vespertina">
-                    <option value="OTRO">OTRO (Manual)</option>
-                    <option value="" selected>--- No aplica ---</option>
-                    <option value="21:00">21:00 (Normal)</option>
-                    <option value="21:30">21:30</option>
-                    <option value="22:00">22:00</option>
-                </select>
-                <input type="time" id="custom_salida_vespertina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_vespertina')">
-            </div>
+<div class="form-group" id="fila_salida_ves">
+    <label>Salida Vespertina:</label>
+    <select name="salida_vespertina" id="salida_vespertina">
+        <option value="OTRO">OTRO (Manual)</option>
+        <option value="" selected>--- No aplica ---</option>
+        <option value="21:00">21:00 (Normal)</option>
+        <option value="21:30">21:30</option>
+        <option value="22:00">22:00</option>
+    </select>
+    <input type="time" id="custom_salida_vespertina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_vespertina')">
+</div>
 
             <div class="form-group">
                 <label>Estatus Jornada:</label>
@@ -629,6 +629,28 @@
     
     const esModoEdicion = asistenciaIdInput.value !== ""; 
     
+    // --- LÓGICA DE VISIBILIDAD DE HORARIOS (ESPECÍFICO PARA PUESTO BENNY) ---
+    const idsHorarios = ['fila_entrada_mat', 'fila_salida_mat', 'fila_entrada_ves', 'fila_salida_ves'];
+    
+    if (puesto === "Benny") {
+        // Ocultar los contenedores de horario
+        idsHorarios.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = "none";
+        });
+        // Limpiar los valores de los selects para que no afecten el cálculo
+        entMat.value = ""; 
+        salMat.value = "";
+        entVes.value = "";
+        salVes.value = "";
+    } else {
+        // Mostrar los horarios para todos los demás puestos
+        idsHorarios.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = "block";
+        });
+    }
+
     // --- ESTADO DEL BOTÓN ---
     if (esModoEdicion) {
         btnPrincipal.innerText = "CORREGIR REGISTRO";
@@ -641,7 +663,6 @@
     }
 
     // 1. Visibilidad de Cargas (SOLO TUPPERS)
-    // ELIMINADO: Hamburguesas Momias
     if (puesto === "Tuppers") {
         divCargas.style.display = "block";
         labelCargas.innerText = "Cantidad de Tuppers ($46.50 c/u):";
@@ -658,7 +679,6 @@
         sueldoMsg.innerHTML = `<span style="color: gray;">Sin pago por ${estatus}</span>`;
     } 
     else if (estatus === "Descanso") {
-        // ELIMINADO: Hamburguesas Momias del descanso pagado
         if (puesto === "Tuppers") {
             inputMonto.value = "138.00";
             sueldoMsg.innerHTML = `<b style="color: blue;">Descanso Pagado: $138.00</b>`;
@@ -668,25 +688,26 @@
         }
     }
     else if (puesto === "Tuppers") {
-        // ELIMINADO: Lógica de precio 51.50
         let precio = 46.50; 
         let total = (cargas * precio).toFixed(2);
         inputMonto.value = total;
         sueldoMsg.innerHTML = `<b style="color: green;">Total Destajo: $${total}</b>`;
     }
     else {
-        // Lógica normal para el resto de puestos de Momias
+        // Lógica para Benny y resto de puestos de Momias
         let base = parseFloat(salarios[puesto]) || 0;
         let hMat = calcularHorasTrabajadas(entMat.value, salMat.value);
         let hVes = calcularHorasTrabajadas(entVes.value, salVes.value);
         let totalCalculado = 0;
         
+        // Solo calculamos por horas si hay valores (esto no ocurrirá en Benny porque los limpiamos arriba)
         if (hMat !== null || hVes !== null) {
             if (hMat !== null) totalCalculado += (base / 6) * hMat;
             if (hVes !== null) totalCalculado += (base / 6) * hVes;
             inputMonto.value = totalCalculado.toFixed(2);
             sueldoMsg.innerText = `Sueldo Sugerido: $${totalCalculado.toFixed(2)}`;
         } else {
+            // Caso Benny o registros sin horas marcadas: se asigna el sueldo base completo
             inputMonto.value = base.toFixed(2);
             sueldoMsg.innerText = base > 0 ? `Sueldo Base: $${base.toFixed(2)}` : "";
         }
