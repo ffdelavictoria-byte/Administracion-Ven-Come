@@ -346,8 +346,16 @@ def Asistencias_view(request):
     # Creamos el diccionario al vuelo para no romper tu lógica de 'obtener_monto_bloque'
     puestos_salarios = {p.puesto: float(p.monto) for p in puestos_db}
     
-    hoy_dt = date.today()
-    # Obtenemos el número de semana actual (ISO) y el año
+    ahora = datetime.now()
+    hoy_dt = ahora.date()
+    
+    # Obtenemos el inicio de la semana actual (Lunes 00:00)
+    inicio_semana_actual = hoy_dt - timedelta(days=hoy_dt.isocalendar()[2] - 1)
+    
+    # REGLA: ¿Estamos en periodo de gracia? (Es lunes y antes de las 23:59)
+    periodo_gracia_lunes = (hoy_dt.isocalendar()[2] == 1) 
+
+    # Para el contexto del template
     semana_actual = hoy_dt.isocalendar()[1]
     anio_actual = hoy_dt.isocalendar()[0]
 
@@ -379,26 +387,21 @@ def Asistencias_view(request):
 
     # --- LÓGICA DE ELIMINACIÓN ---
     if request.method == 'POST' and 'eliminar_id' in request.POST:
-        CLAVE_SEGURIDAD = "1234"  # <--- Cambia aquí tu contraseña de borrado
-        
-        # 1. Obtener datos del POST
+        CLAVE_SEGURIDAD = "1234"
         asistencia_id = request.POST.get('eliminar_id')
-        clave_ingresada = request.POST.get('clave_borrado') # Viene del prompt de JS
+        clave_ingresada = request.POST.get('clave_borrado')
         
-        # 2. Validar Clave
         if clave_ingresada != CLAVE_SEGURIDAD:
-            messages.error(request, "❌ Clave de seguridad incorrecta. No se pudo eliminar.")
+            messages.error(request, "❌ Clave incorrecta.")
             return redirect('asistencias')
 
-        # 3. Validar existencia y semana
         asistencia = get_object_or_404(Asistencia, id=asistencia_id)
-        fecha_reg = asistencia.fecha
         
-        if fecha_reg.isocalendar()[1] != semana_actual or fecha_reg.isocalendar()[0] != anio_actual:
-            messages.error(request, "🔒 No puedes eliminar registros de semanas anteriores.")
+        # NUEVA VALIDACIÓN LUNES 11:59 PM
+        if asistencia.fecha < inicio_semana_actual and not periodo_gracia_lunes:
+            messages.error(request, "🔒 Bloqueado: Los registros de la semana pasada cerraron el lunes a las 23:59.")
             return redirect('asistencias')
             
-        # 4. Proceder al borrado
         asistencia.delete()
         messages.success(request, "Registro eliminado correctamente.")
         return redirect('asistencias')
@@ -406,23 +409,12 @@ def Asistencias_view(request):
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
-            # 0. VALIDACIÓN DE SEGURIDAD MEJORADA
             fecha_captura_str = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura_str, '%Y-%m-%d').date()
-            
-            hoy_dt = date.today()
-            
-            # Calculamos la diferencia de días
-            diferencia_dias = (hoy_dt - fecha_dt).days
 
-            # REGLA: No dejar guardar si la fecha es del FUTURO 
-            # o si es de hace más de 8 días (para asegurar que sea la semana en curso o cierre de la anterior)
-            if diferencia_dias < 0:
-                messages.error(request, "⚠️ No puedes registrar fechas futuras.")
-                return redirect('asistencias')
-            
-            if diferencia_dias > 8:
-                messages.error(request, "🔒 Registro bloqueado: La fecha es demasiado antigua (más de 8 días).")
+            # --- APLICACIÓN DEL BLOQUEO ---
+            if fecha_dt < inicio_semana_actual and not periodo_gracia_lunes:
+                messages.error(request, "⚠️ Error: No puedes modificar registros de semanas anteriores después del lunes.")
                 return redirect('asistencias')
 
             # --- LÓGICA DINÁMICA DE SUELDOS ---
