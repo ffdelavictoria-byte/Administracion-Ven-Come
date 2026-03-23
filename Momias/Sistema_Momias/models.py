@@ -3,6 +3,18 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+
+class HistorialSueldo(models.Model):
+    puesto = models.CharField(max_length=100)
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    fecha_modificacion = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        # ESTO ES VITAL: Debe coincidir con el nombre que pusimos en el SQL
+        db_table = 'Sistema_Momias_historialsueldo' 
+        ordering = ['-fecha_modificacion']
+
 class ConfigSueldo(models.Model):
     puesto = models.CharField(max_length=100, unique=True)
     monto = models.FloatField(default=0.0)
