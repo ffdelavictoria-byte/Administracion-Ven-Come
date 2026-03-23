@@ -189,24 +189,24 @@
         <h1 class="title-comic">¡BIENVENIDO, {{ user.username|upper }}!</h1>
         
         <div class="button-grid">
-            {% if user.is_superuser or user.perfil.can_ver_empleados %}
+            {% if user.is_superuser or user.perfil and user.perfil.can_ver_empleados %}
                 <a href="/emp/" class="btn-comic btn-especial">Gestión de Empleados</a>
             {% endif %}
 
-            {% if user.is_superuser or user.perfil.can_ver_asistencias %}
+            {% if user.is_superuser or user.perfil and user.perfil.can_ver_asistencias %}
                 <a href="/asistencia/" class="btn-comic">Asistencias Momias</a>
                 <a href="/asistenciaff/" class="btn-comic">Asistencias FF</a>
             {% endif %}
 
-            {% if user.is_superuser or user.perfil.can_ver_nomina %}
+            {% if user.is_superuser or user.perfil and user.perfil.can_ver_nomina %}
                 <a href="/nomina/" class="btn-comic">Nómina</a>
             {% endif %}
 
-            {% if user.is_superuser or user.perfil.can_ver_reportes %}
+            {% if user.is_superuser or user.perfil and user.perfil.can_ver_reportes %}
                 <a href="/reportes/" class="btn-comic">Reportes</a>
             {% endif %}
             
-            {% if user.is_superuser or user.perfil.can_ver_sueldos %}
+            {% if user.is_superuser or user.perfil and user.perfil.can_ver_sueldos %}
                 <a href="/gestion-sueldos/" class="btn-comic">Gestion Sueldos</a>
             {% endif %}
             
@@ -250,11 +250,11 @@
                         {% for u in todos_los_usuarios %}
                         <tr>
                             <td style="text-align: left; font-weight: bold;">{{ u.username }}</td>
-                            <td><input type="checkbox" name="p_{{ u.id }}_emp" {% if u.perfil.can_ver_empleados or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
-                            <td><input type="checkbox" name="p_{{ u.id }}_asi" {% if u.perfil.can_ver_asistencias or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
-                            <td><input type="checkbox" name="p_{{ u.id }}_nom" {% if u.perfil.can_ver_nomina or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
-                            <td><input type="checkbox" name="p_{{ u.id }}_rep" {% if u.perfil.can_ver_reportes or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
-                            <td><input type="checkbox" name="p_{{ u.id }}_sue" {% if u.perfil.can_ver_sueldos or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_emp" {% if u.is_superuser or u.perfil and u.perfil.can_ver_empleados %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_asi" {% if u.is_superuser or u.perfil and u.perfil.can_ver_asistencias %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_nom" {% if u.is_superuser or u.perfil and u.perfil.can_ver_nomina %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_rep" {% if u.is_superuser or u.perfil and u.perfil.can_ver_reportes %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_sue" {% if u.is_superuser or u.perfil and u.perfil.can_ver_sueldos %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
                         </tr>
                         {% endfor %}
                     </tbody>
