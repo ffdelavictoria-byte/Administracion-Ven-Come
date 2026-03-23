@@ -20,6 +20,18 @@
         }
         h2 { font-family: 'Bangers', cursive; color: var(--puebla-blue); font-size: 2.5rem; text-align: center; margin: 0 0 20px 0; }
         
+        /* --- NUEVOS ESTILOS PARA TOTALES POR SUCURSAL --- */
+        .resumen-sucursales {
+            display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 25px; justify-content: center;
+        }
+        .sucursal-card {
+            background: #e8f5e9; border: 3px solid var(--comic-border);
+            border-radius: 12px; padding: 12px; min-width: 200px;
+            box-shadow: 4px 4px 0px var(--comic-border); text-align: center;
+        }
+        .sucursal-card h4 { margin: 0; font-family: 'Bangers'; color: var(--puebla-blue); font-size: 1.2rem; }
+        .sucursal-card p { margin: 5px 0 0 0; font-size: 1.4rem; font-weight: bold; color: #2E7D32; }
+
         .filters {
             display: flex; gap: 15px; flex-wrap: wrap; background: #f0f0f0; padding: 15px; 
             border-radius: 15px; border: 2px solid var(--comic-border); margin-bottom: 20px; align-items: flex-end;
@@ -72,7 +84,7 @@
         
         <h2>REPORTE ACUMULADO POR SUCURSAL</h2>
         
-        <form method="GET" action="" class="filters">
+        <form method="GET" action="" class="filters no-print">
             <div class="filter-group">
                 <label>EMPLEADO:</label>
                 <input type="text" name="q" placeholder="Nombre y Apellido..." value="{{ query|default:'' }}" list="empleados_list" autocomplete="off">
@@ -110,6 +122,18 @@
         </form>
 
         {% if agrupados %}
+        
+        <h3 style="font-family: 'Bangers'; color: var(--puebla-magenta); text-align: center; margin-top: 0;">TOTALES DE NÓMINA POR SUCURSAL</h3>
+        <div class="resumen-sucursales">
+            {% for suc in resumen_sucursales %}
+            <div class="sucursal-card">
+                <h4>{{ suc.nombre }}</h4>
+                <p>${{ suc.total|floatformat:2 }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        <hr style="border: 2px dashed var(--comic-border); margin-bottom: 20px;">
+
         <table>
             <thead>
                 <tr>
@@ -167,7 +191,6 @@
     </div>
 
     <script>
-        // Si necesitas agregar validaciones extra antes de imprimir
         window.onbeforeprint = function() {
             console.log("Preparando impresión del reporte...");
         };
