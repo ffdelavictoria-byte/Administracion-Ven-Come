@@ -336,28 +336,11 @@ def lista_empleados(request):
     return render(request, 'Employe.html', {'empleados': empleados})
 
 def Asistencias_view(request):
-    # ... [Tu diccionario puestos_salarios y funciones internas permanecen igual] ...
-    puestos_salarios = {
-        "Caja (6 horas)": 248.00, 
-        "Caja Capacitacion": 236.50,
-        "Freidor Capacitacion": 236.50,
-        "Encargado Capacitacion": 248.00,
-        "Encargado Victoria (6 Horas)": 316.00,
-        "Encargado Sucursales (6 Horas)": 262.00,
-        "Freidor (6 horas)": 248.00,
-        "Despacho (6 horas)": 236.50,
-        "Aderezos": 236.50,
-        "Cocina": 248.00,
-        "Fabrica": 236.50,
-        "Perrioni": 236.50,
-        "PP": 236.50,
-        "PM": 236.50,
-        "Yommy": 236.50,
-        "Benny": 171.00,
-        "Rappi": 354.75,
-        "Fabrica Crystal": 262.00,
-        "Tuppers": 0.00,             # Dinámico por cargas
-    }
+    # 1. CARGA DINÁMICA: Reemplaza el diccionario manual por esto
+    puestos_db = ConfigSueldo.objects.all()
+    # Creamos el diccionario al vuelo para no romper tu lógica de 'obtener_monto_bloque'
+    puestos_salarios = {p.puesto: float(p.monto) for p in puestos_db}
+    
     hoy_dt = date.today()
     # Obtenemos el número de semana actual (ISO) y el año
     semana_actual = hoy_dt.isocalendar()[1]
@@ -433,7 +416,8 @@ def Asistencias_view(request):
                 messages.error(request, "⚠️ Error: Solo se permite gestionar asistencias de la semana actual.")
                 return redirect('asistencias')
 
-            # --- Continuación de tu lógica original ---
+            # --- LÓGICA DINÁMICA DE SUELDOS ---
+            # Obtenemos el sueldo directamente de la base de datos según el puesto
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
             puesto_seleccionado = (request.POST.get('puesto') or "").strip()
@@ -455,21 +439,24 @@ def Asistencias_view(request):
                 if puesto_seleccionado in ["Tuppers"]:
                     monto_final = DESCANSO_DESTAJO
                 else:
-                    monto_final = 0.0       
+                    monto_final = 0.0        
+            
             elif puesto_seleccionado == "Tuppers":
                 cargas = float(request.POST.get('cantidad_cargas') or 0)
                 monto_final = cargas * 46.50
 
             else:
-                # 1. Obtener salario base del diccionario
-                salario_real = float(puestos_salarios.get(puesto_seleccionado, 0))
-                base_6h = salario_real
+                # BUSQUEDA DINÁMICA: Intentamos traer el sueldo de la DB
+                config_obj = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
+                salario_base_db = float(config_obj.monto) if config_obj else 0.0
+                
+                base_6h = salario_base_db
                 
                 # 2. Ajuste de base según la duración del puesto
                 if "(9 horas)" in puesto_seleccionado or "(9 Horas)" in puesto_seleccionado:
-                    base_6h = salario_real / 1.5
+                    base_6h = salario_base_db / 1.5
                 elif "(12 Horas)" in puesto_seleccionado:
-                    base_6h = salario_real / 2
+                    base_6h = salario_base_db / 2
 
                 # 3. Calcular lo devengado por cada turno (Mañana y Tarde)
                 pago_m = obtener_monto_bloque(base_6h, ent_m, sal_m)
@@ -593,12 +580,15 @@ def Asistencias_view(request):
     page_obj = paginator.get_page(request.GET.get('page'))
     
     # Renderizado con los datos de Momias
+    puestos_db = ConfigSueldo.objects.all()
+    puestos_salarios_dinamico = {p.puesto: float(p.monto) for p in puestos_db}
+
     return render(request, 'Attendance.html', {
-        'lista_puestos': puestos_salarios.keys(), 
+        'lista_puestos': sorted(puestos_salarios_dinamico.keys()), 
         'empleados': Empleado.objects.filter(estatus='Activo'),
         'registros': page_obj,
         'hoy': datetime.now().strftime('%Y-%m-%d'),
-        'puestos_json': json.dumps(puestos_salarios),
+        'puestos_json': json.dumps(puestos_salarios_dinamico),
         'fecha_filtro': fecha_filtro or '', 
         'query': query or '',
         'semana_actual': semana_actual,
