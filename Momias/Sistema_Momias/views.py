@@ -613,6 +613,15 @@ def Asistencias_FF_view(request):
     puestos_salarios_ff = {p.puesto: float(p.monto) for p in puestos_db}
     
     hoy_dt = date.today()
+    # --- LÓGICA DE BLOQUEO (GRACIA DEL LUNES) ---
+    dia_semana = hoy_dt.weekday()  # 0=Lunes, 1=Martes...
+    if dia_semana == 0:  # Es Lunes
+        # Permitir desde el lunes de la semana pasada
+        limite_bloqueo = hoy_dt - timedelta(days=7)
+    else:
+        # Bloquear todo lo que no sea de esta semana (desde el lunes actual)
+        limite_bloqueo = hoy_dt - timedelta(days=dia_semana)
+
     semana_actual = hoy_dt.isocalendar()[1]
     anio_actual = hoy_dt.isocalendar()[0]
 
@@ -644,7 +653,6 @@ def Asistencias_FF_view(request):
     # --- PROCESAMIENTO DE POST (UNIFICADO) ---
     if request.method == 'POST':
         # A. LÓGICA DE ELIMINACIÓN
-        # A. LÓGICA DE ELIMINACIÓN
         if 'eliminar_id' in request.POST:
             CLAVE_BORRADO = "1234"
             asistencia_id = request.POST.get('eliminar_id')
@@ -655,12 +663,10 @@ def Asistencias_FF_view(request):
                 return redirect('asistenciasff')
 
             asistencia = get_object_or_404(Asistencia, id=asistencia_id)
-            sem_reg = asistencia.fecha.isocalendar()[1]
-            anio_reg = asistencia.fecha.isocalendar()[0]
             
-            # CORRECCIÓN: Solo bloquea si el año es anterior O si es el mismo año pero semana anterior
-            if anio_reg < anio_actual or (anio_reg == anio_actual and sem_reg < semana_actual):
-                messages.error(request, "No puedes eliminar registros de semanas PASADAS.")
+            # VALIDACIÓN DE BLOQUEO PARA ELIMINAR
+            if asistencia.fecha < limite_bloqueo:
+                messages.error(request, "El periodo de edición para este registro ha vencido.")
             else:
                 asistencia.delete()
                 messages.success(request, "Registro eliminado.")
@@ -673,12 +679,10 @@ def Asistencias_FF_view(request):
             empleado_obj = get_object_or_404(Empleado, id=empleado_id)
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
-            sem_f = fecha_dt.isocalendar()[1]
-            anio_f = fecha_dt.isocalendar()[0]
             
-            # CORRECCIÓN: Permitir la semana actual y cualquier semana futura
-            if anio_f < anio_actual or (anio_f == anio_actual and sem_f < semana_actual):
-                messages.error(request, "Error: No se pueden gestionar registros de semanas pasadas.")
+            # VALIDACIÓN DE BLOQUEO PARA GUARDAR/EDITAR
+            if fecha_dt < limite_bloqueo:
+                messages.error(request, "No se pueden gestionar registros de periodos cerrados.")
                 return redirect('asistenciasff')
 
             # Captura de campos del formulario
@@ -813,6 +817,7 @@ def Asistencias_FF_view(request):
         'fecha_filtro': fecha_filtro,
         'query': query,
         'anio_actual': anio_actual,
+        'limite_bloqueo': limite_bloqueo,  # <-- IMPORTANTE: Pasar a HTML
     })
 
 
