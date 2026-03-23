@@ -13,6 +13,7 @@
             --puebla-red: #B71C1C;
         }
         body { font-family: 'Patrick Hand', cursive; background-color: var(--puebla-yellow); margin: 0; padding: 20px; }
+        
         .report-container {
             background: white; border: 4px solid var(--comic-border);
             border-radius: 20px; box-shadow: 10px 10px 0px var(--comic-border);
@@ -62,7 +63,7 @@
         }
         .modal-content {
             background-color: white;
-            margin: 2% auto; /* Bajamos el margen para que empiece más arriba */
+            margin: 2% auto;
             padding: 30px;
             border: 5px solid var(--comic-border);
             border-radius: 20px;
@@ -71,29 +72,34 @@
             box-shadow: 15px 15px 0px var(--comic-border);
             position: relative;
             
-            /* --- ESTO ES LO QUE ARREGLA EL SCROLL --- */
-            max-height: 85vh; /* El modal no ocupará más del 85% de la altura de la pantalla */
-            overflow-y: auto; /* Si el contenido es más alto, permite scroll vertical */
+            /* CORRECCIÓN DE SCROLL */
+            max-height: 85vh; 
+            overflow-y: auto; 
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         
-        /* Opcional: Dale un estilo "comic" a la barra de scroll para que no se vea fea */
-        .modal-content::-webkit-scrollbar {
-            width: 10px;
-        }
+        /* Scrollbar estilo cómic */
+        .modal-content::-webkit-scrollbar { width: 10px; }
         .modal-content::-webkit-scrollbar-thumb {
             background: var(--puebla-magenta);
             border: 2px solid var(--comic-border);
             border-radius: 5px;
         }
+
         @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         
-        .close-btn { position: absolute; right: 20px; top: 10px; font-size: 40px; cursor: pointer; font-family: 'Bangers'; }
+        .close-btn { 
+            position: sticky; top: -10px; float: right; 
+            font-size: 40px; cursor: pointer; font-family: 'Bangers'; 
+            z-index: 10; background: white; line-height: 1;
+        }
         
         .sucursal-row {
             display: flex; justify-content: space-between; padding: 10px 5px;
             border-bottom: 2px dashed #ddd; font-size: 1.2rem;
         }
         .sucursal-row:last-child { border-bottom: none; }
+        
         .total-final-box {
             margin-top: 20px; padding: 15px; background: #e8f5e9;
             border: 3px solid var(--comic-border); border-radius: 10px;
@@ -196,7 +202,7 @@
     <div id="modalResumen" class="modal-overlay">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal()">&times;</span>
-            <h2 style="color: var(--puebla-magenta);">TOTALES POR SUCURSAL</h2>
+            <h2 style="color: var(--puebla-magenta); margin-top: 0;">TOTALES POR SUCURSAL</h2>
             <p style="text-align: center; border-bottom: 2px solid var(--comic-border); padding-bottom: 10px;">
                 {{ fecha_inicio }} al {{ fecha_fin }}
             </p>
@@ -221,9 +227,13 @@
     <script>
         function openModal() {
             document.getElementById("modalResumen").style.display = "block";
+            // Bloqueamos el scroll del body para que solo se mueva el modal
+            document.body.style.overflow = "hidden";
         }
         function closeModal() {
             document.getElementById("modalResumen").style.display = "none";
+            // Devolvemos el scroll al body
+            document.body.style.overflow = "auto";
         }
         window.onclick = function(event) {
             let modal = document.getElementById("modalResumen");
