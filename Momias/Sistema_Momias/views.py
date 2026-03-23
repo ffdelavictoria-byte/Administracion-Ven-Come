@@ -90,8 +90,6 @@ def calcular_descuento_retardos(puntos, sueldo_diario):
     return round(factor * sueldo_diario, 2)
 
 def Login_View(request):
-    # Si el usuario ya está logueado y entra al login, lo deslogueamos 
-    # para forzar que use credenciales nuevas si quiere volver a entrar.
     if request.user.is_authenticated and request.method == 'GET':
         logout(request) 
     
@@ -99,12 +97,13 @@ def Login_View(request):
         usuario_input = request.POST.get('username')
         clave_input = request.POST.get('password')
         
-        # Esto busca en la tabla auth_user (donde está tu superusuario)
         user = authenticate(request, username=usuario_input, password=clave_input)
         
         if user is not None:
             login(request, user)
-            return render(request,"Main_Content.html") # Redirige al name='main' de tus urls.py
+            # CAMBIO VITAL: Usa redirect en lugar de render
+            # Asegúrate de que 'main' sea el name que tienes en urls.py para Main_Content
+            return redirect('main') 
         else:
             messages.error(request, "¡SANTO CIELO! Usuario o contraseña incorrectos.")
             
