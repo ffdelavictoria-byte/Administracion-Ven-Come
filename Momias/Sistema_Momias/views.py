@@ -727,7 +727,7 @@ def Asistencias_FF_view(request):
                 monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
             else:
                 # 1. Determinación de divisor
-                if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA"]): 
+                if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA","TURNO INTERMEDIO"]): 
                     divisor = 9.0
                 elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): # <--- Agregamos FIN DE SEMANA aquí
                     divisor = 12.0
@@ -952,6 +952,7 @@ def calcular_nomina_web(request):
         "Aux Produccion": 177.00,
         "Produccion": 370.00,
         "Hamburguesas FF": 0.0,
+        "TURNO INTERMEDIO": 354.50,
     }
 
     DESCUENTO_UNIFORME_SEMANAL = 181.00
@@ -1294,6 +1295,7 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "TURNO MATUTINO (9 horas)": 354.50,
         "TURNO VESPERTINO (9 horas)": 354.50,
         "TURNO FIN DE SEMANA": 473.00,
+        "TURNO INTERMEDIO": 354.50,
         "Gerente (12 horas)": 600.00, 
         "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
