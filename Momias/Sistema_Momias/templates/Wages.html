@@ -79,6 +79,7 @@
             cursor: pointer; color: white; 
             box-shadow: 3px 3px 0 var(--comic-border); 
             transition: 0.1s; text-decoration: none; font-size: 1.1rem;
+            display: inline-block;
         }
         .btn-comic:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0 var(--comic-border); }
         .btn-edit { background: var(--puebla-blue); }
@@ -109,14 +110,14 @@
 
 <div class="container">
     <div class="comic-header">
-        <a href="/main/" class="btn-comic btn-back">« REGRESAR</a>
+        <a href="{% url 'main' %}" class="btn-comic btn-back">« REGRESAR</a>
         <h1 class="comic-title">GESTIÓN DE SUELDOS</h1>
         <button class="btn-comic btn-add" onclick="abrirModalNuevo()">+ ¡NUEVO PUESTO!</button>
     </div>
 
     {% if messages %}
         {% for message in messages %}
-            <div style="background: white; border: 3px solid black; padding: 10px; margin-bottom: 15px; font-family: 'Bangers'; color: var(--puebla-magenta); border-radius: 10px;">
+            <div style="background: white; border: 3px solid black; padding: 15px; margin-bottom: 15px; font-family: 'Bangers'; color: var(--puebla-blue); border-radius: 10px; box-shadow: 5px 5px 0 black; font-size: 1.2rem;">
                 {{ message }}
             </div>
         {% endfor %}
@@ -128,23 +129,33 @@
                 <thead>
                     <tr>
                         <th>PUESTO / CONCEPTO</th>
-                        <th>SUELDO ACTUAL</th>
-                        <th>ÚLTIMA MODIF.</th>
+                        <th>SUELDO DIARIO</th>
+                        <th>ESTATUS</th>
                         <th>ACCIÓN</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in sueldos %}
                     <tr>
-                        <td style="font-weight: bold;">{{ s.puesto }}</td>
+                        <td style="font-weight: bold; font-size: 1.2rem;">{{ s.puesto }}</td>
                         <td class="monto-actual">${{ s.monto }}</td>
-                        <td class="fecha-mod">{{ s.ultima_modificacion|date:"d/m/Y H:i" }}</td>
+                        <td class="fecha-mod">
+                            {% if s.ultima_modificacion %}
+                                Act. el {{ s.ultima_modificacion|date:"d/m/Y" }}
+                            {% else %}
+                                Sin cambios registrados
+                            {% endif %}
+                        </td>
                         <td>
                             <button class="btn-comic btn-edit" onclick="abrirModalEditar('{{ s.puesto|escapejs }}', '{{ s.monto }}')">EDITAR</button>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="4" style="text-align: center;">No hay puestos registrados. ¡Agrega uno nuevo!</td></tr>
+                    <tr>
+                        <td colspan="4" style="text-align: center; font-size: 1.5rem; padding: 40px;">
+                            ¡SANTO CIELO! No hay puestos. ¡Crea uno arriba!
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -157,21 +168,21 @@
         {% csrf_token %}
         <h2 id="modal-titulo" style="font-family: 'Bangers'; font-size: 2.5rem; color: var(--puebla-blue); margin: 0;">¡AJUSTE!</h2>
         
-        <div id="campo-puesto-lectura" style="margin: 15px 0;">
-            <p id="puesto-nombre-display" style="font-size: 1.8rem; font-weight: bold; margin: 0;"></p>
+        <div id="campo-puesto-lectura" style="margin: 15px 0; display: none;">
+            <p id="puesto-nombre-display" style="font-size: 2rem; font-weight: bold; margin: 0; color: var(--puebla-magenta);"></p>
             <input type="hidden" name="puesto_nombre" id="input-puesto-hidden">
         </div>
 
         <div id="campo-puesto-escritura" style="display: none;">
-            <label class="label-comic">NOMBRE DEL PUESTO:</label>
-            <input type="text" name="nuevo_puesto_nombre" id="input-puesto-nuevo" class="comic-input" placeholder="Ej: Cocina Matutino">
+            <label class="label-comic">¿CÓMO SE LLAMA EL PUESTO?</label>
+            <input type="text" name="nuevo_puesto_nombre" id="input-puesto-nuevo" class="comic-input" placeholder="Ej: Chef de Momias">
         </div>
 
         <label class="label-comic">MONTO DEL PAGO ($):</label>
-        <input type="number" name="nuevo_monto" id="nuevo-monto" step="0.01" class="comic-input" required>
+        <input type="number" name="nuevo_monto" id="nuevo-monto" step="0.01" class="comic-input" required placeholder="0.00">
         
         <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button type="submit" class="btn-comic" style="background: var(--success-green); flex: 1; font-size: 1.5rem;">¡GUARDAR!</button>
+            <button type="submit" class="btn-comic" style="background: var(--success-green); flex: 1; font-size: 1.5rem;">¡ZAP! GUARDAR</button>
             <button type="button" class="btn-comic" style="background: #666; flex: 1;" onclick="cerrarModal()">CANCELAR</button>
         </div>
     </form>
@@ -181,12 +192,14 @@
     const modal = document.getElementById('modalSueldo');
     const titulo = document.getElementById('modal-titulo');
     const displayPuesto = document.getElementById('campo-puesto-lectura');
-    const inputPuestoNuevo = document.getElementById('campo-puesto-escritura');
+    const inputPuestoNuevoDiv = document.getElementById('campo-puesto-escritura');
+    const inputNuevoNombre = document.getElementById('input-puesto-nuevo');
 
     function abrirModalEditar(puesto, monto) {
         titulo.innerText = "¡EDITAR PAGO!";
         displayPuesto.style.display = "block";
-        inputPuestoNuevo.style.display = "none";
+        inputPuestoNuevoDiv.style.display = "none";
+        inputNuevoNombre.removeAttribute('required'); // No es necesario si estamos editando
         
         document.getElementById('puesto-nombre-display').innerText = puesto;
         document.getElementById('input-puesto-hidden').value = puesto;
@@ -198,10 +211,11 @@
     function abrirModalNuevo() {
         titulo.innerText = "¡NUEVO PUESTO!";
         displayPuesto.style.display = "none";
-        inputPuestoNuevo.style.display = "block";
+        inputPuestoNuevoDiv.style.display = "block";
+        inputNuevoNombre.setAttribute('required', 'true');
         
-        document.getElementById('input-puesto-hidden').value = ""; // Limpiar para que la vista sepa que es nuevo
-        document.getElementById('input-puesto-nuevo').value = "";
+        document.getElementById('input-puesto-hidden').value = ""; // Vacío para que el POST detecte "nuevo"
+        inputNuevoNombre.value = "";
         document.getElementById('nuevo-monto').value = "";
         
         modal.style.display = 'flex';
@@ -209,6 +223,13 @@
 
     function cerrarModal() {
         modal.style.display = 'none';
+    }
+
+    // Cerrar modal si se hace clic fuera del contenido
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            cerrarModal();
+        }
     }
 </script>
 
