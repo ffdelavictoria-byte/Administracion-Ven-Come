@@ -36,6 +36,7 @@ from django.shortcuts import render
 import json
 
 
+
 HORAS_POR_PUESTO = {
     "6 horas": 6, "9 horas": 9, "12 horas": 12, "6 hrs": 6, "9 hrs": 9
 }
