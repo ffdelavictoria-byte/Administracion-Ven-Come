@@ -14,6 +14,7 @@
             --puebla-magenta: #9D174D;
             --comic-border: #000000;
             --success-green: #2e7d32;
+            --danger-red: #d32f2f;
         }
 
         body {
@@ -85,6 +86,15 @@
         .btn-edit { background: var(--puebla-blue); }
         .btn-back { background: var(--puebla-magenta); }
         .btn-add { background: var(--success-green); font-size: 1.4rem; }
+        
+        /* Estilo para el botón Borrar */
+        .btn-delete { 
+            background: var(--danger-red); 
+        }
+        .btn-delete:hover {
+            background: #b71c1c;
+            transform: scale(1.05) rotate(-2deg);
+        }
 
         /* MODALES */
         .modal-overlay {
@@ -115,14 +125,6 @@
         <button class="btn-comic btn-add" onclick="abrirModalNuevo()">+ ¡NUEVO PUESTO!</button>
     </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div style="background: white; border: 3px solid black; padding: 15px; margin-bottom: 15px; font-family: 'Bangers'; color: var(--puebla-blue); border-radius: 10px; box-shadow: 5px 5px 0 black; font-size: 1.2rem;">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
-
     <div class="comic-card">
         <div class="table-container">
             <table>
@@ -147,7 +149,15 @@
                             {% endif %}
                         </td>
                         <td>
-                            <button class="btn-comic btn-edit" onclick="abrirModalEditar('{{ s.puesto|escapejs }}', '{{ s.monto }}')">EDITAR</button>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn-comic btn-edit" onclick="abrirModalEditar('{{ s.puesto|escapejs }}', '{{ s.monto }}')">EDITAR</button>
+                                
+                                <form method="POST" style="display: inline;" onsubmit="return confirm('¡SANTO CIELO! ¿Estás seguro de eliminar el puesto: {{ s.puesto }}?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="eliminar_puesto" value="{{ s.puesto }}">
+                                    <button type="submit" class="btn-comic btn-delete">BORRAR</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
@@ -199,7 +209,7 @@
         titulo.innerText = "¡EDITAR PAGO!";
         displayPuesto.style.display = "block";
         inputPuestoNuevoDiv.style.display = "none";
-        inputNuevoNombre.removeAttribute('required'); // No es necesario si estamos editando
+        inputNuevoNombre.removeAttribute('required');
         
         document.getElementById('puesto-nombre-display').innerText = puesto;
         document.getElementById('input-puesto-hidden').value = puesto;
@@ -214,7 +224,7 @@
         inputPuestoNuevoDiv.style.display = "block";
         inputNuevoNombre.setAttribute('required', 'true');
         
-        document.getElementById('input-puesto-hidden').value = ""; // Vacío para que el POST detecte "nuevo"
+        document.getElementById('input-puesto-hidden').value = "";
         inputNuevoNombre.value = "";
         document.getElementById('nuevo-monto').value = "";
         
@@ -225,7 +235,6 @@
         modal.style.display = 'none';
     }
 
-    // Cerrar modal si se hace clic fuera del contenido
     window.onclick = function(event) {
         if (event.target == modal) {
             cerrarModal();
