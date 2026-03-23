@@ -1524,6 +1524,7 @@ def vista_reportes(request):
     
     FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
     agrupados_dict = {}
+    totales_por_sucursal = {}
     resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0, 'total_turnos': 0, 'total_descuentos': 0}
 
     if f_inicio and f_fin:
@@ -1532,27 +1533,27 @@ def vista_reportes(request):
         if sucursal_filtro and sucursal_filtro != "TODAS": 
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
         
+        if f_inicio and f_fin:
+        asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
+        
+        # Filtros de búsqueda (Sucursal y Nombre)
+        if sucursal_filtro and sucursal_filtro != "TODAS": 
+            asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
+        
         if query_nombre:
-            # CORRECCIÓN: Búsqueda por nombre completo concatenado para soportar "Nombre Apellido"
             asistencias_query = asistencias_query.annotate(
-                full_name=Concat(
-                    'empleado__nombre', Value(' '), 
-                    'empleado__apellido_paterno', Value(' '), 
-                    'empleado__apellido_materno',
-                    output_field=CharField()
-                )
-            ).filter(
-                Q(full_name__icontains=query_nombre) |
-                Q(empleado__nombre__icontains=query_nombre) |
-                Q(empleado__apellido_paterno__icontains=query_nombre) |
-                Q(empleado__codigo_empleado__icontains=query_nombre)
-            )
+                full_name=Concat('empleado__nombre', Value(' '), 'empleado__apellido_paterno', Value(' '), 'empleado__apellido_materno', output_field=CharField())
+            ).filter(Q(full_name__icontains=query_nombre) | Q(empleado__codigo_empleado__icontains=query_nombre))
 
+        # --- NUEVA ESTRUCTURA PARA LA CONTADORA ---
+        totales_por_sucursal = {} 
+        
         for asis in asistencias_query:
             emp = asis.empleado
             estatus_limpio = (asis.estatus or "").strip().upper()
             es_descanso = "DESCANSO" in estatus_limpio
             pue_original = asis.puesto or emp.puesto or "GENERAL"
+            pue_up = pue_original.upper()
             suc = asis.sucursal or "Victoria"
             
             # --- LÓGICA DE RECONSTRUCCIÓN DE MONTO BASE ---
@@ -1571,17 +1572,16 @@ def vista_reportes(request):
             puntos_retardo = int(float(asis.horas or 0))
 
             # --- CÁLCULO DE DESCUENTO POR RETARDO GENUINO ---
-            # Definimos FACTORES aquí mismo si no lo tienes global
             FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
             factor = FACTORES_RETARDO.get(puntos_retardo, 0)
             
-            # Determinamos el valor del turno según el puesto
-            if "9 horas" in pue_original.lower():
+            # Ajuste de divisor para evitar duplicidad en turnos de 12h/9h
+            if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]):
                 valor_turno = salario_referencia / 1.5
-            elif "12 horas" in pue_original.lower():
+            elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                 valor_turno = salario_referencia / 2
             else:
-                valor_turno = salario_referencia # Por defecto (6 horas o similar)
+                valor_turno = salario_referencia # Por defecto 6 horas
 
             desc_retardo_calculado = valor_turno * factor if (not es_descanso) else 0
             monto_descuento_total_dia = desc_manual + desc_retardo_calculado
@@ -1589,7 +1589,7 @@ def vista_reportes(request):
             # --- DETECCIÓN DE TURNOS ---
             cantidad_turnos = 2 if (asis.entrada_matutina and asis.salida_vespertina) else 1
 
-            # --- AGRUPACIÓN ---
+            # --- AGRUPACIÓN POR EMPLEADO/PUESTO ---
             pue_display = "DESCANSO" if es_descanso else pue_original
             key = (emp.id, suc, pue_display)
             
@@ -1614,29 +1614,44 @@ def vista_reportes(request):
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
+            # PAGO NETO REAL DEL DÍA
+            pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
+            
             # Acumuladores por fila
             fila['total_turnos'] += cantidad_turnos
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
-            
-            # PAGO NETO REAL DEL DÍA
-            pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
 
+            # --- ACUMULACIÓN PARA LA CONTADORA (POR SUCURSAL) ---
+            if suc not in totales_por_sucursal:
+                totales_por_sucursal[suc] = 0.0
+            totales_por_sucursal[suc] += pago_neto_dia
+
             # --- ACTUALIZAR RESUMEN GLOBAL ---
-            resumen_global['total_pagar'] += pago_neto_dia
+            resumen_global['total_pagar'] += pago_net_dia
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
             resumen_global['total_descuentos'] += monto_descuento_total_dia
             resumen_global['total_turnos'] += cantidad_turnos
             
+    # Preparar lista para la contadora
+    resumen_sucursales = []
+    for suc_n, total_n in totales_por_sucursal.items():
+        resumen_sucursales.append({
+            'nombre': suc_n,
+            'periodo': f"{f_inicio} al {f_fin}",
+            'total': round(total_n, 2)
+        })
+
     # Ordenar resultados por nombre de empleado
     lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
 
     context = {
         'empleados': empleados_qs,
         'agrupados': lista_agrupada,
+        'resumen_sucursales': resumen_sucursales,
         'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal","PP","PM","Area Seca","Perrioni", "FastFood"],
         'fecha_inicio': f_inicio,
         'fecha_fin': f_fin,
