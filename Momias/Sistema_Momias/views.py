@@ -1703,7 +1703,6 @@ def gestion_sueldos(request):
             puesto_a_borrar = request.POST.get('eliminar_puesto')
             if puesto_a_borrar:
                 ConfigSueldo.objects.filter(puesto=puesto_a_borrar).delete()
-                # messages.success(request, f"💥 {puesto_a_borrar} eliminado.") # Opcional: Desactivado
                 return redirect('gestion_sueldos')
 
             # 2. LÓGICA DE EDICIÓN / CREACIÓN
@@ -1711,34 +1710,53 @@ def gestion_sueldos(request):
             puesto_nuevo = request.POST.get('nuevo_puesto_nombre')
             monto_raw = request.POST.get('nuevo_monto')
             
-            # Validamos que el monto sea un número válido
             try:
                 monto = float(monto_raw) if monto_raw else 0.0
             except ValueError:
                 monto = 0.0
 
             if puesto_editar:
-                # Edición de monto
                 puesto_obj = ConfigSueldo.objects.filter(puesto=puesto_editar).first()
                 if puesto_obj:
                     puesto_obj.monto = monto
                     puesto_obj.save()
-                    # messages.success(request, f"¡ZAP! {puesto_editar} actualizado.") # Desactivado
+                    # NUEVO: Guardar en Historial al editar
+                    HistorialSueldo.objects.create(
+                        puesto=puesto_editar,
+                        monto=monto,
+                        usuario=request.user # Registra quién cambió
+                    )
             
             elif puesto_nuevo:
-                # Creación de nuevo puesto
                 if not ConfigSueldo.objects.filter(puesto=puesto_nuevo).exists():
                     ConfigSueldo.objects.create(puesto=puesto_nuevo, monto=monto)
-                    # messages.success(request, f"¡BOOM! {puesto_nuevo} creado.") # Desactivado
-                # else:
-                #     messages.error(request, "¡RAYOS! Ese puesto ya existe.") # Desactivado
+                    # NUEVO: Guardar en Historial al crear nuevo
+                    HistorialSueldo.objects.create(
+                        puesto=puesto_nuevo,
+                        monto=monto,
+                        usuario=request.user
+                    )
 
             return redirect('gestion_sueldos')
 
-        # 3. LÓGICA GET (Carga de lista)
-        sueldos = ConfigSueldo.objects.all().order_by('puesto')
-        return render(request, 'Wages.html', {'sueldos': sueldos})
+        # 3. LÓGICA GET (Carga de lista y Filtro Histórico)
+        fecha_consulta = request.GET.get('fecha_consulta')
+        
+        if fecha_consulta:
+            # LÓGICA DE "VIAJE EN EL TIEMPO":
+            # Buscamos los registros en el historial hasta esa fecha.
+            # Usamos distinct('puesto') para traer solo el último cambio de cada puesto.
+            sueldos = HistorialSueldo.objects.filter(
+                fecha_modificacion__date__lte=fecha_consulta
+            ).order_by('puesto', '-fecha_modificacion').distinct('puesto')
+        else:
+            # Si no hay fecha, mostramos los sueldos actuales
+            sueldos = ConfigSueldo.objects.all().order_by('puesto')
+
+        return render(request, 'Wages.html', {
+            'sueldos': sueldos,
+            'fecha_consulta': fecha_consulta
+        })
 
     except Exception as e:
-        # Esto evitará el 500 genérico y te dirá qué pasa realmente
         return HttpResponse(f"Error crítico en la vista: {e}", status=500)
