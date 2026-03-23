@@ -153,7 +153,7 @@ def actualizar_permisos_masivo(request):
             perfil.can_ver_sueldos = f'p_{u.id}_sue' in request.POST
             perfil.save()
             
-        messages.success(request, "¡Poderes actualizados correctamente!")
+        messages.success(request, "¡Permisos actualizados correctamente!")
         return redirect('main') # Cambia 'main' por el nombre de tu URL principal
 
 def Logout_view(request):
