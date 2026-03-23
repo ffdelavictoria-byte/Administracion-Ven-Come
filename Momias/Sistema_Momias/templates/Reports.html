@@ -2,7 +2,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reporte Acumulado | Momias de la Victoria</title>
@@ -21,18 +20,7 @@
         }
         h2 { font-family: 'Bangers', cursive; color: var(--puebla-blue); font-size: 2.5rem; text-align: center; margin: 0 0 20px 0; }
         
-        /* --- NUEVOS ESTILOS PARA TOTALES POR SUCURSAL --- */
-        .resumen-sucursales {
-            display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 25px; justify-content: center;
-        }
-        .sucursal-card {
-            background: #e8f5e9; border: 3px solid var(--comic-border);
-            border-radius: 12px; padding: 12px; min-width: 200px;
-            box-shadow: 4px 4px 0px var(--comic-border); text-align: center;
-        }
-        .sucursal-card h4 { margin: 0; font-family: 'Bangers'; color: var(--puebla-blue); font-size: 1.2rem; }
-        .sucursal-card p { margin: 5px 0 0 0; font-size: 1.4rem; font-weight: bold; color: #2E7D32; }
-
+        /* --- ESTILOS FILTROS --- */
         .filters {
             display: flex; gap: 15px; flex-wrap: wrap; background: #f0f0f0; padding: 15px; 
             border-radius: 15px; border: 2px solid var(--comic-border); margin-bottom: 20px; align-items: flex-end;
@@ -45,6 +33,7 @@
             font-family: 'Patrick Hand'; font-size: 1.1rem; 
         }
         
+        /* --- BOTONES --- */
         .btn-action {
             font-family: 'Bangers'; padding: 10px 20px; border-radius: 10px; border: 2px solid var(--comic-border);
             cursor: pointer; color: white; box-shadow: 4px 4px 0px var(--comic-border); text-decoration: none;
@@ -54,7 +43,9 @@
         .btn-generate { background: #4CAF50; }
         .btn-export { background: #9C27B0; }
         .btn-back { background: var(--puebla-red); display: inline-block; margin-bottom: 15px; }
+        .btn-resumen { background: var(--puebla-magenta); font-size: 1.2rem; }
 
+        /* --- TABLA --- */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { background: var(--puebla-blue); color: white; font-family: 'Bangers'; padding: 12px; border: 2px solid var(--comic-border); }
         td { padding: 10px; border: 2px solid var(--comic-border); text-align: center; background: white; }
@@ -63,15 +54,35 @@
         .retardo-celda { font-weight: bold; color: var(--puebla-red); background-color: #ffebee !important; }
         .col-pago { font-weight: bold; color: #2E7D32; font-size: 1.1rem; }
         .badge-puesto { background: #e3f2fd; color: #0d47a1; padding: 2px 8px; border-radius: 5px; font-weight: bold; font-size: 0.85rem; }
+
+        /* --- MODAL (POPUP) --- */
+        .modal-overlay {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0; 
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);
+        }
+        .modal-content {
+            background-color: white; margin: 5% auto; padding: 30px;
+            border: 5px solid var(--comic-border); border-radius: 20px;
+            width: 90%; max-width: 500px; box-shadow: 15px 15px 0px var(--comic-border);
+            position: relative; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         
-        .summary-box {
-            margin-top: 20px; padding: 20px; border: 4px solid var(--comic-border);
-            border-radius: 15px; background: #fff5f8; font-size: 1.4rem;
-            display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px;
+        .close-btn { position: absolute; right: 20px; top: 10px; font-size: 40px; cursor: pointer; font-family: 'Bangers'; }
+        
+        .sucursal-row {
+            display: flex; justify-content: space-between; padding: 10px 5px;
+            border-bottom: 2px dashed #ddd; font-size: 1.2rem;
+        }
+        .sucursal-row:last-child { border-bottom: none; }
+        .total-final-box {
+            margin-top: 20px; padding: 15px; background: #e8f5e9;
+            border: 3px solid var(--comic-border); border-radius: 10px;
+            text-align: center; font-size: 1.6rem; font-family: 'Bangers';
         }
 
         @media print {
-            .filters, .btn-back, .no-print { display: none !important; }
+            .filters, .btn-back, .no-print, .modal-overlay { display: none !important; }
             body { background: white; padding: 0; }
             .report-container { border: none; box-shadow: none; width: 100%; padding: 0; }
             th { background: #eee !important; color: black !important; border: 1px solid #000 !important; }
@@ -88,7 +99,7 @@
         <form method="GET" action="" class="filters no-print">
             <div class="filter-group">
                 <label>EMPLEADO:</label>
-                <input type="text" name="q" placeholder="Nombre y Apellido..." value="{{ query|default:'' }}" list="empleados_list" autocomplete="off">
+                <input type="text" name="q" placeholder="Nombre..." value="{{ query|default:'' }}" list="empleados_list" autocomplete="off">
                 <datalist id="empleados_list">
                     {% for e in empleados %}
                         <option value="{{ e.nombre }} {{ e.apellido_paterno }} {{ e.apellido_materno }}">
@@ -118,23 +129,12 @@
             
             <div style="display: flex; gap: 10px;">
                 <button type="submit" class="btn-action btn-generate">GENERAR</button>
+                <button type="button" onclick="openModal()" class="btn-action btn-resumen">📊 TOTALES SUCURSAL</button>
                 <button type="button" onclick="window.print()" class="btn-action btn-export">IMPRIMIR PDF</button>
             </div>
         </form>
 
         {% if agrupados %}
-        
-        <h3 style="font-family: 'Bangers'; color: var(--puebla-magenta); text-align: center; margin-top: 0;">TOTALES DE NÓMINA POR SUCURSAL</h3>
-        <div class="resumen-sucursales">
-            {% for suc in resumen_sucursales %}
-            <div class="sucursal-card">
-                <h4>{{ suc.nombre }}</h4>
-                <p>${{ suc.total|floatformat:2 }}</p>
-            </div>
-            {% endfor %}
-        </div>
-        <hr style="border: 2px dashed var(--comic-border); margin-bottom: 20px;">
-
         <table>
             <thead>
                 <tr>
@@ -142,8 +142,8 @@
                     <th>Sucursal</th>
                     <th>Puesto</th>
                     <th>Turnos</th>
-                    <th>Retardos (Pts)</th>
-                    <th>Descuentos / Motivos</th>
+                    <th>Retardos</th>
+                    <th>Descuentos</th>
                     <th>Bonos</th>
                     <th>Total Fila</th>
                 </tr>
@@ -154,46 +154,64 @@
                     <td style="text-align: left; font-weight: bold;">{{ item.empleado }}</td>
                     <td>{{ item.sucursal }}</td>
                     <td><span class="badge-puesto">{{ item.puesto }}</span></td>
-                    <td style="font-weight: bold; font-size: 1.1rem;">{{ item.total_turnos }}</td>
-                    <td class="{% if item.total_retardos > 0 %}retardo-celda{% endif %}">
-                        {{ item.total_retardos }} Rtds
-                    </td>
+                    <td style="font-weight: bold;">{{ item.total_turnos }}</td>
+                    <td class="{% if item.total_retardos > 0 %}retardo-celda{% endif %}">{{ item.total_retardos }} Rtds</td>
                     <td style="text-align: left; font-size: 0.85rem;">
-                        <span style="color: var(--puebla-red); font-weight: bold;">
-                            -${{ item.monto_descuentos|floatformat:2 }}
-                        </span><br>
-                        <small style="color: #555;">
-                            {{ item.motivos_descuentos|join:", " }}
-                        </small>
+                        <span style="color: var(--puebla-red); font-weight: bold;">-${{ item.monto_descuentos|floatformat:2 }}</span><br>
+                        <small>{{ item.motivos_descuentos|join:", " }}</small>
                     </td>
-                    <td style="color: var(--puebla-blue); font-weight: bold;">
-                        +${{ item.total_bonos|floatformat:2 }}
-                    </td>
+                    <td style="color: var(--puebla-blue); font-weight: bold;">+${{ item.total_bonos|floatformat:2 }}</td>
                     <td class="col-pago">${{ item.total_fila|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-
-        <div class="summary-box">
-            <div><strong>TOTAL TURNOS:</strong> {{ gran_total_turnos }}</div>
-            <div style="color: var(--puebla-red);"><strong>TOTAL RETARDOS:</strong> {{ gran_total_retardos }} Rtds</div>
-            <div><strong>TOTAL BONOS:</strong> <span style="color: var(--puebla-blue);">${{ gran_total_bonos|floatformat:2 }}</span></div>
-            <div style="border-left: 3px solid var(--comic-border); padding-left: 20px;">
-                <strong>TOTAL NÓMINA:</strong> <span style="color: #2E7D32; font-weight: bold;">${{ gran_total_pagar|floatformat:2 }}</span>
-            </div>
-        </div>
         {% else %}
         <div style="text-align: center; margin-top: 50px; font-family: 'Bangers'; color: #666; background: white; padding: 40px; border-radius: 20px; border: 3px dashed #ccc;">
-            <p style="font-size: 2rem; margin-bottom: 10px;">¡Sin resultados!</p>
-            <p style="font-family: 'Patrick Hand'; font-size: 1.2rem;">Ajusta los filtros de fecha o nombre y presiona el botón verde.</p>
+            <p style="font-size: 2rem;">¡Sin resultados!</p>
+            <p style="font-family: 'Patrick Hand';">Ajusta los filtros y presiona GENERAR.</p>
         </div>
         {% endif %}
     </div>
 
+    <div id="modalResumen" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2 style="color: var(--puebla-magenta);">TOTALES POR SUCURSAL</h2>
+            <p style="text-align: center; border-bottom: 2px solid var(--comic-border); padding-bottom: 10px;">
+                {{ fecha_inicio }} al {{ fecha_fin }}
+            </p>
+            
+            <div id="sucursales-list">
+                {% for suc in resumen_sucursales %}
+                <div class="sucursal-row">
+                    <span style="font-weight: bold;">{{ suc.nombre }}</span>
+                    <span style="color: #2E7D32; font-weight: bold;">${{ suc.total|floatformat:2 }}</span>
+                </div>
+                {% empty %}
+                <p style="text-align: center;">Genera el reporte para ver totales.</p>
+                {% endfor %}
+            </div>
+
+            <div class="total-final-box">
+                TOTAL GENERAL: <span style="color: #2E7D32;">${{ gran_total_pagar|floatformat:2 }}</span>
+            </div>
+        </div>
+    </div>
+
     <script>
+        function openModal() {
+            document.getElementById("modalResumen").style.display = "block";
+        }
+        function closeModal() {
+            document.getElementById("modalResumen").style.display = "none";
+        }
+        window.onclick = function(event) {
+            let modal = document.getElementById("modalResumen");
+            if (event.target == modal) closeModal();
+        }
         window.onbeforeprint = function() {
-            console.log("Preparando impresión del reporte...");
+            closeModal();
         };
     </script>
 </body>
