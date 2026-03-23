@@ -633,6 +633,7 @@ def Asistencias_FF_view(request):
     # --- PROCESAMIENTO DE POST (UNIFICADO) ---
     if request.method == 'POST':
         # A. LÓGICA DE ELIMINACIÓN
+        # A. LÓGICA DE ELIMINACIÓN
         if 'eliminar_id' in request.POST:
             CLAVE_BORRADO = "1234"
             asistencia_id = request.POST.get('eliminar_id')
@@ -646,7 +647,7 @@ def Asistencias_FF_view(request):
             sem_reg = asistencia.fecha.isocalendar()[1]
             anio_reg = asistencia.fecha.isocalendar()[0]
             
-            # Bloquea solo si el año es menor, o si es el mismo año pero la semana es menor
+            # CORRECCIÓN: Solo bloquea si el año es anterior O si es el mismo año pero semana anterior
             if anio_reg < anio_actual or (anio_reg == anio_actual and sem_reg < semana_actual):
                 messages.error(request, "🔒 No puedes eliminar registros de semanas PASADAS.")
             else:
@@ -664,9 +665,9 @@ def Asistencias_FF_view(request):
             sem_f = fecha_dt.isocalendar()[1]
             anio_f = fecha_dt.isocalendar()[0]
             
-            # NUEVA LÓGICA: Solo falla si intentas meter algo de una semana anterior a la actual
+            # CORRECCIÓN: Permitir la semana actual y cualquier semana futura
             if anio_f < anio_actual or (anio_f == anio_actual and sem_f < semana_actual):
-                messages.error(request, "🔒 Error: No se pueden modificar registros de semanas pasadas.")
+                messages.error(request, "🔒 Error: No se pueden gestionar registros de semanas pasadas.")
                 return redirect('asistenciasff')
 
             # Captura de campos del formulario
