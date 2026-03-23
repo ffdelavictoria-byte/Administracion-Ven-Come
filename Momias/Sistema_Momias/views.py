@@ -348,28 +348,19 @@ def Asistencias_view(request):
     
     ahora = datetime.now()
     hoy_dt = ahora.date()
-    dia_semana = hoy_dt.isocalendar()[2] # Lunes=1, Domingo=7
+    dia_semana = hoy_dt.isocalendar()[2] # Lunes=1
 
-    # El lunes de la semana en curso (00:00 AM)
+    # Lunes de esta semana a las 00:00
     lunes_esta_semana = hoy_dt - timedelta(days=dia_semana - 1)
     
-    # REGLA DE OMNI-BLOQUEO:
-    # Si es lunes, permitimos editar desde el lunes de la SEMANA PASADA.
-    # Si NO es lunes, solo permitimos editar desde el lunes de ESTA SEMANA.
+    # Si es lunes (1), el límite retrocede a la semana pasada.
+    # Si es martes a domingo, el límite es el lunes de esta semana.
     if dia_semana == 1:
-        # Es lunes: El límite es el lunes de la semana anterior
         limite_bloqueo = lunes_esta_semana - timedelta(days=7)
     else:
-        # Martes a Domingo: El límite es el lunes de esta semana
         limite_bloqueo = lunes_esta_semana
-    
-    # Obtenemos el inicio de la semana actual (Lunes 00:00)
-    inicio_semana_actual = hoy_dt - timedelta(days=hoy_dt.isocalendar()[2] - 1)
-    
-    # REGLA: ¿Estamos en periodo de gracia? (Es lunes y antes de las 23:59)
-    periodo_gracia_lunes = (hoy_dt.isocalendar()[2] == 1) 
 
-    # Para el contexto del template
+    # Datos para el template
     semana_actual = hoy_dt.isocalendar()[1]
     anio_actual = hoy_dt.isocalendar()[0]
 
