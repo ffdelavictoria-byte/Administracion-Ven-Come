@@ -793,6 +793,7 @@ def Asistencias_FF_view(request):
         'semana_actual': semana_actual,
         'fecha_filtro': fecha_filtro,
         'query': query,
+        'anio_actual': anio_actual,
     })
 
 
