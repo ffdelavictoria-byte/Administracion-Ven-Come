@@ -93,10 +93,15 @@ def calcular_descuento_retardos(puntos, sueldo_diario):
     return round(factor * sueldo_diario, 2)
 
 def Login_View(request):
+    # 1. Limpieza de sesión al entrar por GET
     if request.user.is_authenticated and request.method == 'GET':
         logout(request) 
     
     if request.method == 'POST':
+        # 2. BORRAR mensajes previos encolados para que no se "junten" con el login
+        storage = messages.get_messages(request)
+        storage.used = True # Esto marca los mensajes viejos como leídos para que no se muestren
+
         usuario_input = request.POST.get('username')
         clave_input = request.POST.get('password')
         
@@ -104,10 +109,9 @@ def Login_View(request):
         
         if user is not None:
             login(request, user)
-            # CAMBIO VITAL: Usa redirect en lugar de render
-            # Asegúrate de que 'main' sea el name que tienes en urls.py para Main_Content
             return redirect('main') 
         else:
+            # 3. ÚNICO mensaje permitido: Error de credenciales
             messages.error(request, "¡SANTO CIELO! Usuario o contraseña incorrectos.")
             
     return render(request, 'Login_View.html')
@@ -396,7 +400,7 @@ def Asistencias_view(request):
             
         # 4. Proceder al borrado
         asistencia.delete()
-        messages.success(request, "✅ Registro eliminado correctamente.")
+        messages.success(request, "Registro eliminado correctamente.")
         return redirect('asistencias')
 
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
@@ -644,7 +648,7 @@ def Asistencias_FF_view(request):
             clave_ingresada = request.POST.get('clave_borrado')
 
             if clave_ingresada != CLAVE_BORRADO:
-                messages.error(request, "❌ Clave incorrecta.")
+                messages.error(request, "Clave incorrecta.")
                 return redirect('asistenciasff')
 
             asistencia = get_object_or_404(Asistencia, id=asistencia_id)
@@ -653,10 +657,10 @@ def Asistencias_FF_view(request):
             
             # CORRECCIÓN: Solo bloquea si el año es anterior O si es el mismo año pero semana anterior
             if anio_reg < anio_actual or (anio_reg == anio_actual and sem_reg < semana_actual):
-                messages.error(request, "🔒 No puedes eliminar registros de semanas PASADAS.")
+                messages.error(request, "No puedes eliminar registros de semanas PASADAS.")
             else:
                 asistencia.delete()
-                messages.success(request, "✅ Registro eliminado.")
+                messages.success(request, "Registro eliminado.")
             return redirect('asistenciasff')
 
         # B. LÓGICA DE GUARDADO / MODIFICACIÓN
@@ -671,7 +675,7 @@ def Asistencias_FF_view(request):
             
             # CORRECCIÓN: Permitir la semana actual y cualquier semana futura
             if anio_f < anio_actual or (anio_f == anio_actual and sem_f < semana_actual):
-                messages.error(request, "🔒 Error: No se pueden gestionar registros de semanas pasadas.")
+                messages.error(request, "Error: No se pueden gestionar registros de semanas pasadas.")
                 return redirect('asistenciasff')
 
             # Captura de campos del formulario
@@ -774,7 +778,7 @@ def Asistencias_FF_view(request):
                 asistencia.observaciones = obs
 
             asistencia.save()
-            messages.success(request, f"✅ Guardado. R1 en la semana: {total_r}")
+            #messages.success(request, f"✅ Guardado. R1 en la semana: {total_r}")
             return redirect('asistenciasff')
 
         except Exception as e:
