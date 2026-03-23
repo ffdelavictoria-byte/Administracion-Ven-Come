@@ -30,7 +30,6 @@
             padding: 20px 0;
         }
 
-        /* --- ICONO / GIF --- */
         .header-icon {
             display: block;
             margin: 0 auto 10px auto;
@@ -73,7 +72,6 @@
             padding: 15px;
         }
 
-        /* BOTONES */
         .btn-comic {
             font-family: 'Bangers', cursive;
             font-size: 1.4rem;
@@ -108,27 +106,21 @@
         .btn-admin { background-color: #444 !important; color: white !important; }
         .btn-logout { background-color: #ff4444 !important; color: white !important; }
 
-        /* --- DECORACIONES --- */
-        .talavera-wrapper {
-            position: absolute; z-index: 1; opacity: 0;
-            transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
+        /* Decoraciones */
+        .talavera-wrapper { position: absolute; z-index: 1; opacity: 0; transition: all 1s; }
         .talavera-wrapper.show { opacity: 1; }
-        .top-left-group { top: -10px; left: -10px; transform: rotate(0deg) scale(0.6); }
+        .top-left-group { top: -10px; left: -10px; transform: scale(0.6); }
         .bottom-right-group { bottom: -10px; right: -10px; transform: rotate(180deg) scale(0.6); }
         .leaf { position: absolute; background: var(--puebla-blue); border-radius: 0 100% 0 100%; width: 45px; height: 45px; }
 
         .brick-wall { position: absolute; display: flex; flex-direction: column; gap: 8px; z-index: 2; }
-        .brick { 
-            background-color: var(--puebla-blue); height: 35px; width: 100px; 
-            border-radius: 4px; opacity: 0; transition: all 0.5s ease-out;
-        }
+        .brick { background-color: var(--puebla-blue); height: 35px; width: 100px; border-radius: 4px; opacity: 0; transition: all 0.5s; }
         .brick.reveal { opacity: 0.6; transform: translateX(0) !important; }
         .row-offset { margin-left: 30px; }
         .wall-top-right { top: 40px; right: -20px; }
         .wall-bottom-left { bottom: 40px; left: -20px; }
 
-        /* --- ESTILOS MODAL PERMISOS --- */
+        /* Modal */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -148,17 +140,12 @@
             max-height: 90vh;
             overflow-y: auto;
         }
-        .permisos-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
+        .permisos-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         .permisos-table th { background: var(--puebla-blue); color: white; padding: 10px; font-family: 'Bangers'; }
         .permisos-table td { padding: 8px; border-bottom: 1px solid #ddd; text-align: center; }
 
         @media (max-width: 768px) {
-            body { flex-direction: column; justify-content: flex-start; padding-top: 20px; }
-            .header-icon { position: relative; width: 160px; margin: 0 auto 15px auto; }
+            body { flex-direction: column; justify-content: flex-start; }
             .button-grid { grid-template-columns: 1fr; padding: 10px 25px; }
             .brick-wall, .talavera-wrapper { display: none; }
         }
@@ -173,6 +160,7 @@
             <div class="leaf" style="top:60px; left:10px; transform:rotate(-20deg);"></div>
         </div>
     </div>
+    
     <div class="talavera-wrapper bottom-right-group" id="talaGroup2">
         <div style="position:relative; width:150px; height:150px;">
             <div class="leaf" style="top:0; left:0;"></div>
@@ -180,6 +168,7 @@
             <div class="leaf" style="top:60px; left:10px; transform:rotate(-20deg);"></div>
         </div>
     </div>
+
     <div class="brick-wall wall-top-right" id="wall1"></div>
     <div class="brick-wall wall-bottom-left" id="wall2"></div>
 
@@ -214,7 +203,6 @@
                 <button onclick="document.getElementById('modalPermisos').style.display='flex'" class="btn-comic" style="background-color: #ffd700;">
                     🛡️ DELEGAR PODERES
                 </button>
-
                 <a href="{% url 'registrar_usuario' %}" class="btn-comic" style="background-color: var(--puebla-magenta); color: white;">
                     + AGREGAR USUARIO
                 </a>
@@ -295,8 +283,10 @@
             }, 100);
 
             setTimeout(() => {
-                document.getElementById('mainIcon').classList.add('show');
-                document.getElementById('mainContent').classList.add('show');
+                const icon = document.getElementById('mainIcon');
+                const content = document.getElementById('mainContent');
+                if(icon) icon.classList.add('show');
+                if(content) content.classList.add('show');
             }, 400);
         });
     </script>
