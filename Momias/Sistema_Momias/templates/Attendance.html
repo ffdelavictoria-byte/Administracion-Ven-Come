@@ -242,12 +242,11 @@
 
         }
         /* Fuerza a que el label ocupe toda la línea y el select baje */
-        .form-group {
-            display: flex;
-            flex-direction: row; /* Alineación horizontal */
-            align-items: center;
-            gap: 10px;
-        }
+        .form-group label {
+             display: block; 
+             margin-bottom: 5px;
+             width: 100%;
+         }
         
         /* Asegura que el select ocupe el ancho disponible */
         .form-group select {
