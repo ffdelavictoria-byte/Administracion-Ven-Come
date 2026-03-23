@@ -643,8 +643,12 @@ def Asistencias_FF_view(request):
                 return redirect('asistenciasff')
 
             asistencia = get_object_or_404(Asistencia, id=asistencia_id)
-            if asistencia.fecha.isocalendar()[1] != semana_actual:
-                messages.error(request, "🔒 No puedes eliminar registros de semanas pasadas.")
+            sem_reg = asistencia.fecha.isocalendar()[1]
+            anio_reg = asistencia.fecha.isocalendar()[0]
+            
+            # Bloquea solo si el año es menor, o si es el mismo año pero la semana es menor
+            if anio_reg < anio_actual or (anio_reg == anio_actual and sem_reg < semana_actual):
+                messages.error(request, "🔒 No puedes eliminar registros de semanas PASADAS.")
             else:
                 asistencia.delete()
                 messages.success(request, "✅ Registro eliminado.")
@@ -657,10 +661,12 @@ def Asistencias_FF_view(request):
             empleado_obj = get_object_or_404(Empleado, id=empleado_id)
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
-
-            # Seguridad de fecha
-            if (fecha_dt.isocalendar()[1] != semana_actual or fecha_dt.isocalendar()[0] != anio_actual):
-                messages.error(request, "🔒 Error: Solo se permiten registros de la semana actual.")
+            sem_f = fecha_dt.isocalendar()[1]
+            anio_f = fecha_dt.isocalendar()[0]
+            
+            # NUEVA LÓGICA: Solo falla si intentas meter algo de una semana anterior a la actual
+            if anio_f < anio_actual or (anio_f == anio_actual and sem_f < semana_actual):
+                messages.error(request, "🔒 Error: No se pueden modificar registros de semanas pasadas.")
                 return redirect('asistenciasff')
 
             # Captura de campos del formulario
