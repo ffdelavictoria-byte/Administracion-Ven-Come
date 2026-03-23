@@ -1,272 +1,616 @@
-{% load static %}
+ {% load static %}
+
+
 
 <!DOCTYPE html>
+
 <html lang="es">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Asistencias | Momias de la Victoria</title>
+
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet">
+
     <style>
+
         :root {
+
             --puebla-yellow: #FFD700;
+
             --puebla-blue: #1A237E;
+
             --puebla-magenta: #9D174D;
+
             --comic-border: #000000;
+
         }
+
+
 
         body {
+
             font-family: 'Patrick Hand', cursive;
+
             background-color: var(--puebla-yellow);
+
             margin: 0;
+
             padding: 20px;
+
             color: var(--puebla-blue);
+
         }
+
+
 
         .comic-container {
+
             background: white;
+
             border: 4px solid var(--comic-border);
+
             box-shadow: 10px 10px 0px var(--comic-border);
+
             border-radius: 15px;
+
             padding: 25px;
+
             max-width: 1200px;
+
             margin: 0 auto;
+
         }
+
+
 
         h1 {
+
             font-family: 'Bangers', cursive;
+
             font-size: 3rem;
+
             text-align: center;
+
             text-shadow: 2px 2px 0px white, 4px 4px 0px var(--comic-border);
+
             margin-bottom: 30px;
+
             text-transform: uppercase;
+
         }
 
+
+
         .form-grid {
+
             display: grid;
+
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+
             gap: 20px;
+
             margin-bottom: 30px;
+
         }
+
+
 
         .form-group { display: flex; flex-direction: column; }
 
+
+
         label { font-weight: bold; font-size: 1.2rem; margin-bottom: 5px; }
 
+
+
         input, select, textarea {
+
             font-family: 'Patrick Hand', cursive;
+
             font-size: 1.1rem;
+
             padding: 10px;
+
             border: 3px solid var(--comic-border);
+
             border-radius: 8px;
+
             outline: none;
+
             background: #fff;
+
         }
+
+
 
         input:focus, select:focus { border-color: var(--puebla-magenta); }
 
-        /* Auxiliar para bonificación y descuento */
-        .d-flex { display: flex; }
-        .gap-2 { gap: 10px; }
+
+
+        .flex-row { display: flex; gap: 5px; }
+
+        .flex-row input { width: 40%; }
+
+        .flex-row select { width: 60%; }
+
+
 
         .btn-group {
+
             display: flex;
+
             gap: 15px;
+
             justify-content: center;
+
             flex-wrap: wrap;
+
             margin-bottom: 30px;
+
         }
+
+
 
         .btn-comic {
+
             font-family: 'Bangers', cursive;
+
             font-size: 1.2rem;
+
             padding: 8px 20px;
+
             border: 3px solid var(--comic-border);
+
             border-radius: 10px;
+
             cursor: pointer;
+
             transition: 0.1s;
+
             box-shadow: 4px 4px 0px var(--comic-border);
+
             text-decoration: none;
+
             display: inline-block;
+
             text-align: center;
+
         }
+
+
 
         .btn-save { background: #4CAF50; color: white; }
+
         .btn-clear { background: #2196F3; color: white; }
+
         .btn-exit { background: #E53935; color: white; }
 
+        .btn-edit { background: #FFC107; color: black; font-size: 0.9rem; }
+
+        .btn-delete { background: #000000; color: white; font-size: 0.9rem; }
+
+
+
         .btn-comic:active {
+
             transform: translate(2px, 2px);
+
             box-shadow: 2px 2px 0px var(--comic-border);
+
         }
+
+
+
+        .table-wrapper {
+
+            overflow-x: auto;
+
+            border: 3px solid var(--comic-border);
+
+            border-radius: 10px;
+
+            margin-top: 20px;
+
+        }
+
+
+
+        table { width: 100%; border-collapse: collapse; background: white; }
+
+        th { background: var(--puebla-blue); color: white; font-family: 'Bangers', cursive; padding: 12px; }
+
+        td { padding: 10px; border-bottom: 2px solid #ddd; text-align: center; }
+
+
+
+        #sueldo_sugerido {
+
+            font-size: 0.9rem;
+
+            color: var(--puebla-magenta);
+
+            font-weight: bold;
+
+            margin-top: 2px;
+
+            min-height: 1.2rem;
+
+        }
+
     </style>
+
 </head>
+
 <body>
 
+
+
 <div class="comic-container">
+
     <h1>REPORTE DE ASISTENCIAS | Momias De La Victoria</h1>
 
+
+
     <form id="formAsistencia" method="POST">
+
         {% csrf_token %}
+
         <input type="hidden" name="asistencia_id" id="asistencia_id" value="">
 
+
+
         <div class="form-grid">
+
             <div class="form-group">
+
                 <label>Fecha:</label>
+
                 <input type="date" name="fecha" id="fecha" value="{{ hoy }}" required>
+
             </div>
 
+
+
             <div class="form-group">
+
                 <label>Empleado:</label>
+
                 <input type="text" id="empleado_search" placeholder="Escribe nombre o código..." list="lista_empleados" autocomplete="off">
+
+                
+
                 <datalist id="lista_empleados">
+
                     {% for emp in empleados %}
+
                     <option value="{{ emp.codigo_empleado }} - {{ emp.nombre }} {{ emp.apellido_paterno }}" 
+
                             data-id="{{ emp.id }}" 
+
                             data-puesto="{{ emp.puesto }}">
+
                     {% endfor %}
+
                 </datalist>
+
+
+
                 <input type="hidden" name="empleado" id="empleado_id_hidden" required>
+
             </div>
 
+
+
             <div class="form-group">
+
                 <label>Sucursal:</label>
+
                 <select name="sucursal" id="sucursal">
+
                     <option value="Momias 1">Momias 1</option>
+
                     <option value="Momias 2">Momias 2</option>
+
                     <option value="Momias 3">Momias 3</option>
+
                     <option value="Momias 4">Momias 4</option>
+
                     <option value="Momias 5">Momias 5</option>
+
                     <option value="Momias 6">Momias 6</option>
+
                     <option value="PP">PP</option>
+
                     <option value="PM">PM</option>
+
                     <option value="Yommy">Yommy</option>
+
                     <option value="Perrioni">Perrioni</option>
+
                     <option value="Fabrica">Fabrica</option>
+
                     <option value="Benny">Benny</option>
+
                     <option value="Cocina">Cocina</option>
+
                     <option value="Área Seca">Area Seca</option>
+
                 </select>
+
             </div>
 
+
+
             <div class="form-group">
+
                 <label>Puesto:</label>
+
                 <select name="puesto" id="puesto_input">
+
                     <option value="">Selecciona puesto...</option>
+
                     {% for puesto_nombre in lista_puestos %}
+
                         <option value="{{ puesto_nombre }}">{{ puesto_nombre }}</option>
+
                     {% endfor %}
+
                 </select>
-                <div id="sueldo_sugerido"></div>
+
+                <div id="sueldo_sugerido" style="margin-top: 5px; font-weight: bold; min-height: 1.2em;"></div>
+
             </div>
+
+
 
             <div class="form-group" id="group_cargas" style="display:none; background: #fffde7; padding: 10px; border-radius: 8px; border: 2px dashed #000;">
+
                 <label id="label_cargas">Cantidad de Cargas:</label>
+
                 <input type="number" step="0.1" name="cantidad_cargas" id="cantidad_cargas" value="0">
+
                 <input type="hidden" name="monto_dia" id="monto_dia">
+
             </div>
 
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label style="margin-bottom: 10px; border-bottom: 2px solid var(--puebla-blue); display: inline-block;">
-                    Registro de Horarios:
-                </label>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
-                    <div class="form-group" id="fila_entrada_mat">
-                        <label>Entrada Matutina:</label>
-                        <select name="entrada_matutina" id="entrada_matutina">
-                            <option value="" selected>--- No aplica ---</option>
-                            <option value="09:00">09:00 - 09:05</option>
-                            <option value="R2">09:06 - 09:10 (R1)</option>
-                            <option value="OTRO">OTRO (Manual)</option>
-                        </select>
-                        <input type="time" id="custom_entrada_matutina" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_matutina')">
-                    </div>
 
-                    <div class="form-group" id="fila_salida_mat">
-                        <label>Salida Matutina:</label>
-                        <select name="salida_matutina" id="salida_matutina">
-                            <option value="" selected>--- No aplica ---</option>
-                            <option value="15:00">15:00 (Normal)</option>
-                            <option value="OTRO">OTRO (Manual)</option>
-                        </select>
-                        <input type="time" id="custom_salida_matutina" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_matutina')">
-                    </div>
 
-                    <div class="form-group" id="fila_entrada_ves">
-                        <label>Entrada Vespertina:</label>
-                        <select name="entrada_vespertina" id="entrada_vespertina">
-                            <option value="" selected>--- No aplica ---</option>
-                            <option value="15:00">15:00 - 15:05</option>
-                            <option value="OTRO">OTRO (Manual)</option>
-                        </select>
-                        <input type="time" id="custom_entrada_vespertina" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_vespertina')">
-                    </div>
+           <div class="form-group" style="grid-column: 1 / -1;">
 
-                    <div class="form-group" id="fila_salida_ves">
-                        <label>Salida Vespertina:</label>
-                        <select name="salida_vespertina" id="salida_vespertina">
-                            <option value="" selected>--- No aplica ---</option>
-                            <option value="21:00">21:00 (Normal)</option>
-                            <option value="OTRO">OTRO (Manual)</option>
-                        </select>
-                        <input type="time" id="custom_salida_vespertina" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_vespertina')">
-                    </div>
-                </div>
-            </div>
+    <label style="margin-bottom: 10px; border-bottom: 2px solid var(--puebla-blue); display: inline-block;">Registro de Horarios:</label>
 
-            <div class="form-group">
-                <label>Estatus Jornada:</label>
-                <select name="estatus_jornada" id="estatus_jornada">
-                    <option value="Normal">Normal</option>
-                    <option value="Descanso">Descanso</option>
-                    <option value="Descanso trabajado">Descanso trabajado</option>
-                    <option value="Festivo">Festivo</option>
-                    <option value="Falta">Falta</option>
-                    <option value="Permiso">Permiso</option>
-                    <option value="Vacaciones">Vacaciones</option>
-                </select>
-            </div>
+    <div class="form-grid" style="margin-bottom: 0;">
 
-            <div class="form-group">
-                <label>Bonificación ($):</label>
-                <div class="d-flex gap-2">
-                    <input type="number" name="bonificacion" id="bonificacion" step="0.01" value="0" style="width: 30%;">
-                    <input type="text" name="motivo_bonificacion" id="motivo_bonificacion" placeholder="Motivo...">
-                </div>
-            </div>
+        
 
-            <div class="form-group">
-                <label>Descuento ($):</label>
-                <div class="d-flex gap-2">
-                    <input type="number" name="descuento" id="descuento" step="0.01" value="0" style="width: 30%;">
-                    <input type="text" name="motivo_descuento" id="motivo_descuento" placeholder="Motivo...">
-                </div>
-            </div>
+        <div class="form-group" id="fila_entrada_mat">
 
-            <div class="form-group">
-                <label>Tipo Uniforme:</label>
-                <select name="tipo_uniforme" id="tipo_uniforme">
-                    <option value="">Ninguno</option>
-                    <option value="Pago uniforme 1">Pago uniforme 1 ($181.00)</option>
-                    <option value="Pago uniforme 2">Pago uniforme 2 ($181.00)</option>
-                    <option value="Pago uniforme 3">Pago uniforme 3 ($181.00)</option>
-                    <option value="Prenda individual">Prenda individual ($170.00)</option>
-                </select>
-            </div>
+            <label>Entrada Matutina:</label>
 
-            <div class="form-group" style="grid-column: span 2;">
-                <label>Observaciones:</label>
-                <textarea name="observaciones" id="observaciones" rows="2" placeholder="Notas..."></textarea>
-            </div>
+            <select name="entrada_matutina" id="entrada_matutina">
+
+                <option value="" selected>--- No aplica ---</option>
+
+                <option value="09:00">09:00 - 09:05</option>
+
+                <option value="R2">09:06 - 09:10 (R1)</option>
+
+                <option value="OTRO">OTRO (Manual)</option>
+
+            </select>
+
+            <input type="time" id="custom_entrada_matutina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_matutina')">
+
         </div>
+
+
+
+        <div class="form-group" id="fila_salida_mat">
+
+            <label>Salida Matutina:</label>
+
+            <select name="salida_matutina" id="salida_matutina">
+
+                <option value="" selected>--- No aplica ---</option>
+
+                <option value="15:00">15:00 (Normal)</option>
+
+                <option value="OTRO">OTRO (Manual)</option>
+
+            </select>
+
+            <input type="time" id="custom_salida_matutina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_matutina')">
+
+        </div>
+
+
+
+        <div class="form-group" id="fila_entrada_ves">
+
+            <label>Entrada Vespertina:</label>
+
+            <select name="entrada_vespertina" id="entrada_vespertina">
+
+                <option value="" selected>--- No aplica ---</option>
+
+                <option value="15:00">15:00 - 15:05</option>
+
+                <option value="OTRO">OTRO (Manual)</option>
+
+            </select>
+
+            <input type="time" id="custom_entrada_vespertina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'entrada_vespertina')">
+
+        </div>
+
+
+
+        <div class="form-group" id="fila_salida_ves">
+
+            <label>Salida Vespertina:</label>
+
+            <select name="salida_vespertina" id="salida_vespertina">
+
+                <option value="" selected>--- No aplica ---</option>
+
+                <option value="21:00">21:00 (Normal)</option>
+
+                <option value="OTRO">OTRO (Manual)</option>
+
+            </select>
+
+            <input type="time" id="custom_salida_vespertina" class="custom-time" style="display:none; margin-top:5px;" oninput="sincronizarTiempo(this, 'salida_vespertina')">
+
+        </div>
+
+
+
+    </div>
+
+</div>
+
+
+
+            <div class="form-group">
+
+                <label>Estatus Jornada:</label>
+
+                <select name="estatus_jornada" id="estatus_jornada">
+
+                    <option value="Normal">Normal</option>
+
+                    <option value="Descanso">Descanso</option>
+
+                    <option value="Descanso trabajado">Descanso trabajado</option>
+
+                    <option value="Festivo">Festivo</option>
+
+                    <option value="Falta">Falta</option>
+
+                    <option value="Permiso">Permiso</option>
+
+                    <option value="Vacaciones">Vacaciones</option>
+
+                </select>
+
+            </div>
+
+
+
+            <div class="form-group">
+
+                <label for="bonificacion">Bonificación ($):</label>
+
+                <div class="d-flex gap-2">
+
+                    <input type="number" 
+
+                           name="bonificacion" 
+
+                           id="bonificacion" 
+
+                           step="0.01" 
+
+                           value="0" 
+
+                           class="form-control" 
+
+                           style="width: 30%;">
+
+                    
+
+                    <input type="text" 
+
+                           name="motivo_bonificacion" 
+
+                           id="motivo_bonificacion" 
+
+                           class="form-control" 
+
+                           placeholder="Escriba el motivo aquí...">
+
+                </div>
+
+            </div>
+
+
+
+            <div class="form-group">
+
+                <label for="descuento">Descuento ($):</label>
+
+                <div class="d-flex gap-2">
+
+                    <input type="number" name="descuento" id="descuento" step="0.01" value="0" class="form-control" style="width: 30%;">
+
+                    
+
+                    <input type="text" 
+
+                           name="motivo_descuento" 
+
+                           id="motivo_descuento" 
+
+                           class="form-control" 
+
+                           placeholder="Escriba el motivo aquí...">
+
+                </div>
+
+            </div>
+
+
+
+            <div class="form-group">
+
+                <label>Tipo Uniforme:</label>
+
+                <select name="tipo_uniforme" id="tipo_uniforme">
+
+                    <option value="">Ninguno</option>
+
+                    <option value="Pago uniforme 1">Pago uniforme 1 ($181.00)</option>
+
+                    <option value="Pago uniforme 2">Pago uniforme 2 ($181.00)</option>
+
+                    <option value="Pago uniforme 3">Pago uniforme 3 ($181.00)</option>
+
+                    <option value="Prenda individual">Prenda individual ($170.00)</option>
+
+                </select>
+
+            </div>
+
+
+
+            <div class="form-group">
+
+                <label>Observaciones:</label>
+
+                <textarea name="observaciones" id="observaciones" rows="2" placeholder="Notas..."></textarea>
+
+            </div>
+
+        </div>
+
+
 
         <div class="btn-group">
-            <button type="submit" id="btn-principal" class="btn-comic btn-save">CAPTURAR MOVIMIENTO</button>
-            <button type="button" class="btn-comic btn-clear" onclick="limpiarFormulario()">LIMPIAR FORMULARIO</button>
-            <a href="/main/" class="btn-comic btn-exit">SALIR AL MENÚ</a>
-        </div>
-    </form>
 
+            <button type="submit" id="btn-principal" class="btn-comic btn-save">CAPTURAR MOVIMIENTO</button>
+
+            <button type="button" class="btn-comic btn-clear" onclick="limpiarFormularioYTabla()">LIMPIAR FORMULARIO</button>
+
+            <a href="/main/" class="btn-comic btn-exit">SALIR AL MENÚ</a>
+
+        </div>
+
+    </form>
 <div class="comic-container" style="margin-bottom: 20px; padding: 15px;">
     <form method="GET" action="{% url 'asistencias' %}" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
         
