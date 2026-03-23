@@ -724,7 +724,7 @@ def Asistencias_FF_view(request):
                 else: divisor = 6.0
 
                 base_6h = (base_puesto / divisor) * 6
-                es_bloque_u = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
+                es_bloque_u = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "TURNO FIN DE SEMANA", "GERENTE"])
                 
                 if es_bloque_u:
                     ini = ent_m if (ent_m and ":" in ent_m) else ent_v
