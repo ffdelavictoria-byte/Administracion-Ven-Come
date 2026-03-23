@@ -201,7 +201,7 @@
             
             {% if user.is_superuser %}
                 <button onclick="document.getElementById('modalPermisos').style.display='flex'" class="btn-comic" style="background-color: #ffd700;">
-                    🛡️ DELEGAR PODERES
+                    OTORGAR PERMISOS
                 </button>
                 <a href="{% url 'registrar_usuario' %}" class="btn-comic" style="background-color: var(--puebla-magenta); color: white;">
                     + AGREGAR USUARIO
@@ -248,7 +248,7 @@
                     </tbody>
                 </table>
                 <div style="display: flex; gap: 10px;">
-                    <button type="submit" class="btn-comic btn-especial" style="flex: 1;">GUARDAR PODERES</button>
+                    <button type="submit" class="btn-comic btn-especial" style="flex: 1;">GUARDAR PERMISOS</button>
                     <button type="button" onclick="document.getElementById('modalPermisos').style.display='none'" class="btn-comic btn-logout" style="flex: 1;">CERRAR</button>
                 </div>
             </form>
