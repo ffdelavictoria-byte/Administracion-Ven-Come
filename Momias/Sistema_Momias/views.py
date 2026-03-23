@@ -111,18 +111,20 @@ def Login_View(request):
 
 @login_required(login_url='login')
 def Main_Content(request):
-    # 1. Traemos a todos los usuarios
-    # Usamos select_related('perfil') para que sea rápido y traiga los permisos de una vez
-    todos_los_usuarios = User.objects.select_related('perfil').all().order_by('username')
+    from .models import Perfil
+    from django.contrib.auth.models import User
+    
+    # 1. Aseguramos que el usuario que entra tenga su perfil (evita errores de nulos)
+    Perfil.objects.get_or_create(usuario=request.user)
 
-    # 2. Pasamos esos usuarios al diccionario de contexto
+    # 2. Simplificamos la consulta (quitamos el select_related temporalmente para evitar el choque de migraciones)
+    todos_los_usuarios = User.objects.all().order_by('username')
+
     context = {
         'todos_los_usuarios': todos_los_usuarios,
     }
 
-    # 3. Enviamos el contexto al HTML
     return render(request, 'Main_Content.html', context)
-
 def actualizar_permisos_masivo(request):
     if request.method == 'POST':
         usuarios = User.objects.all()
