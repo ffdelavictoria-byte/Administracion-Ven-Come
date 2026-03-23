@@ -446,6 +446,10 @@ def Asistencias_view(request):
                 cargas = float(request.POST.get('cantidad_cargas') or 0)
                 monto_final = cargas * 46.50
 
+            elif puesto_seleccionado == "Benny":
+                config_obj = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
+                monto_final = float(config_obj.monto) if config_obj else 0.0
+
             else:
                 # BUSQUEDA DINÁMICA: Intentamos traer el sueldo de la DB
                 config_obj = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
@@ -498,13 +502,13 @@ def Asistencias_view(request):
             registros_dia = Asistencia.objects.filter(empleado=empleado_obj, fecha=fecha_captura).exclude(id=asistencia_id or -1)
 
             # Validamos si ya existe registro para el turno que intenta guardar
-            if es_matutino and registros_dia.filter(entrada_matutina__isnull=False).exclude(entrada_matutina='').exists():
-                messages.error(request, "¡ERROR! Ya existe un registro para el TURNO MATUTINO de este empleado en esta fecha.")
-                return redirect('asistencias')
-            
-            if es_vespertino and registros_dia.filter(entrada_vespertina__isnull=False).exclude(entrada_vespertina='').exists():
-                messages.error(request, "¡ERROR! Ya existe un registro para el TURNO VESPERTINO de este empleado en esta fecha.")
-                return redirect('asistencias')
+            if puesto_seleccionado != "Benny":
+                if (ent_m and sal_m) and registros_dia.filter(entrada_matutina__isnull=False).exclude(entrada_matutina='').exists():
+                    messages.error(request, "¡ERROR! Turno Matutino ya registrado.")
+                    return redirect('asistencias')
+                if (ent_v and sal_v) and registros_dia.filter(entrada_vespertina__isnull=False).exclude(entrada_vespertina='').exists():
+                    messages.error(request, "¡ERROR! Turno Vespertino ya registrado.")
+                    return redirect('asistencias')
 
             # Si no hay conflicto de turno, procedemos a crear o actualizar
             if asistencia_id and asistencia_id.strip():
