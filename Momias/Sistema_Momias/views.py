@@ -793,7 +793,8 @@ def Asistencias_FF_view(request):
             # --- APLICACIÓN DEL MULTIPLICADOR (ANTES DE BONOS) ---
             # Esto evita que se cuatriplique el sueldo o se dupliquen los bonos
             # --- 2. LÓGICA DE GUARDADO / MODIFICACIÓN ---
-    if request.method == 'POST':
+    
+    if request.method == 'POST' and 'eliminar_id' not in request.POST:
         try:
             # --- 1. DATOS BÁSICOS Y SEGURIDAD ---
             asistencia_id = request.POST.get('asistencia_id')
@@ -823,10 +824,11 @@ def Asistencias_FF_view(request):
                 messages.error(request, "¡ERROR! Ya existe un registro matutino para este empleado hoy.")
                 return redirect('asistenciasff')
 
-            # --- 3. LÓGICA DE RETARDOS ACUMULADOS (R1) ---
+            # --- 3. LÓGICA DE RETARDOS (R1 para Descuento y R2-R12 para Puntos) ---
+            # 3.1 Descuento por R1 acumulados
             inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday())
             registros_semana = Asistencia.objects.filter(
-                empleado=empleado_obj,
+                empleado=empleado_obj, 
                 fecha__range=[inicio_semana, fecha_dt]
             ).exclude(id=id_excluir)
 
@@ -838,14 +840,20 @@ def Asistencias_FF_view(request):
             r_actuales = (1 if 'R1' in ent_m.upper() else 0) + (1 if 'R1' in ent_v.upper() else 0)
             total_r_semana = r_acumulados + r_actuales
             
-            desc_retardo = 0.0
-            # Obtenemos base del diccionario cargado dinámicamente al inicio de la vista
             base_puesto_actual = float(puestos_salarios_ff.get(puesto_seleccionado, 0.0))
+            desc_retardo = (base_puesto_actual / 2) if (total_r_semana > 0 and total_r_semana % 2 == 0) else 0.0
 
-            if total_r_semana > 0 and total_r_semana % 2 == 0:
-                desc_retardo = base_puesto_actual / 2  # Descuento de medio turno
+            # 3.2 Puntos por R2-R12
+            def calcular_puntos(valor):
+                if not valor or ":" in valor or "R1" in valor: return 0
+                mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
+                for clave, pts in mapping.items():
+                    if clave in valor.upper(): return pts
+                return 0
+            
+            puntos_hoy = calcular_puntos(ent_m) + calcular_puntos(ent_v)
 
-            # --- 4. CÁLCULO DE MONTO SEGÚN PUESTO Y DIVISOR ---
+            # --- 4. CÁLCULO DE MONTO SEGÚN PUESTO ---
             monto_calculado = 0.0
             puesto_up = puesto_seleccionado.upper()
 
@@ -860,18 +868,13 @@ def Asistencias_FF_view(request):
             elif puesto_seleccionado == "Tuppers":
                 monto_calculado = float(request.POST.get('cantidad_cargas') or 0) * 46.50
             else:
-                # Determinar divisor (9, 12 o 6 horas)
-                if any(x in puesto_up for x in ["(9 HORAS)", "9HRS", "CREPAS", "LIMPIEZA FIN DE SEMANA"]):
-                    divisor = 9.0
-                elif any(x in puesto_up for x in ["(12 HORAS)", "FIN DE SEMANA", "GERENTE"]):
-                    divisor = 12.0
-                else:
-                    divisor = 6.0 
+                # Divisor por horas
+                if any(x in puesto_up for x in ["(9 HORAS)", "9HRS", "CREPAS", "LIMPIEZA"]): divisor = 9.0
+                elif any(x in puesto_up for x in ["(12 HORAS)", "GERENTE"]): divisor = 12.0
+                else: divisor = 6.0 
 
                 base_6h_eq = (base_puesto_actual / divisor) * 6
-                
-                # ¿Es turno corrido o partido?
-                es_bloque_u = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE", "LIMPIEZA FIN DE SEMANA"])
+                es_bloque_u = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
                 
                 if es_bloque_u:
                     inicio = ent_m if (ent_m and ":" in ent_m) else ent_v
@@ -880,66 +883,48 @@ def Asistencias_FF_view(request):
                 else:
                     monto_calculado = obtener_monto_bloque(base_6h_eq, ent_m, sal_m) + obtener_monto_bloque(base_6h_eq, ent_v, sal_v)
 
-            # --- 5. MULTIPLICADORES Y GUARDADO FINAL ---
+            # Multiplicador por festivo/descanso trabajado
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calculado *= 2.0
 
+            # --- 5. GUARDADO FINAL ---
             bono = float(request.POST.get('bonificacion') or 0)
             desc_manual = float(request.POST.get('descuento') or 0)
-            descuento_total = desc_manual + desc_retardo
             
-            # Instancia
+            # Recuperar o crear instancia
             asistencia = get_object_or_404(Asistencia, id=id_excluir) if id_excluir != -1 else Asistencia(sucursal="FastFood")
 
             asistencia.empleado = empleado_obj
             asistencia.fecha = fecha_captura
             asistencia.estatus = estatus_jornada
             asistencia.puesto = puesto_seleccionado
-            asistencia.pago_dia = round(monto_calculado + bono - descuento_total, 2)
-            asistencia.bonificacion = bono
-            asistencia.descuento = descuento_total
-            asistencia.horas = float(total_r_semana) # Guardamos total de retardos para la vista
-            
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
+            
+            asistencia.bonificacion = bono
+            asistencia.descuento = desc_manual + desc_retardo
+            asistencia.pago_dia = round(monto_calculado + bono - asistencia.descuento, 2)
+            
+            # Guardamos los R1 en 'horas' para la tabla y puntos en el campo correspondiente
+            asistencia.horas = float(total_r_semana) 
+            # asistencia.puntos = puntos_hoy  # Activa esta línea si tienes el campo en el modelo
+            
             asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
             asistencia.motivo_descuento = request.POST.get('motivo_descuento')
+            asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
             
             obs_previas = (request.POST.get('observaciones') or "").strip()
-            asistencia.observaciones = f"{obs_previas} | Desc. por {total_r_semana} retardos.".strip(" |") if desc_retardo > 0 else obs_previas
+            if desc_retardo > 0:
+                asistencia.observaciones = f"{obs_previas} | Desc. por {total_r_semana} retardos R1.".strip(" |")
+            else:
+                asistencia.observaciones = obs_previas
 
             asistencia.save()
-            messages.success(request, f"✅ Registro Guardado. Retardos: {total_r_semana}")
+            messages.success(request, f"✅ Registro Guardado. (R1 acumulados: {total_r_semana})")
             return redirect('asistenciasff')
 
         except Exception as e:
             messages.error(request, f"❌ Error al procesar: {e}")
-            return redirect('asistenciasff')
-            
-            
-            def calcular_puntos(valor):
-                if not valor or ":" in valor or "R1" in valor: return 0
-                mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
-                for clave, pts in mapping.items():
-                    if clave in valor.upper(): return pts
-                return 0
-
-            asistencia.horas = float(calcular_puntos(ent_m) + calcular_puntos(ent_v))
-            asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
-            asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
-            asistencia.bonificacion = bono
-            asistencia.descuento = desc
-            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
-            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
-            asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
-            asistencia.observaciones = request.POST.get('observaciones')
-            
-            asistencia.save()
-            messages.success(request, "¡Registro FF procesado correctamente!")
-            return redirect('asistenciasff')
-
-        except Exception as e:
-            messages.error(request, f"Error al procesar: {e}")
             return redirect('asistenciasff')
 
     # --- 3. LÓGICA GET ---
