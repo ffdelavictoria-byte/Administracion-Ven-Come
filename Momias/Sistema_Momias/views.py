@@ -348,6 +348,20 @@ def Asistencias_view(request):
     
     ahora = datetime.now()
     hoy_dt = ahora.date()
+    dia_semana = hoy_dt.isocalendar()[2] # Lunes=1, Domingo=7
+
+    # El lunes de la semana en curso (00:00 AM)
+    lunes_esta_semana = hoy_dt - timedelta(days=dia_semana - 1)
+    
+    # REGLA DE OMNI-BLOQUEO:
+    # Si es lunes, permitimos editar desde el lunes de la SEMANA PASADA.
+    # Si NO es lunes, solo permitimos editar desde el lunes de ESTA SEMANA.
+    if dia_semana == 1:
+        # Es lunes: El límite es el lunes de la semana anterior
+        limite_bloqueo = lunes_esta_semana - timedelta(days=7)
+    else:
+        # Martes a Domingo: El límite es el lunes de esta semana
+        limite_bloqueo = lunes_esta_semana
     
     # Obtenemos el inicio de la semana actual (Lunes 00:00)
     inicio_semana_actual = hoy_dt - timedelta(days=hoy_dt.isocalendar()[2] - 1)
@@ -398,8 +412,8 @@ def Asistencias_view(request):
         asistencia = get_object_or_404(Asistencia, id=asistencia_id)
         
         # NUEVA VALIDACIÓN LUNES 11:59 PM
-        if asistencia.fecha < inicio_semana_actual and not periodo_gracia_lunes:
-            messages.error(request, "🔒 Bloqueado: Los registros de la semana pasada cerraron el lunes a las 23:59.")
+        if asistencia.fecha < limite_bloqueo:
+            messages.error(request, "🔒 Registro cerrado. El plazo venció el lunes a las 11:59 PM.")
             return redirect('asistencias')
             
         asistencia.delete()
@@ -413,8 +427,8 @@ def Asistencias_view(request):
             fecha_dt = datetime.strptime(fecha_captura_str, '%Y-%m-%d').date()
 
             # --- APLICACIÓN DEL BLOQUEO ---
-            if fecha_dt < inicio_semana_actual and not periodo_gracia_lunes:
-                messages.error(request, "⚠️ Error: No puedes modificar registros de semanas anteriores después del lunes.")
+            if fecha_dt < limite_bloqueo:
+                messages.error(request, "⚠️ Error: No puedes modificar registros anteriores al cierre del lunes.")
                 return redirect('asistencias')
 
             # --- LÓGICA DINÁMICA DE SUELDOS ---
