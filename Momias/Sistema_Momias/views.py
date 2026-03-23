@@ -111,20 +111,17 @@ def Login_View(request):
 
 @login_required(login_url='login')
 def Main_Content(request):
-    from .models import Perfil
-    from django.contrib.auth.models import User
-    
-    # 1. Aseguramos que el usuario que entra tenga su perfil (evita errores de nulos)
+    # Asegura que el usuario actual tenga un perfil creado para evitar errores en el HTML
     Perfil.objects.get_or_create(usuario=request.user)
-
-    # 2. Simplificamos la consulta (quitamos el select_related temporalmente para evitar el choque de migraciones)
+    
+    # Obtenemos los usuarios de forma simple para evitar fallos de SQL complejos
     todos_los_usuarios = User.objects.all().order_by('username')
-
+    
     context = {
         'todos_los_usuarios': todos_los_usuarios,
     }
-
     return render(request, 'Main_Content.html', context)
+    
 def actualizar_permisos_masivo(request):
     if request.method == 'POST':
         usuarios = User.objects.all()
