@@ -241,6 +241,19 @@
             min-height: 1.2rem;
 
         }
+        /* Fuerza a que el label ocupe toda la línea y el select baje */
+        .form-group {
+            display: flex;
+            flex-direction: row; /* Alineación horizontal */
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* Asegura que el select ocupe el ancho disponible */
+        .form-group select {
+            width: 100%;
+            display: block;
+        }
 
     </style>
 
