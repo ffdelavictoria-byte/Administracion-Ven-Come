@@ -718,21 +718,29 @@ def Asistencias_FF_view(request):
             elif puesto_sel == "Tuppers":
                 monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
             else:
-                # Determinación de divisor
-                if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA"]): divisor = 9.0
-                elif any(x in puesto_up for x in ["12 HORAS", "GERENTE"]): divisor = 12.0
-                else: divisor = 6.0
+                # 1. Determinación de divisor
+                if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA"]): 
+                    divisor = 9.0
+                elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): # <--- Agregamos FIN DE SEMANA aquí
+                    divisor = 12.0
+                else: 
+                    divisor = 6.0
 
+                # 2. Calculamos cuánto valen 6 horas de ese puesto
                 base_6h = (base_puesto / divisor) * 6
-                es_bloque_u = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "TURNO FIN DE SEMANA", "GERENTE"])
+                
+                # 3. Identificamos si es un bloque único (un solo registro de entrada/salida para todo el día)
+                es_bloque_u = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
                 
                 if es_bloque_u:
+                    # Buscamos la entrada y salida válida entre matutino y vespertino
                     ini = ent_m if (ent_m and ":" in ent_m) else ent_v
                     fin = sal_v if (sal_v and ":" in sal_v) else sal_m
                     monto_calc = obtener_monto_bloque(base_6h, ini, fin)
                 else:
+                    # Sumamos los dos bloques (matutino + vespertino)
                     monto_calc = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
-
+                    
             # Aplicar multiplicador si es festivo o descanso trabajado
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calc *= 2.0
