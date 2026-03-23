@@ -674,46 +674,44 @@
                     <td>{{ registro.puesto|default:"--" }}</td>
                     <td>{{ registro.estatus_jornada }}</td>
                     <td style="display: flex; gap: 5px; justify-content: center;">
-                        {% if registro.fecha|date:"W"|add:"0" == semana_actual and registro.fecha|date:"Y"|add:"0" == anio_actual %}
-                        <button type="button" class="btn-comic btn-edit" 
-                            data-id="{{ registro.id }}"
-                            data-emp="{{ registro.empleado.id }}"
-                            data-fec="{{ registro.fecha|date:'Y-m-d' }}"
-                            data-pue="{{ registro.puesto|default:'' }}"
-                            data-suc="{{ registro.sucursal|default:'' }}"
-                            data-mat="{{ registro.entrada_matutina }}"
-                            data-ves="{{ registro.entrada_vespertina }}"
-                            data-salmat="{{ registro.salida_matutina }}"
-                            data-salves="{{ registro.salida_vespertina }}"
-                            data-est="{{ registro.estatus_jornada }}"
-                            data-bon="{{ registro.bonificacion|default:'0' }}"
-                            data-mbon="{{ registro.motivo_bonificacion|default:'' }}"
-                            data-des="{{ registro.descuento|default:'0' }}"
-                            data-mdes="{{ registro.motivo_descuento|default:'' }}"
-                            data-uni="{{ registro.tipo_uniforme|default:'' }}"
-                            data-car="{{ registro.cantidad_cargas|default:'0' }}"
-                            data-obs="{{ registro.observaciones|escapejs }}"
-                            onclick="prepararEdicion(this)">
-                            EDITAR
-                        </button>
+    {% if registro.fecha >= limite_bloqueo %}
+        <button type="button" class="btn-comic btn-edit" 
+            data-id="{{ registro.id }}"
+            data-emp="{{ registro.empleado.id }}"
+            data-fec="{{ registro.fecha|date:'Y-m-d' }}"
+            data-pue="{{ registro.puesto|default:'' }}"
+            data-suc="{{ registro.sucursal|default:'' }}"
+            data-mat="{{ registro.entrada_matutina }}"
+            data-ves="{{ registro.entrada_vespertina }}"
+            data-salmat="{{ registro.salida_matutina }}"
+            data-salves="{{ registro.salida_vespertina }}"
+            data-est="{{ registro.estatus_jornada }}"
+            data-bon="{{ registro.bonificacion|default:'0' }}"
+            data-mbon="{{ registro.motivo_bonificacion|default:'' }}"
+            data-des="{{ registro.descuento|default:'0' }}"
+            data-mdes="{{ registro.motivo_descuento|default:'' }}"
+            data-uni="{{ registro.tipo_uniforme|default:'' }}"
+            data-car="{{ registro.cantidad_cargas|default:'0' }}"
+            data-obs="{{ registro.observaciones|escapejs }}"
+            onclick="prepararEdicion(this)">
+            EDITAR
+        </button>
 
-                         <form method="POST" id="form-eliminar-{{ registro.id }}" style="display:inline;">
-                            {% csrf_token %}
-                            <input type="hidden" name="eliminar_id" value="{{ registro.id }}">
-                            <input type="hidden" name="clave_borrado" id="clave-{{ registro.id }}">
-                            
-                            <button type="button" class="btn-comic" onclick="confirmarBorrado('{{ registro.id }}')">
-                                <i class="fas fa-trash-alt"></i> ELIMINAR
-                            </button>
-                        </form>
-
-                        {% if registro.fecha >= limite_bloqueo %}
-                            <button class="btn btn-edit">...</button>
-                            <button class="btn btn-delete">...</button>
-                        {% else %}
-                            <span class="badge badge-secondary">🔒 Registro Cerrado</span>
-                        {% endif %}
-                    </td>
+        <form method="POST" id="form-eliminar-{{ registro.id }}" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="eliminar_id" value="{{ registro.id }}">
+            <input type="hidden" name="clave_borrado" id="clave-{{ registro.id }}">
+            
+            <button type="button" class="btn-comic btn-delete" onclick="confirmarBorrado('{{ registro.id }}')">
+                ELIMINAR
+            </button>
+        </form>
+    {% else %}
+        <span class="badge" style="background: #666; color: white; padding: 5px 10px; border-radius: 5px;">
+            🔒 Bloqueado
+        </span>
+    {% endif %}
+</td>
                 </tr>
                 {% empty %}
                 <tr id="fila-vacia"><td colspan="6">No hay registros guardados.</td></tr>
