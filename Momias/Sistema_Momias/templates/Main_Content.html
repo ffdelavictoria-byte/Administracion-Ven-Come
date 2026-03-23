@@ -31,20 +31,18 @@
         }
 
         /* --- ICONO / GIF --- */
-        /* --- ICONO / GIF ACTUALIZADO --- */
         .header-icon {
             display: block;
-            margin: 0 auto 10px auto; /* Centrado automático */
+            margin: 0 auto 10px auto;
             width: 220px;
             z-index: 10;
             opacity: 0;
             transform: translateY(-20px) rotate(-5deg);
             transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.5s;
-            position: relative; /* Cambiado de absolute a relative para escritorio también */
+            position: relative;
         }
         .header-icon.show { opacity: 1; transform: translateY(0) rotate(0deg); }
 
-        /* --- CONTENEDOR PRINCIPAL ACTUALIZADO --- */
         .main-content {
             z-index: 5;
             text-align: center;
@@ -54,7 +52,7 @@
             width: 95%;
             max-width: 850px; 
             margin: 0 auto;
-            padding-top: 20px; /* Reducido porque el logo ya no es absoluto */
+            padding-top: 20px;
         }
         .main-content.show { opacity: 1; transform: scale(1); }
 
@@ -130,30 +128,39 @@
         .wall-top-right { top: 40px; right: -20px; }
         .wall-bottom-left { bottom: 40px; left: -20px; }
 
-        /* --- RESPONSIVE --- */
+        /* --- ESTILOS MODAL PERMISOS --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            border: 5px solid black;
+            border-radius: 20px;
+            padding: 25px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .permisos-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .permisos-table th { background: var(--puebla-blue); color: white; padding: 10px; font-family: 'Bangers'; }
+        .permisos-table td { padding: 8px; border-bottom: 1px solid #ddd; text-align: center; }
+
         @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-                justify-content: flex-start;
-                padding-top: 20px;
-            }
-            .header-icon {
-                position: relative; /* En móvil el logo ya no flota sobre el texto */
-                top: 0;
-                width: 160px;
-                margin: 0 auto 15px auto;
-            }
-            .main-content {
-                padding-top: 0;
-                width: 100%;
-            }
-            .button-grid {
-                grid-template-columns: 1fr; /* Una columna en celulares */
-                padding: 10px 25px;
-            }
-            .brick-wall, .talavera-wrapper {
-                display: none; /* Quitamos distracciones en pantallas chicas */
-            }
+            body { flex-direction: column; justify-content: flex-start; padding-top: 20px; }
+            .header-icon { position: relative; width: 160px; margin: 0 auto 15px auto; }
+            .button-grid { grid-template-columns: 1fr; padding: 10px 25px; }
+            .brick-wall, .talavera-wrapper { display: none; }
         }
     </style>
 </head>
@@ -179,26 +186,35 @@
     <div class="main-content" id="mainContent">
         <img src="{% static 'Momias_Icon/MomiasGif.gif' %}" alt="Logo" class="header-icon" id="mainIcon">
         
-        <h1 class="title-comic">¡BIENVENIDO, JEFE!</h1>
+        <h1 class="title-comic">¡BIENVENIDO, {{ user.username|upper }}!</h1>
         
         <div class="button-grid">
-            <a href="/emp/" class="btn-comic btn-especial">Gestión de Empleados</a>
-            <a href="/asistencia/" class="btn-comic">Asistencias Momias</a>
-                            <a href="/nomina/" class="btn-comic">
-                    Nómina
-                </a>
-                <a href="/reportes/" class="btn-comic">
-                    Reportes
-                </a>
-                <a href="/asistenciaff/" class="btn-comic">
-                    Asistencias FF
-                </a>
+            {% if user.is_superuser or user.perfil.can_ver_empleados %}
+                <a href="/emp/" class="btn-comic btn-especial">Gestión de Empleados</a>
+            {% endif %}
+
+            {% if user.is_superuser or user.perfil.can_ver_asistencias %}
+                <a href="/asistencia/" class="btn-comic">Asistencias Momias</a>
+                <a href="/asistenciaff/" class="btn-comic">Asistencias FF</a>
+            {% endif %}
+
+            {% if user.is_superuser or user.perfil.can_ver_nomina %}
+                <a href="/nomina/" class="btn-comic">Nómina</a>
+            {% endif %}
+
+            {% if user.is_superuser or user.perfil.can_ver_reportes %}
+                <a href="/reportes/" class="btn-comic">Reportes</a>
+            {% endif %}
             
-                <a href="/gestion-sueldos/" class="btn-comic">
-                    Gestion Sueldos
-                </a>
+            {% if user.is_superuser or user.perfil.can_ver_sueldos %}
+                <a href="/gestion-sueldos/" class="btn-comic">Gestion Sueldos</a>
+            {% endif %}
             
             {% if user.is_superuser %}
+                <button onclick="document.getElementById('modalPermisos').style.display='flex'" class="btn-comic" style="background-color: #ffd700;">
+                    🛡️ DELEGAR PODERES
+                </button>
+
                 <a href="{% url 'registrar_usuario' %}" class="btn-comic" style="background-color: var(--puebla-magenta); color: white;">
                     + AGREGAR USUARIO
                 </a>
@@ -213,13 +229,52 @@
         </div>
     </div>
 
+    {% if user.is_superuser %}
+    <div id="modalPermisos" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="font-family: 'Bangers'; color: var(--puebla-blue);">CONTROL DE ACCESO</h2>
+            <form action="{% url 'actualizar_permisos_masivo' %}" method="POST">
+                {% csrf_token %}
+                <table class="permisos-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">Usuario</th>
+                            <th>Emp</th>
+                            <th>Asis</th>
+                            <th>Nom</th>
+                            <th>Rep</th>
+                            <th>Suel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in todos_los_usuarios %}
+                        <tr>
+                            <td style="text-align: left; font-weight: bold;">{{ u.username }}</td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_emp" {% if u.perfil.can_ver_empleados or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_asi" {% if u.perfil.can_ver_asistencias or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_nom" {% if u.perfil.can_ver_nomina or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_rep" {% if u.perfil.can_ver_reportes or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                            <td><input type="checkbox" name="p_{{ u.id }}_sue" {% if u.perfil.can_ver_sueldos or u.is_superuser %}checked{% endif %} {% if u.is_superuser %}disabled{% endif %}></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn-comic btn-especial" style="flex: 1;">GUARDAR PODERES</button>
+                    <button type="button" onclick="document.getElementById('modalPermisos').style.display='none'" class="btn-comic btn-logout" style="flex: 1;">CERRAR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const wall1 = document.getElementById('wall1');
             const wall2 = document.getElementById('wall2');
 
             function build(container, side) {
-                if(window.innerWidth < 768) return; // No construir ladrillos en móvil
+                if(window.innerWidth < 768) return;
                 for (let i = 0; i < 5; i++) {
                     const b = document.createElement('div');
                     b.className = 'brick' + (i % 2 === 1 ? ' row-offset' : '');
