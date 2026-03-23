@@ -110,18 +110,29 @@ def Login_View(request):
             
     return render(request, 'Login_View.html')
 
+from django.http import HttpResponse # Asegúrate de tener esta importación arriba
+
 @login_required(login_url='login')
 def Main_Content(request):
-    # Asegura que el usuario actual tenga un perfil creado para evitar errores en el HTML
-    Perfil.objects.get_or_create(usuario=request.user)
-    
-    # Obtenemos los usuarios de forma simple para evitar fallos de SQL complejos
-    todos_los_usuarios = User.objects.all().order_by('username')
-    
-    context = {
-        'todos_los_usuarios': todos_los_usuarios,
-    }
-    return render(request, 'Main_Content.html', context)
+    try:
+        # 1. Intento de asegurar el perfil
+        Perfil.objects.get_or_create(usuario=request.user)
+        
+        # 2. Intento de obtener usuarios
+        todos_los_usuarios = User.objects.all().order_by('username')
+        
+        context = {
+            'todos_los_usuarios': todos_los_usuarios,
+        }
+        
+        # 3. Intento de renderizar el HTML
+        return render(request, 'Main_Content.html', context)
+
+    except Exception as e:
+        # Si algo falla, el error aparecerá en texto plano en tu navegador
+        import traceback
+        error_detalle = traceback.format_exc()
+        return HttpResponse(f"<h1>Error detectado en Main_Content</h1><pre>{error_detalle}</pre>")
     
 def actualizar_permisos_masivo(request):
     if request.method == 'POST':
