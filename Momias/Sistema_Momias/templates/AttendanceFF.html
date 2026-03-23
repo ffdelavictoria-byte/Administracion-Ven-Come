@@ -329,33 +329,31 @@
                     <td>${{ registro.pago_dia }}</td>
                     <td style="display: flex; gap: 5px; justify-content: center;">
                         <td style="display: flex; gap: 5px; justify-content: center;">
-    {% with sem_reg=registro.fecha|date:"W"|add:"0" anio_reg=registro.fecha|date:"Y"|add:"0" %}
-        {% if anio_reg > anio_actual or anio_reg == anio_actual and sem_reg >= semana_actual %}
-            <button type="button" class="btn-comic btn-edit" 
-                data-id="{{ registro.id }}"
-                data-emp="{{ registro.empleado.id }}"
-                data-fec="{{ registro.fecha|date:'Y-m-d' }}"
-                data-pue="{{ registro.puesto }}"
-                data-mat="{{ registro.entrada_matutina }}"
-                data-smat="{{ registro.salida_matutina }}"
-                data-ves="{{ registro.entrada_vespertina }}"
-                data-sves="{{ registro.salida_vespertina }}"
-                data-est="{{ registro.estatus }}"
-                data-bon="{{ registro.bonificacion }}"
-                data-mbon="{{ registro.motivo_bonificacion }}"
-                data-mdes="{{ registro.motivo_descuento }}"
-                data-des="{{ registro.descuento }}"
-                data-obs="{{ registro.observaciones }}"
-                onclick="prepararEdicion(this)">EDITAR</button>
-            
-            <button type="button" class="btn-comic btn-delete" 
-                onclick="eliminarRegistro('{{ registro.id }}', '{{ registro.empleado.nombre }}')">BORRAR</button>
-        {% else %}
-            <span style="background: #666; color: white; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem;">
-                🔒 CERRADO
-            </span>
-        {% endif %}
-    {% endwith %}
+    {% if registro.fecha >= limite_bloqueo %}
+        <button type="button" class="btn-comic btn-edit" 
+            data-id="{{ registro.id }}"
+            data-emp="{{ registro.empleado.id }}"
+            data-fec="{{ registro.fecha|date:'Y-m-d' }}"
+            data-pue="{{ registro.puesto }}"
+            data-mat="{{ registro.entrada_matutina }}"
+            data-smat="{{ registro.salida_matutina }}"
+            data-ves="{{ registro.entrada_vespertina }}"
+            data-sves="{{ registro.salida_vespertina }}"
+            data-est="{{ registro.estatus }}"
+            data-bon="{{ registro.bonificacion }}"
+            data-mbon="{{ registro.motivo_bonificacion }}"
+            data-mdes="{{ registro.motivo_descuento }}"
+            data-des="{{ registro.descuento }}"
+            data-obs="{{ registro.observaciones }}"
+            onclick="prepararEdicion(this)">EDITAR</button>
+        
+        <button type="button" class="btn-comic btn-delete" 
+            onclick="eliminarRegistro('{{ registro.id }}', '{{ registro.empleado.nombre }}')">BORRAR</button>
+    {% else %}
+        <span style="background: #666; color: white; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem; font-family: 'Bangers', cursive;">
+            🔒 CERRADO
+        </span>
+    {% endif %}
 </td>
                 </tr>
                 {% endfor %}
