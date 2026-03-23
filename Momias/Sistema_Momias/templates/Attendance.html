@@ -707,11 +707,11 @@
                             </button>
                         </form>
 
+                        {% if registro.fecha >= limite_bloqueo %}
+                            <button class="btn btn-edit">...</button>
+                            <button class="btn btn-delete">...</button>
                         {% else %}
-                            {# Mensaje o icono para registros bloqueados #}
-                            <span style="color: #666; font-style: italic; font-size: 0.8rem;">
-                                🔒 Registro Cerrado
-                            </span>
+                            <span class="badge badge-secondary">🔒 Registro Cerrado</span>
                         {% endif %}
                     </td>
                 </tr>
