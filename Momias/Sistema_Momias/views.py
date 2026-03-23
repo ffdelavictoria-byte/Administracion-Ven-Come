@@ -1472,7 +1472,7 @@ def vista_reportes(request):
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
-    # Diccionario de salarios (Mantenemos tu versión extendida)
+    # Diccionario de salarios
     puestos_salarios = {
         "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
@@ -1509,31 +1509,16 @@ def vista_reportes(request):
         "TURNO FIN DE SEMANA": 473.00,
         "Gerente (12 horas)": 600.00, 
         "Chef de Línea (9 horas)": 531.57,
-        "Encargado Cocina (Matutino 6 horas)": 252.00,
         "Crepas": 354.50,
-        "Limpieza Fin De Semana (9 horas)": 408.00,
-        "Limpieza 1 Matutino (6 horas L)": 272.00,
-        "Limpieza 2 Matutino (6 horas)": 236.50,
-        "Limpieza 3 Vespertino (6 horas A)": 272.00,
-        "Limpieza 4 Vespertino (6 horas)": 236.50,
-        "Fin de Semana": 473.00,
-        "Aux Produccion": 177.00,
-        "Produccion": 370.00,
         "Hamburguesas FF": 0.0,
     }
     
     FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
     agrupados_dict = {}
-    totales_por_sucursal = {}
+    resumen_sucursales_dict = {}
     resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0, 'total_turnos': 0, 'total_descuentos': 0}
 
     if f_inicio and f_fin:
-        asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
-        
-        if sucursal_filtro and sucursal_filtro != "TODAS": 
-            asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
-        
-        if f_inicio and f_fin:
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
         
         # Filtros de búsqueda (Sucursal y Nombre)
@@ -1545,9 +1530,6 @@ def vista_reportes(request):
                 full_name=Concat('empleado__nombre', Value(' '), 'empleado__apellido_paterno', Value(' '), 'empleado__apellido_materno', output_field=CharField())
             ).filter(Q(full_name__icontains=query_nombre) | Q(empleado__codigo_empleado__icontains=query_nombre))
 
-        # --- NUEVA ESTRUCTURA PARA LA CONTADORA ---
-        totales_por_sucursal = {} 
-        
         for asis in asistencias_query:
             emp = asis.empleado
             estatus_limpio = (asis.estatus or "").strip().upper()
@@ -1559,37 +1541,32 @@ def vista_reportes(request):
             # --- LÓGICA DE RECONSTRUCCIÓN DE MONTO BASE ---
             salario_referencia = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
             
-            # Si el pago_dia es 0 (típico en descansos), usamos el salario de referencia
             pago_registrado = float(asis.pago_dia or 0)
             if pago_registrado > 0:
                 pago_base_dia = pago_registrado
             else:
-                # Si es descanso, se le asigna su salario base; de lo contrario queda en 0
                 pago_base_dia = salario_referencia if es_descanso else 0
 
             bono_dia = float(asis.bonificacion or 0)
             desc_manual = float(asis.descuento or 0)
             puntos_retardo = int(float(asis.horas or 0))
 
-            # --- CÁLCULO DE DESCUENTO POR RETARDO GENUINO ---
-            FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
+            # --- CÁLCULO DE DESCUENTO POR RETARDO ---
             factor = FACTORES_RETARDO.get(puntos_retardo, 0)
             
-            # Ajuste de divisor para evitar duplicidad en turnos de 12h/9h
             if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]):
                 valor_turno = salario_referencia / 1.5
             elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                 valor_turno = salario_referencia / 2
             else:
-                valor_turno = salario_referencia # Por defecto 6 horas
+                valor_turno = salario_referencia 
 
             desc_retardo_calculado = valor_turno * factor if (not es_descanso) else 0
             monto_descuento_total_dia = desc_manual + desc_retardo_calculado
 
-            # --- DETECCIÓN DE TURNOS ---
             cantidad_turnos = 2 if (asis.entrada_matutina and asis.salida_vespertina) else 1
 
-            # --- AGRUPACIÓN POR EMPLEADO/PUESTO ---
+            # --- AGRUPACIÓN ---
             pue_display = "DESCANSO" if es_descanso else pue_original
             key = (emp.id, suc, pue_display)
             
@@ -1598,54 +1575,45 @@ def vista_reportes(request):
                     'empleado': f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip(),
                     'sucursal': suc,
                     'puesto': pue_display,
-                    'total_turnos': 0,
-                    'total_retardos': 0,
-                    'monto_descuentos': 0.0,
-                    'total_bonos': 0.0,
-                    'total_fila': 0.0,
-                    'motivos_descuentos': []
+                    'total_turnos': 0, 'total_retardos': 0, 'monto_descuentos': 0.0,
+                    'total_bonos': 0.0, 'total_fila': 0.0, 'motivos_descuentos': []
                 }
 
             fila = agrupados_dict[key]
-            
-            # Gestión de motivos
             if asis.motivo_descuento:
                 m_txt = str(asis.motivo_descuento).strip()
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
-            # PAGO NETO REAL DEL DÍA
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
             
-            # Acumuladores por fila
             fila['total_turnos'] += cantidad_turnos
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
 
-            # --- ACUMULACIÓN PARA LA CONTADORA (POR SUCURSAL) ---
-            if suc not in totales_por_sucursal:
-                totales_por_sucursal[suc] = 0.0
-            totales_por_sucursal[suc] += pago_neto_dia
+            # --- ACUMULACIÓN PARA LA CONTADORA ---
+            if suc not in resumen_sucursales_dict:
+                resumen_sucursales_dict[suc] = 0.0
+            resumen_sucursales_dict[suc] += pago_neto_dia
 
             # --- ACTUALIZAR RESUMEN GLOBAL ---
-            resumen_global['total_pagar'] += pago_net_dia
+            resumen_global['total_pagar'] += pago_neto_dia # Corregido pago_net_dia
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
             resumen_global['total_descuentos'] += monto_descuento_total_dia
             resumen_global['total_turnos'] += cantidad_turnos
             
-    # Preparar lista para la contadora
+    # Formatear lista para la contadora
     resumen_sucursales = []
-    for suc_n, total_n in totales_por_sucursal.items():
+    for suc_n, total_n in resumen_sucursales_dict.items():
         resumen_sucursales.append({
             'nombre': suc_n,
             'periodo': f"{f_inicio} al {f_fin}",
             'total': round(total_n, 2)
         })
 
-    # Ordenar resultados por nombre de empleado
     lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
 
     context = {
