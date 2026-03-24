@@ -415,18 +415,10 @@ def Asistencias_view(request):
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
-            fecha_captura_str = request.POST.get('fecha')
-            fecha_dt = datetime.strptime(fecha_captura_str, '%Y-%m-%d').date()
-
-            # --- APLICACIÓN DEL BLOQUEO ---
-            if fecha_dt < limite_bloqueo:
-                messages.error(request, "⚠️ Error: No puedes modificar registros anteriores al cierre del lunes.")
-                return redirect('asistencias')
-
-            # --- LÓGICA DINÁMICA DE SUELDOS ---
-            # Obtenemos el sueldo directamente de la base de datos según el puesto
+            # 1. Definición temprana de variables para evitar errores de Scope
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
+            fecha_captura = request.POST.get('fecha')
             puesto_seleccionado = (request.POST.get('puesto') or "").strip()
             estatus = request.POST.get('estatus_jornada')
             
@@ -435,7 +427,16 @@ def Asistencias_view(request):
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
             sal_v = (request.POST.get('salida_vespertina') or "").strip()
 
-            # 1. Cálculo de monto final
+            # Convertir fecha y obtener objeto empleado
+            fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
+            empleado_obj = Empleado.objects.get(id=empleado_id)
+
+            # --- APLICACIÓN DEL BLOQUEO ---
+            if fecha_dt < limite_bloqueo:
+                messages.error(request, "⚠️ Error: No puedes modificar registros anteriores al cierre del lunes.")
+                return redirect('asistencias')
+
+            # --- LÓGICA DE CÁLCULO DE MONTO ---
             monto_final = 0.0
             DESCANSO_DESTAJO = 138.00
 
@@ -446,57 +447,52 @@ def Asistencias_view(request):
                 if puesto_seleccionado == "Tuppers":
                     monto_final = DESCANSO_DESTAJO
                 else:
-                    # 1. Obtener los registros de la semana actual para este empleado
-                    # Suponiendo que tu semana empieza el lunes
-                    fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
-                    inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday())
+                    # LÓGICA DE RECURRENCIA (Casos 1, 2 y 3)
+                    inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday()) # Lunes de esa semana
                     
                     asistencias_semana = Asistencia.objects.filter(
                         empleado=empleado_obj, 
                         fecha__range=[inicio_semana, fecha_dt - timedelta(days=1)]
-                    ).exclude(estatus="Descanso")
+                    ).exclude(estatus__in=["Descanso", "Falta"])
 
                     if not asistencias_semana.exists():
-                        monto_final = 0.0
+                        # Caso 4 / Default: Si no hay historial, paga un turno del puesto seleccionado
+                        config_p = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
+                        monto_final = float(config_p.monto) if config_p else 0.0
                     else:
-                        # Analizar turnos y puestos
+                        from collections import Counter
                         puestos_list = []
                         conteo_dobles = 0
                         
                         for asis in asistencias_semana:
                             puestos_list.append(asis.puesto)
-                            # Verificamos si trabajó turno doble (mañana y tarde con datos)
-                            if (asis.entrada_matutina and asis.salida_matutina) and \
-                               (asis.entrada_vespertina and asis.salida_vespertina):
+                            # Un turno es doble si tiene entrada/salida en ambos bloques
+                            if asis.entrada_matutina and asis.salida_matutina and \
+                               asis.entrada_vespertina and asis.salida_vespertina:
                                 conteo_dobles += 1
 
-                        # CASO 3: 6 días de turno doble en el mismo puesto (Descanso Doble)
-                        # Verificamos si hay 6 registros y todos son dobles
+                        # CASO 3: Solo después de 6 días de doble turno
                         if conteo_dobles >= 6:
-                            # Obtenemos el sueldo del puesto y multiplicamos por 2
-                            config_puesto = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
-                            monto_base = float(config_puesto.monto) if config_puesto else 0.0
-                            monto_final = monto_base * 2
+                            config_p = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
+                            monto_final = (float(config_p.monto) if config_p else 0.0) * 2
                         
                         else:
-                            # CASO 1 y 2: Recurrencia y mezcla de puestos
-                            from collections import Counter
-                            conteo_puestos = Counter(puestos_list)
-                            puestos_comunes = conteo_puestos.most_common()
-
-                            if len(puestos_comunes) > 1 and puestos_comunes[0][1] == puestos_comunes[1][1]:
-                                # CASO 2: Empate en recurrencia (Mitad y mitad)
-                                p1 = ConfigSueldo.objects.filter(puesto=puestos_comunes[0][0]).first()
-                                p2 = ConfigSueldo.objects.filter(puesto=puestos_comunes[1][0]).first()
+                            conteo_puestos = Counter(puestos_list).most_common(2)
+                            
+                            # CASO 2: Dos puestos diferentes con misma recurrencia (Mitad y mitad)
+                            if len(conteo_puestos) > 1 and conteo_puestos[0][1] == conteo_puestos[1][1]:
+                                p1 = ConfigSueldo.objects.filter(puesto=conteo_puestos[0][0]).first()
+                                p2 = ConfigSueldo.objects.filter(puesto=conteo_puestos[1][0]).first()
                                 s1 = float(p1.monto) if p1 else 0.0
                                 s2 = float(p2.monto) if p2 else 0.0
                                 monto_final = (s1 / 2) + (s2 / 2)
+                            
+                            # CASO 1: Puesto más recurrente de la semana
                             else:
-                                # CASO 1: El puesto más recurrente
-                                puesto_top = puestos_comunes[0][0]
-                                config_puesto = ConfigSueldo.objects.filter(puesto=puesto_top).first()
-                                monto_final = float(config_puesto.monto) if config_puesto else 0.0        
-            
+                                puesto_top = conteo_puestos[0][0]
+                                config_p = ConfigSueldo.objects.filter(puesto=puesto_top).first()
+                                monto_final = float(config_p.monto) if config_p else 0.0
+
             elif puesto_seleccionado == "Tuppers":
                 cargas = float(request.POST.get('cantidad_cargas') or 0)
                 monto_final = cargas * 46.50
@@ -506,32 +502,24 @@ def Asistencias_view(request):
                 monto_final = float(config_obj.monto) if config_obj else 0.0
 
             else:
-                # BUSQUEDA DINÁMICA: Intentamos traer el sueldo de la DB
+                # Lógica para turnos normales (Cálculo por horas/bloques)
                 config_obj = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
                 salario_base_db = float(config_obj.monto) if config_obj else 0.0
-                
                 base_6h = salario_base_db
                 
-                # 2. Ajuste de base según la duración del puesto
                 if "(9 horas)" in puesto_seleccionado or "(9 Horas)" in puesto_seleccionado:
                     base_6h = salario_base_db / 1.5
                 elif "(12 Horas)" in puesto_seleccionado:
                     base_6h = salario_base_db / 2
 
-                # 3. Calcular lo devengado por cada turno (Mañana y Tarde)
                 pago_m = obtener_monto_bloque(base_6h, ent_m, sal_m)
                 pago_v = obtener_monto_bloque(base_6h, ent_v, sal_v)
                 
-                # 4. Sumar el total trabajado en el día
-                total_trabajado_dia = pago_m + pago_v
-                
-                # 5. Aplicar multiplicador por Estatus Especial
-                multiplicador = 1.0
-                if estatus in ["Descanso trabajado", "Festivo"]:
-                    multiplicador = 2.0
-                
-                # 6. Asignar resultado final a monto_final
-                monto_final = total_trabajado_dia * multiplicador
+                multiplicador = 2.0 if estatus in ["Descanso trabajado", "Festivo"] else 1.0
+                monto_final = (pago_m + pago_v) * multiplicador
+
+            # --- CONTINUAR CON EL GUARDADO ---
+            # (Aquí sigue tu lógica de puntos de retardo y el save() que ya tenías)
 
             # [Aquí continuaría el resto de tu lógica: calcular_puntos, validación de duplicados y .save()]
 
