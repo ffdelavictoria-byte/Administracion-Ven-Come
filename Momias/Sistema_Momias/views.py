@@ -1113,54 +1113,37 @@ def calcular_nomina_web(request):
 
 
                 # --- LÓGICA DE DESCANSO CORREGIDA: DETECCIÓN DE 6 DÍAS DOBLES ---
+
                 asistencias_trabajadas = [a for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper() and "FALTA" not in (a.estatus or "").upper()]
                 
                 if asistencias_trabajadas:
                     total_dias_trabajados = len(asistencias_trabajadas)
-                    conteo_turnos_por_puesto = {}
-                    dias_con_turno_doble = 0
+                    conteo_puestos = Counter([a.puesto for a in asistencias_trabajadas])
                     
+                    # 1. Contar cuántos días trabajó REALMENTE jornada doble (Matutino y Vespertino)
+                    dias_completos = 0
                     for a in asistencias_trabajadas:
-                        p = a.puesto
-                        if p not in conteo_turnos_por_puesto:
-                            conteo_turnos_por_puesto[p] = 0
-                        
-                        turnos_del_dia = 0
-                        # Verificamos turnos matutino y vespertino
-                        if a.entrada_matutina and a.salida_matutina:
-                            conteo_turnos_por_puesto[p] += 1
-                            turnos_del_dia += 1
-                        if a.entrada_vespertina and a.salida_vespertina:
-                            conteo_turnos_por_puesto[p] += 1
-                            turnos_del_dia += 1
-                        
-                        # Si el día tuvo 2 turnos (o es puesto de 12 horas), cuenta como día doble
-                        if turnos_del_dia == 2 or "(12 Horas)" in (a.puesto or ""):
-                            dias_con_turno_doble += 1
+                        # Verificamos si tiene registros en ambos bloques
+                        tiene_m = a.entrada_matutina and a.salida_matutina
+                        tiene_v = a.entrada_vespertina and a.salida_vespertina
+                        # O si es un registro de 12 horas directo
+                        if (tiene_m and tiene_v) or "(12 Horas)" in (a.puesto or ""):
+                            dias_completos += 1
 
-                    # Ordenamos puestos por cantidad de turnos acumulados
-                    puestos_ordenados = sorted(conteo_turnos_por_puesto.items(), key=lambda x: x[1], reverse=True)
-                    p_top_nombre = puestos_ordenados[0][0]
-                    salario_top = puestos_salarios.get(p_top_nombre, 0)
-
-                    # --- CÁLCULO DEL MONTO FINAL ---
-                    # Si cumple la condición de 6 días de doble turno
-                    if dias_con_turno_doble >= 6:
-                        # CASO EMPATE (3 días dobles de uno y 3 de otro = 6 turnos vs 6 turnos)
-                        if len(puestos_ordenados) > 1 and puestos_ordenados[0][1] == puestos_ordenados[1][1]:
-                            p2_nombre = puestos_ordenados[1][0]
-                            salario_p2 = puestos_salarios.get(p2_nombre, 0)
-                            salario_descanso = salario_top + salario_p2 # Un turno de cada uno
-                            puesto_principal = f"Mix: {p_top_nombre}/{p2_nombre}"
-                        else:
-                            # CASO PUESTO ÚNICO RECURRENTE (Doble turno del mismo)
-                            salario_descanso = salario_top * 2
-                            puesto_principal = f"{p_top_nombre} (Doble)"
-                    else:
-                        # PAGO NORMAL (Un solo turno del más recurrente o promedio si hay varios)
-                        salario_descanso = sum((puestos_salarios.get(p, 0) * (c / sum(conteo_turnos_por_puesto.values()))) 
+                    # 2. Determinar el puesto principal (o mezcla) para 1 solo turno
+                    # Calculamos el promedio ponderado de 1 solo turno
+                    salario_un_turno_promedio = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
                                                for p, c in conteo_puestos.items())
-                        puesto_principal = p_top_nombre
+                    
+                    puesto_frecuente = conteo_puestos.most_common(1)[0][0]
+
+                    # 3. Aplicar multiplicador SOLO si cumplió los 6 días dobles
+                    if dias_completos >= 6:
+                        salario_descanso = salario_un_turno_promedio * 2
+                        puesto_principal = f"{puesto_frecuente} (Doble)"
+                    else:
+                        salario_descanso = salario_un_turno_promedio
+                        puesto_principal = puesto_frecuente
                         
                 else:
                     salario_descanso = float(empleado.sueldo_base or 0)
