@@ -443,10 +443,59 @@ def Asistencias_view(request):
                 monto_final = 0.0
             
             elif estatus == "Descanso":
-                if puesto_seleccionado in ["Tuppers"]:
+                if puesto_seleccionado == "Tuppers":
                     monto_final = DESCANSO_DESTAJO
                 else:
-                    monto_final = 0.0        
+                    # 1. Obtener los registros de la semana actual para este empleado
+                    # Suponiendo que tu semana empieza el lunes
+                    fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
+                    inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday())
+                    
+                    asistencias_semana = Asistencia.objects.filter(
+                        empleado=empleado_obj, 
+                        fecha__range=[inicio_semana, fecha_dt - timedelta(days=1)]
+                    ).exclude(estatus="Descanso")
+
+                    if not asistencias_semana.exists():
+                        monto_final = 0.0
+                    else:
+                        # Analizar turnos y puestos
+                        puestos_list = []
+                        conteo_dobles = 0
+                        
+                        for asis in asistencias_semana:
+                            puestos_list.append(asis.puesto)
+                            # Verificamos si trabajó turno doble (mañana y tarde con datos)
+                            if (asis.entrada_matutina and asis.salida_matutina) and \
+                               (asis.entrada_vespertina and asis.salida_vespertina):
+                                conteo_dobles += 1
+
+                        # CASO 3: 6 días de turno doble en el mismo puesto (Descanso Doble)
+                        # Verificamos si hay 6 registros y todos son dobles
+                        if conteo_dobles >= 6:
+                            # Obtenemos el sueldo del puesto y multiplicamos por 2
+                            config_puesto = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
+                            monto_base = float(config_puesto.monto) if config_puesto else 0.0
+                            monto_final = monto_base * 2
+                        
+                        else:
+                            # CASO 1 y 2: Recurrencia y mezcla de puestos
+                            from collections import Counter
+                            conteo_puestos = Counter(puestos_list)
+                            puestos_comunes = conteo_puestos.most_common()
+
+                            if len(puestos_comunes) > 1 and puestos_comunes[0][1] == puestos_comunes[1][1]:
+                                # CASO 2: Empate en recurrencia (Mitad y mitad)
+                                p1 = ConfigSueldo.objects.filter(puesto=puestos_comunes[0][0]).first()
+                                p2 = ConfigSueldo.objects.filter(puesto=puestos_comunes[1][0]).first()
+                                s1 = float(p1.monto) if p1 else 0.0
+                                s2 = float(p2.monto) if p2 else 0.0
+                                monto_final = (s1 / 2) + (s2 / 2)
+                            else:
+                                # CASO 1: El puesto más recurrente
+                                puesto_top = puestos_comunes[0][0]
+                                config_puesto = ConfigSueldo.objects.filter(puesto=puesto_top).first()
+                                monto_final = float(config_puesto.monto) if config_puesto else 0.0        
             
             elif puesto_seleccionado == "Tuppers":
                 cargas = float(request.POST.get('cantidad_cargas') or 0)
