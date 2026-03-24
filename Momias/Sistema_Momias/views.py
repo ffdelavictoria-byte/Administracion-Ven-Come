@@ -447,52 +447,67 @@ def Asistencias_view(request):
                 if puesto_seleccionado == "Tuppers":
                     monto_final = DESCANSO_DESTAJO
                 else:
-                    # LÓGICA DE RECURRENCIA (Casos 1, 2 y 3)
-                    inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday()) # Lunes de esa semana
+                    # Determinamos el inicio de la semana (Lunes)
+                    inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday())
                     
+                    # Obtenemos registros previos de la semana (excluyendo faltas y descansos)
                     asistencias_semana = Asistencia.objects.filter(
                         empleado=empleado_obj, 
                         fecha__range=[inicio_semana, fecha_dt - timedelta(days=1)]
                     ).exclude(estatus__in=["Descanso", "Falta"])
 
                     if not asistencias_semana.exists():
-                        # Caso 4 / Default: Si no hay historial, paga un turno del puesto seleccionado
+                        # Si no hay historial, pagamos un turno del puesto seleccionado en el form
                         config_p = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
                         monto_final = float(config_p.monto) if config_p else 0.0
                     else:
-                        from collections import Counter
-                        puestos_list = []
-                        conteo_dobles = 0
+                        # --- NUEVA LÓGICA POR CONTEO DE TURNOS ---
+                        conteo_turnos_por_puesto = {}
+                        total_dias_dobles = 0
                         
                         for asis in asistencias_semana:
-                            puestos_list.append(asis.puesto)
-                            # Un turno es doble si tiene entrada/salida en ambos bloques
-                            if asis.entrada_matutina and asis.salida_matutina and \
-                               asis.entrada_vespertina and asis.salida_vespertina:
-                                conteo_dobles += 1
+                            p = asis.puesto
+                            if p not in conteo_turnos_por_puesto:
+                                conteo_turnos_por_puesto[p] = 0
+                            
+                            # Contamos turnos individuales en este día
+                            turnos_hoy = 0
+                            if asis.entrada_matutina and asis.salida_matutina:
+                                conteo_turnos_por_puesto[p] += 1
+                                turnos_hoy += 1
+                            if asis.entrada_vespertina and asis.salida_vespertina:
+                                conteo_turnos_por_puesto[p] += 1
+                                turnos_hoy += 1
+                            
+                            # Registramos si el día fue de turno completo (doble)
+                            if turnos_hoy == 2:
+                                total_dias_dobles += 1
 
-                        # CASO 3: Solo después de 6 días de doble turno
-                        if conteo_dobles >= 6:
-                            config_p = ConfigSueldo.objects.filter(puesto=puesto_seleccionado).first()
-                            monto_final = (float(config_p.monto) if config_p else 0.0) * 2
+                        # Ordenamos puestos por cantidad de turnos (el más recurrente primero)
+                        # Resultado: [('PuestoA', 5), ('PuestoB', 2)]
+                        puestos_ordenados = sorted(conteo_turnos_por_puesto.items(), key=lambda x: x[1], reverse=True)
+
+                        # CONDICIÓN CASO 3: Solo si hay 6 días (o más) de turno doble completo
+                        if total_dias_dobles >= 6:
+                            puesto_top = puestos_ordenados[0][0]
+                            config_p = ConfigSueldo.objects.filter(puesto=puesto_top).first()
+                            monto_base = float(config_p.monto) if config_p else 0.0
+                            monto_final = monto_base * 2 # Paga el descanso como doble
                         
                         else:
-                            conteo_puestos = Counter(puestos_list).most_common(2)
-                            
-                            # CASO 2: Dos puestos diferentes con misma recurrencia (Mitad y mitad)
-                            if len(conteo_puestos) > 1 and conteo_puestos[0][1] == conteo_puestos[1][1]:
-                                p1 = ConfigSueldo.objects.filter(puesto=conteo_puestos[0][0]).first()
-                                p2 = ConfigSueldo.objects.filter(puesto=conteo_puestos[1][0]).first()
-                                s1 = float(p1.monto) if p1 else 0.0
-                                s2 = float(p2.monto) if p2 else 0.0
+                            # CASO 2: Empate en cantidad de turnos entre los dos puestos más usados
+                            if len(puestos_ordenados) > 1 and puestos_ordenados[0][1] == puestos_ordenados[1][1]:
+                                p1_nombre, p2_nombre = puestos_ordenados[0][0], puestos_ordenados[1][0]
+                                s1 = float(ConfigSueldo.objects.filter(puesto=p1_nombre).first().monto or 0)
+                                s2 = float(ConfigSueldo.objects.filter(puesto=p2_nombre).first().monto or 0)
                                 monto_final = (s1 / 2) + (s2 / 2)
                             
-                            # CASO 1: Puesto más recurrente de la semana
+                            # CASO 1: Se paga un solo turno del puesto con más turnos acumulados
                             else:
-                                puesto_top = conteo_puestos[0][0]
+                                puesto_top = puestos_ordenados[0][0]
                                 config_p = ConfigSueldo.objects.filter(puesto=puesto_top).first()
                                 monto_final = float(config_p.monto) if config_p else 0.0
-
+                                
             elif puesto_seleccionado == "Tuppers":
                 cargas = float(request.POST.get('cantidad_cargas') or 0)
                 monto_final = cargas * 46.50
