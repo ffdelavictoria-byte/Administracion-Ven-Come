@@ -769,23 +769,38 @@ def Asistencias_FF_view(request):
                 fecha__range=[inicio_sem, fecha_dt]
             ).exclude(id=id_excluir)
 
-            r_acum = sum(
+            # --- LÓGICA DE RETARDOS CORREGIDA (R1 acumula, R2 descuenta directo) ---
+            
+            # 1. Conteo de R1 (Acumulativo semanal: 2 = medio turno)
+            r1_acum = sum(
                 (1 if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper() else 0) +
                 (1 if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper() else 0)
                 for reg in reg_semana
             )
+            r1_hoy = (1 if 'R1' in ent_m.upper() else 0) + (1 if 'R1' in ent_v.upper() else 0)
+            total_r1 = r1_acum + r1_hoy
 
-            r_hoy = (1 if 'R1' in ent_m.upper() else 0) + (1 if 'R1' in ent_v.upper() else 0)
-            total_r = r_acum + r_hoy
+            # 2. Identificación de R2 hoy (Descuento inmediato de medio turno por cada R2)
+            # Si ent_m es R2, descuenta medio turno. Si ent_v también es R2, descuenta otro medio.
+            r2_hoy_count = (1 if 'R2' in ent_m.upper() else 0) + (1 if 'R2' in ent_v.upper() else 0)
 
+            # 3. Cálculo de montos base
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
+            
+            # --- CÁLCULO DE DESCUENTOS ---
+            # Descuento por R2: Cada R2 quita medio turno de la base_puesto
+            desc_por_r2 = r2_hoy_count * (base_puesto / 2)
+            
+            # Descuento por R1: Se aplica medio turno de descuento solo cuando el total es par (2, 4, 6...)
+            desc_por_r1 = (base_puesto / 2) if (total_r1 > 0 and total_r1 % 2 == 0) else 0.0
 
-            desc_retardo = (base_puesto / 2) if (total_r > 0 and total_r % 2 == 0) else 0.0
+            # Suma total de descuentos por retardos para este registro
+            desc_retardo = desc_por_r2 + desc_por_r1
 
-            # MONTO
+            # --- CÁLCULO DE MONTO DE JORNADA ---
             monto_calc = 0.0
             puesto_up = puesto_sel.upper()
-
+            
             if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
                 monto_calc = 0.0
 
@@ -845,7 +860,7 @@ def Asistencias_FF_view(request):
             asistencia.salida_vespertina = sal_v
 
             asistencia.bonificacion = bono
-            asistencia.descuento = desc_man + desc_retardo
+            asistencia.descuento = desc_man + desc_retardo_total
 
             asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
             asistencia.horas = float(total_r)
