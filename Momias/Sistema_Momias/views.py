@@ -655,32 +655,32 @@ def Asistencias_view(request):
     })
 
 def Asistencias_FF_view(request):
+
     # 1. CARGA DE DATOS INICIALES
     puestos_db = ConfigSueldo.objects.all()
     puestos_salarios_ff = {p.puesto: float(p.monto) for p in puestos_db}
-    
+
     hoy_dt = date.today()
+
     # --- LÓGICA DE BLOQUEO (GRACIA DEL LUNES) ---
-    dia_semana = hoy_dt.weekday()  # 0=Lunes, 1=Martes...
-    if dia_semana == 0:  # Es Lunes
-        # Permitir desde el lunes de la semana pasada
+    dia_semana = hoy_dt.weekday()  # 0=Lunes
+
+    if dia_semana == 0:
         limite_bloqueo = hoy_dt - timedelta(days=7)
     else:
-        # Bloquear todo lo que no sea de esta semana (desde el lunes actual)
         limite_bloqueo = hoy_dt - timedelta(days=dia_semana)
 
     semana_actual = hoy_dt.isocalendar()[1]
     anio_actual = hoy_dt.isocalendar()[0]
 
-    # --- FUNCIÓN AUXILIAR DE CÁLCULO ---
+    # --- FUNCIÓN AUXILIAR ---
     def obtener_monto_bloque(base_puesto, entrada, salida):
         if not entrada or not salida:
             return 0.0
-        
+
         ent_str = entrada.strip().upper()
         sal_str = salida.strip().upper()
 
-        # Si es un código de retardo (R1, R2...) o no tiene formato de hora
         if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
             return float(base_puesto)
 
@@ -688,20 +688,25 @@ def Asistencias_FF_view(request):
             fmt = '%H:%M'
             inicio = datetime.strptime(ent_str[:5], fmt)
             fin = datetime.strptime(sal_str[:5], fmt)
-            
+
             diferencia = fin - inicio
             hrs = diferencia.total_seconds() / 3600
-            if hrs < 0: hrs += 24 
-            
+
+            if hrs < 0:
+                hrs += 24
+
             return (float(base_puesto) / 6) * hrs
+
         except (ValueError, ZeroDivisionError):
             return float(base_puesto)
 
-    # --- PROCESAMIENTO DE POST (UNIFICADO) ---
+    # --- POST ---
     if request.method == 'POST':
-        # A. LÓGICA DE ELIMINACIÓN
+
+        # A. ELIMINAR
         if 'eliminar_id' in request.POST:
             CLAVE_BORRADO = "1234"
+
             asistencia_id = request.POST.get('eliminar_id')
             clave_ingresada = request.POST.get('clave_borrado')
 
@@ -710,73 +715,120 @@ def Asistencias_FF_view(request):
                 return redirect('asistenciasff')
 
             asistencia = get_object_or_404(Asistencia, id=asistencia_id)
-            
-            # VALIDACIÓN DE BLOQUEO PARA ELIMINAR
+
             if asistencia.fecha < limite_bloqueo:
                 messages.error(request, "El periodo de edición para este registro ha vencido.")
             else:
                 asistencia.delete()
                 messages.success(request, "Registro eliminado.")
+
             return redirect('asistenciasff')
 
-        # B. LÓGICA DE GUARDADO / MODIFICACIÓN
+        # B. GUARDAR / EDITAR
         try:
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
             empleado_obj = get_object_or_404(Empleado, id=empleado_id)
+
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
-            
-            # VALIDACIÓN DE BLOQUEO PARA GUARDAR/EDITAR
+
+            # BLOQUEO
             if fecha_dt < limite_bloqueo:
                 messages.error(request, "No se pueden gestionar registros de periodos cerrados.")
                 return redirect('asistenciasff')
 
-            # Captura de campos del formulario
+            # DATOS FORM
             puesto_sel = (request.POST.get('puesto') or "").strip()
             estatus_jornada = request.POST.get('estatus_jornada')
+
             ent_m = (request.POST.get('entrada_matutina') or "").strip()
             sal_m = (request.POST.get('salida_matutina') or "").strip()
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
             sal_v = (request.POST.get('salida_vespertina') or "").strip()
 
-            # Validación de duplicados (Excluyendo el ID actual si es edición)
+            # DUPLICADOS
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
-            registros_dia = Asistencia.objects.filter(empleado=empleado_obj, fecha=fecha_captura).exclude(id=id_excluir)
-            
-            if ent_m and sal_m and registros_dia.filter(entrada_matutina__isnull=False).exclude(entrada_matutina='').exists():
+
+            registros_dia = Asistencia.objects.filter(
+                empleado=empleado_obj,
+                fecha=fecha_captura
+            ).exclude(id=id_excluir)
+
+            if ent_m and sal_m and registros_dia.filter(
+                entrada_matutina__isnull=False
+            ).exclude(entrada_matutina='').exists():
                 messages.error(request, "¡ERROR! Ya existe un registro matutino hoy.")
                 return redirect('asistenciasff')
 
-            # --- LÓGICA DE RETARDOS R1 ---
-            ent_m_up = ent_m.upper()
-            ent_v_up = ent_v.upper()
-            
-
-            # Contamos si hubo R1 hoy
-            r_hoy = (1 if 'R1' in ent_m.upper() else 0) + (1 if 'R1' in ent_v.upper() else 0)
-            
-            # Buscamos historial de la semana para el conteo acumulado
+            # RETARDOS
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
+
             reg_semana = Asistencia.objects.filter(
-                empleado=empleado_obj, 
+                empleado=empleado_obj,
                 fecha__range=[inicio_sem, fecha_dt]
-            ).exclude(id=asistencia_id or -1)
-            
-            # Usamos el campo 'horas' para guardar el conteo de R1s
-            r_acumulado_previo = sum(int(reg.horas or 0) for reg in reg_semana)
-            total_r_semanal = r_acumulado_previo + r_hoy
-            
-            # Descuento: Si al sumar el de hoy el total es par, aplicamos medio turno de multa
-            base_puesto = float(puestos_salarios_ff.get(puesto_seleccionado, 0.0))
-            desc_retardo = (base_puesto / 2) if (total_r_semanal > 0 and total_r_semanal % 2 == 0) else 0.0
+            ).exclude(id=id_excluir)
 
-            # ... (Cálculo de monto_calc por horas/puesto que ya tienes)
+            r_acum = sum(
+                (1 if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper() else 0) +
+                (1 if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper() else 0)
+                for reg in reg_semana
+            )
 
-            # --- GUARDADO FINAL ---
+            r_hoy = (1 if 'R1' in ent_m.upper() else 0) + (1 if 'R1' in ent_v.upper() else 0)
+            total_r = r_acum + r_hoy
+
+            base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
+
+            desc_retardo = (base_puesto / 2) if (total_r > 0 and total_r % 2 == 0) else 0.0
+
+            # MONTO
+            monto_calc = 0.0
+            puesto_up = puesto_sel.upper()
+
+            if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
+                monto_calc = 0.0
+
+            elif estatus_jornada == "Descanso":
+                monto_calc = 138.00 if puesto_sel in ["Hamburguesas FF", "Tuppers"] else 0.0
+
+            elif puesto_sel == "Hamburguesas FF":
+                c_ff = float(request.POST.get('cantidad_cargas') or 0)
+                c_mom = float(request.POST.get('cantidad_cargas_momias') or 0)
+                monto_calc = (c_ff * 62.00) + (c_mom * 51.50)
+
+            elif puesto_sel == "Tuppers":
+                monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
+
+            else:
+                if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA", "TURNO INTERMEDIO"]):
+                    divisor = 9.0
+                elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
+                    divisor = 12.0
+                else:
+                    divisor = 6.0
+
+                base_6h = (base_puesto / divisor) * 6
+
+                es_bloque_u = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
+
+                if es_bloque_u:
+                    ini = ent_m if (ent_m and ":" in ent_m) else ent_v
+                    fin = sal_v if (sal_v and ":" in sal_v) else sal_m
+                    monto_calc = obtener_monto_bloque(base_6h, ini, fin)
+                else:
+                    monto_calc = (
+                        obtener_monto_bloque(base_6h, ent_m, sal_m) +
+                        obtener_monto_bloque(base_6h, ent_v, sal_v)
+                    )
+
+            if estatus_jornada in ["Descanso trabajado", "Festivo"]:
+                monto_calc *= 2.0
+
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
 
+            # CREAR / EDITAR
             if id_excluir != -1:
                 asistencia = get_object_or_404(Asistencia, id=id_excluir)
             else:
@@ -786,39 +838,54 @@ def Asistencias_FF_view(request):
             asistencia.fecha = fecha_dt
             asistencia.estatus = estatus_jornada
             asistencia.puesto = puesto_sel
+
             asistencia.entrada_matutina = ent_m
             asistencia.salida_matutina = sal_m
             asistencia.entrada_vespertina = ent_v
             asistencia.salida_vespertina = sal_v
-            
-            # IMPORTANTE: Guardamos R1 en 'horas' para el conteo semanal
+
             asistencia.bonificacion = bono
-            # Sumamos descuento manual + descuento automático por retardos
-            asistencia.pago_dia = round(monto_final + bono - (desc_man + desc_retardo), 2)
-            asistencia.horas = float(r_hoy) # <--- AQUÍ SE GUARDA EL R1 PARA EL CONTEO SEMANAL
             asistencia.descuento = desc_man + desc_retardo
-            
-            # Observación automática del descuento
+
+            asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
+            asistencia.horas = float(total_r)
+
+            obs = (request.POST.get('observaciones') or "").strip()
+
             if desc_retardo > 0:
-                asistencia.observaciones = f"{observaciones_prev} | Desc. Automático R1 (Total:{total_r_semanal})".strip(" |")
-            
+                asistencia.observaciones = f"{obs} | Desc. por {total_r} retardos R1.".strip(" |")
+            else:
+                asistencia.observaciones = obs
+
             asistencia.save()
-            messages.success(request, f"¡Guardado! R1 semanales acumulados: {int(total_r_semanal)}")
+
             return redirect('asistenciasff')
-            
-    # --- LÓGICA GET (FILTROS Y RENDER) ---
+
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
+            return redirect('asistenciasff')
+
+    # --- GET ---
     fecha_filtro = request.GET.get('fecha_filtro', '').strip()
     query = request.GET.get('q', '').strip()
+
     registros_qs = Asistencia.objects.filter(sucursal="FastFood")
 
     if fecha_filtro:
         registros_qs = registros_qs.filter(fecha=fecha_filtro)
+
     if query:
         palabras = query.split()
         q_bus = Q()
+
         for p in palabras:
-            q_bus &= (Q(empleado__nombre__icontains=p) | Q(empleado__apellido_paterno__icontains=p) | 
-                      Q(empleado__apellido_materno__icontains=p) | Q(empleado__codigo_empleado__icontains=p))
+            q_bus &= (
+                Q(empleado__nombre__icontains=p) |
+                Q(empleado__apellido_paterno__icontains=p) |
+                Q(empleado__apellido_materno__icontains=p) |
+                Q(empleado__codigo_empleado__icontains=p)
+            )
+
         registros_qs = registros_qs.filter(q_bus).distinct()
 
     return render(request, 'AttendanceFF.html', {
@@ -831,9 +898,8 @@ def Asistencias_FF_view(request):
         'fecha_filtro': fecha_filtro,
         'query': query,
         'anio_actual': anio_actual,
-        'limite_bloqueo': limite_bloqueo,  # <-- IMPORTANTE: Pasar a HTML
+        'limite_bloqueo': limite_bloqueo,
     })
-
 
 @login_required
 def registrar_usuario(request):
