@@ -673,7 +673,7 @@ def Asistencias_FF_view(request):
         ent_str = entrada.strip().upper()
         sal_str = salida.strip().upper()
 
-        # Si es un código de retardo o no tiene formato de hora
+        # Si es retardo o formato inválido
         if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
             return float(base_puesto)
 
@@ -693,10 +693,10 @@ def Asistencias_FF_view(request):
         except (ValueError, ZeroDivisionError):
             return float(base_puesto)
 
-    # --- PROCESAMIENTO DE POST ---
+    # --- PROCESAMIENTO POST ---
     if request.method == 'POST':
 
-        # A. ELIMINACIÓN
+        # --- ELIMINAR ---
         if 'eliminar_id' in request.POST:
 
             CLAVE_BORRADO = "1234"
@@ -720,7 +720,7 @@ def Asistencias_FF_view(request):
 
             return redirect('asistenciasff')
 
-        # B. GUARDADO / MODIFICACIÓN
+        # --- GUARDAR / EDITAR ---
         try:
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
@@ -737,7 +737,7 @@ def Asistencias_FF_view(request):
                 messages.error(request, "🔒 Error: No se pueden gestionar registros de semanas pasadas.")
                 return redirect('asistenciasff')
 
-            # Captura de campos
+            # --- CAMPOS ---
             puesto_sel = (request.POST.get('puesto') or "").strip()
             estatus_jornada = request.POST.get('estatus_jornada')
 
@@ -746,7 +746,7 @@ def Asistencias_FF_view(request):
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
             sal_v = (request.POST.get('salida_vespertina') or "").strip()
 
-            # Validación duplicados
+            # --- VALIDACIÓN DUPLICADOS ---
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
 
             registros_dia = Asistencia.objects.filter(
@@ -781,7 +781,7 @@ def Asistencias_FF_view(request):
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
             desc_retardo = (base_puesto / 2) if (total_r > 0 and total_r % 2 == 0) else 0.0
 
-            # --- CÁLCULO DE PAGO ---
+            # --- CÁLCULO ---
             monto_calc = 0.0
             puesto_up = puesto_sel.upper()
 
