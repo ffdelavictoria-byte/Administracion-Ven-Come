@@ -572,21 +572,29 @@ function sincronizarTiempo(input, selectId) {
     function calcularHorasTrabajadas(inicio, fin) {
     if (!inicio || !fin) return null;
     
-    // Detectar el divisor según el puesto actual
-    const puesto = puestoSelect.value.toUpperCase();
-    let divisor = 6.0;
-    if (puesto.includes("INTERMEDIO") || puesto.includes("9 HORAS")) divisor = 9.0;
-    else if (puesto.includes("GERENTE") || puesto.includes("12 HORAS")) divisor = 12.0;
-
-    // Si hay retardos, devolvemos la jornada completa según el puesto
-    if (inicio.includes('R') || fin.includes('R')) return divisor; 
+    // 1. Lógica de Retardos (R1/R2)
+    // Si el valor es un código de retardo, el sistema no calcula "horas" 
+    // en JS para evitar romper el sueldo base. El servidor usará el sistema de puntos.
+    if (inicio.includes('R') || fin.includes('R')) {
+        return "RETARDO"; 
+    }
     
-    const [h1, m1] = inicio.split(':').map(Number);
-    const [h2, m2] = fin.split(':').map(Number);
-    const totalInicio = h1 * 60 + m1;
-    const totalFin = h2 * 60 + m2;
-    const diferenciaMins = totalFin - totalInicio;
-    return diferenciaMins > 0 ? diferenciaMins / 60 : 0;
+    // 2. Lógica de Horas Manuales (OTRO)
+    // Solo calculamos diferencia de tiempo si ambos valores tienen el formato HH:MM
+    if (inicio.includes(':') && fin.includes(':')) {
+        const [h1, m1] = inicio.split(':').map(Number);
+        const [h2, m2] = fin.split(':').map(Number);
+        
+        const totalInicio = h1 * 60 + m1;
+        const totalFin = h2 * 60 + m2;
+        
+        const diferenciaMins = totalFin - totalInicio;
+        
+        // Retornamos el valor en decimal (ej. 5.5 horas)
+        return diferenciaMins > 0 ? diferenciaMins / 60 : 0;
+    }
+
+    return null;
 }
 
     // --- BÚSQUEDA DE EMPLEADO ---
@@ -617,12 +625,10 @@ function sincronizarTiempo(input, selectId) {
 
     // --- FUNCIÓN MAESTRA DE VERIFICACIÓN ---
 function verificarTodo() {
-    // ELIMINADO: actualizarHorariosPorPuesto() de aquí para evitar bucles.
-    
     const puesto = puestoSelect.value.trim();
     const estatus = estatusJornada.value;
     
-    // Validar existencia de elementos antes de usarlos
+    // Validar existencia de elementos de destajos
     const inputCargasMomias = document.getElementById('cantidad_cargas_momias');
     const cargasFF = parseFloat(inputCargas.value) || 0;
     const cargasMomias = inputCargasMomias ? (parseFloat(inputCargasMomias.value) || 0) : 0;
@@ -631,18 +637,18 @@ function verificarTodo() {
     const sueldosFijos = { "Produccion": 370.00, "Aux Produccion": 177.00 };
     const inputDescuento = document.getElementById('descuento');
 
-    // 1. Reset visual
+    // 1. Reset visual inicial
     inputMonto.readOnly = true;
     divCargas.style.display = "none";
     if (divMomiasExtra) divMomiasExtra.style.display = "none";
 
-    // 2. Lógica de Puestos Fijos
+    // 2. Lógica de Puestos Fijos (Producción)
     if (sueldosFijos.hasOwnProperty(puesto)) {
         const monto = sueldosFijos[puesto].toFixed(2);
         inputMonto.value = monto;
         sueldoMsg.innerHTML = `<b style="color: purple;">Producción: $${monto} (Fijo)</b>`;
     } 
-    // 3. Estatus Especiales
+    // 3. Estatus Especiales (No generan pago o son fijos de descanso)
     else if (["Falta", "Permiso", "Vacaciones"].includes(estatus)) {
         inputMonto.value = "0.00";
         sueldoMsg.innerHTML = `<span style="color: grey;">Sin pago por ${estatus}</span>`;
@@ -652,7 +658,7 @@ function verificarTodo() {
         inputMonto.value = pagoDescanso;
         sueldoMsg.innerHTML = `<b>Descanso: $${pagoDescanso}</b>`;
     }
-    // 4. Destajos
+    // 4. Lógica de Destajos (Cargas FF, Momias, Tuppers)
     else if (puesto === "Hamburguesas FF") {
         divCargas.style.display = "block";
         if (divMomiasExtra) divMomiasExtra.style.display = "block"; 
@@ -669,21 +675,26 @@ function verificarTodo() {
         inputMonto.value = (cargasFF * 46.50).toFixed(2);
         sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u)</b>`;
     }
-    // 5. Sueldo por Puesto (Base)
+    // 5. Sueldo por Puesto con Lógica de Retardos/Manual
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
         inputMonto.value = base.toFixed(2);
 
-        const hayHoraManual = [entMat.value, salMat.value, entVes.value, salVes.value]
-                              .some(v => v && v.includes(":"));
+        // Verificamos si hay algún retardo seleccionado o si hay horas manuales
+        const valoresHorarios = [entMat.value, salMat.value, entVes.value, salVes.value];
+        const hayRetardo = valoresHorarios.some(v => v === "R1" || v === "R2");
+        const hayHoraManual = valoresHorarios.some(v => v && v.includes(":") && v !== "R1" && v !== "R2");
 
-        if (hayHoraManual) {
-            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: #E53935; font-weight: bold;">⚠️ Hora manual: El descuento se calculará en sistema.</small>`;
+        if (hayRetardo) {
+            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: #EF6C00; font-weight: bold;">⏳ Retardo detectado: El descuento por pares se aplicará al guardar.</small>`;
+        } else if (hayHoraManual) {
+            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: #E53935; font-weight: bold;">⚠️ Hora manual: El sistema ajustará el pago proporcional.</small>`;
         } else {
-            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: blue;">(Retardos R1/R2 automáticos)</small>`;
+            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: blue;">(Jornada Completa / Puntual)</small>`;
         }
     }
 
+    // Asegurar que el descuento manual no sea nulo para evitar errores en el submit
     if (inputDescuento && (!inputDescuento.value || inputDescuento.value === "")) {
         inputDescuento.value = "0";
     }
