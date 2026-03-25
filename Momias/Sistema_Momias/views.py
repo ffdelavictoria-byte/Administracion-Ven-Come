@@ -748,18 +748,36 @@ def Asistencias_FF_view(request):
                 messages.error(request, "¡ERROR! Ya existe un registro matutino hoy.")
                 return redirect('asistenciasff')
 
-            # Lógica de Retardos R1 (Descuento)
+           # --- NUEVA LÓGICA DE RETARDOS R1 (UNIFICADA) ---
+            # 1. Normalizar las entradas actuales
+            ent_m_up = ent_m.upper()
+            ent_v_up = ent_v.upper()
+            
+            # 2. Contar retardos de HOY en el formulario
+            r_hoy = (1 if 'R1' in ent_m_up else 0) + (1 if 'R1' in ent_v_up else 0)
+
+            # 3. Contar retardos PREVIOS en la semana (excluyendo el día que estamos procesando)
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
-            reg_semana = Asistencia.objects.filter(empleado=empleado_obj, fecha__range=[inicio_sem, fecha_dt]).exclude(id=id_excluir)
+            reg_semana_previa = Asistencia.objects.filter(
+                empleado=empleado_obj, 
+                fecha__range=[inicio_sem, fecha_dt]
+            ).exclude(id=id_excluir) # Excluimos el que estamos editando/creando
+
+            r_acumulado = 0
+            for reg in reg_semana_previa:
+                if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper(): r_acumulado += 1
+                if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper(): r_acumulado += 1
             
-            r_acum = sum((1 if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper() else 0) + 
-                         (1 if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper() else 0) for reg in reg_semana)
+            # 4. Total de la semana incluyendo el cambio actual
+            total_r = r_acumulado + r_hoy
             
-            r_hoy = (1 if 'R1' in ent_m.upper() else 0) + (1 if 'R1' in ent_v.upper() else 0)
-            total_r = r_acum + r_hoy
-            
+            # 5. Cálculo del descuento (Cada 2 retardos = medio día de sueldo del puesto seleccionado)
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
-            desc_retardo = (base_puesto / 2) if (total_r > 0 and total_r % 2 == 0) else 0.0
+            
+            # REGLA: Si con el de hoy llegamos a un número par (2, 4, 6...), aplicamos descuento
+            desc_retardo = 0.0
+            if total_r > 0 and total_r % 2 == 0:
+                desc_retardo = (base_puesto / 2)
 
             # Cálculo de Monto Base
             monto_calc = 0.0
