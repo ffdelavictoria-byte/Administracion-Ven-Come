@@ -721,98 +721,102 @@ def Asistencias_FF_view(request):
         # B. GUARDAR / EDITAR
         # B. GUARDAR / EDITAR
         try:
+            # 1. Captura de datos básicos
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
             empleado_obj = get_object_or_404(Empleado, id=empleado_id)
-
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
 
             if fecha_dt < limite_bloqueo:
-                messages.error(request, "No se pueden gestionar registros de periodos cerrados.")
+                messages.error(request, "🔒 Registro cerrado por periodo.")
                 return redirect('asistenciasff')
 
             puesto_sel = (request.POST.get('puesto') or "").strip()
-            estatus_jornada = request.POST.get('estatus_jornada')
+            estatus = request.POST.get('estatus_jornada')
             ent_m = (request.POST.get('entrada_matutina') or "").strip().upper()
             sal_m = (request.POST.get('salida_matutina') or "").strip().upper()
             ent_v = (request.POST.get('entrada_vespertina') or "").strip().upper()
             sal_v = (request.POST.get('salida_vespertina') or "").strip().upper()
 
-            id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
-            puesto_up = puesto_sel.upper()
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
 
-            # --- 1. LÓGICA DE PUNTOS DE RETARDO (INDIVIDUAL POR DÍA) ---
-            def calcular_puntos(valor):
-                if not valor or ":" in valor or "R1" in valor: return 0
-                mapping = {"R2": 2, "R3": 3, "R4": 4, "R5": 5, "R6": 6, "R7": 7, "R8": 8, "R9": 9, "R10": 10, "R11": 11, "R12": 12}
-                for clave, pts in mapping.items():
-                    if clave in valor.upper(): return pts
-                return 0
-
-            puntos_m = calcular_puntos(ent_m)
-            puntos_v = calcular_puntos(ent_v)
-            total_puntos_hoy = puntos_m + puntos_v
-
-            # REGLA: Si hay 2 puntos o más hoy, se divide el sueldo a la mitad
-            hay_descuento_por_retardo = (total_puntos_hoy >= 2)
-
-            # --- 2. CÁLCULO DE MONTO DE JORNADA ---
-            # El sueldo base se divide en dos bloques (matutino/vespertino) de valor igual
-            monto_bruto_dia = 0.0
-            valor_medio_turno = base_puesto / 2.0
-
-            if estatus_jornada in ["Normal", "Descanso trabajado", "Festivo"]:
-                pago_m = valor_medio_turno if (ent_m and sal_m) else 0.0
-                pago_v = valor_medio_turno if (ent_v and sal_v) else 0.0
+            # --- 2. FUNCIÓN DE CÁLCULO (IGUAL A MOMIAS PERO CON REGLA R2) ---
+            def calcular_pago_por_bloque(monto_base, entrada, salida):
+                if not entrada or not salida: return 0.0
                 
-                multiplicador = 2.0 if estatus_jornada in ["Descanso trabajado", "Festivo"] else 1.0
-                monto_bruto_dia = (pago_m + pago_v) * multiplicador
+                # REGLA ORO: Si hay R2 (o más), el bloque paga la MITAD del sueldo base del bloque
+                if 'R2' in entrada or 'R3' in entrada or 'R4' in entrada:
+                    return float(monto_base) / 2
+                
+                # Si es entrada normal o R1, paga el bloque completo (o proporcional si es hora)
+                if 'R' in entrada or ':' not in entrada:
+                    return float(monto_base)
+                
+                try:
+                    fmt = '%H:%M'
+                    inicio = datetime.strptime(entrada[:5], fmt)
+                    fin = datetime.strptime(salida[:5], fmt)
+                    hrs = (fin - inicio).total_seconds() / 3600
+                    if hrs < 0: hrs += 24
+                    return (float(monto_base) / 6) * hrs
+                except:
+                    return float(monto_base)
+
+            # --- 3. PROCESAMIENTO DE MONTO ---
+            # Definimos la base de un bloque (6h). Fast Food divide su sueldo base entre 2 turnos.
+            base_6h = base_puesto / 2.0
             
-            elif estatus_jornada == "Descanso":
-                monto_bruto_dia = 138.00 if (puesto_sel in ["Hamburguesas FF", "Tuppers"]) else 0.0
+            pago_m = calcular_pago_por_bloque(base_6h, ent_m, sal_m)
+            pago_v = calcular_pago_por_bloque(base_6h, ent_v, sal_v)
+            
+            multiplicador = 2.0 if estatus in ["Descanso trabajado", "Festivo"] else 1.0
+            monto_final = (pago_m + pago_v) * multiplicador
 
-            # --- 3. APLICACIÓN DEL DESCUENTO (MITAD DEL SUELDO) ---
-            if hay_descuento_por_retardo:
-                monto_final_dia = monto_bruto_dia / 2.0
+            if estatus == "Descanso":
+                monto_final = 138.00 if (puesto_sel in ["Hamburguesas FF", "Tuppers"]) else 0.0
+            elif estatus in ["Falta", "Permiso", "Vacaciones"]:
+                monto_final = 0.0
+
+            # --- 4. GUARDADO FINAL (RESPETANDO TUS CASILLAS) ---
+            if asistencia_id and asistencia_id.strip():
+                asistencia = get_object_or_404(Asistencia, id=asistencia_id)
             else:
-                monto_final_dia = monto_bruto_dia
+                asistencia = Asistencia(sucursal="FastFood")
 
-            bono = float(request.POST.get('bonificacion') or 0)
-            desc_man = float(request.POST.get('descuento') or 0)
-
-            # --- 4. GUARDADO ---
-            asistencia = get_object_or_404(Asistencia, id=id_excluir) if id_excluir != -1 else Asistencia(sucursal="FastFood")
-            asistencia.empleado, asistencia.fecha = empleado_obj, fecha_dt
-            asistencia.estatus, asistencia.puesto = estatus_jornada, puesto_sel
+            asistencia.empleado = empleado_obj
+            asistencia.fecha = fecha_dt
+            asistencia.estatus = estatus
+            asistencia.puesto = puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
             
-            asistencia.bonificacion = bono
-            asistencia.descuento = desc_man # Descuento manual (préstamos, etc.)
+            # Puntos para el campo 'horas' (R2=1pt, etc, igual que Momias)
+            def pts_momias(val):
+                if not val or ":" in val or "R1" in val: return 0
+                mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4}
+                for k, v in mapping.items():
+                    if k in val: return v
+                return 0
             
-            # El pago final ya incluye la reducción del 50% si hubo R2
-            asistencia.pago_dia = round(max(0, monto_final_dia + bono - desc_man), 2)
-            asistencia.horas = float(total_puntos_hoy) 
-
-            # Manejo de Observaciones
-            obs_original = (request.POST.get('observaciones') or "").split('|')[0].strip()
-            if hay_descuento_por_retardo:
-                asistencia.observaciones = f"{obs_original} | Sistema: Sueldo dividido al 50% por Retardo"
-            else:
-                asistencia.observaciones = obs_original
-
+            asistencia.horas = float(pts_momias(ent_m) + pts_momias(ent_v))
+            
+            # Casillas sagradas (No se tocan por lógica de retardo)
+            asistencia.bonificacion = float(request.POST.get('bonificacion') or 0)
+            asistencia.descuento = float(request.POST.get('descuento') or 0)
+            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
+            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
+            asistencia.observaciones = request.POST.get('observaciones')
+            
+            # El Pago Día es el resultado del cálculo de bloques + bonos - descuentos manuales
+            asistencia.pago_dia = round(max(0, monto_final + asistencia.bonificacion - asistencia.descuento), 2)
+            
             asistencia.save()
-            
-            msg = f"¡Registro procesado! Puntos: {total_puntos_hoy}."
-            if hay_descuento_por_retardo: msg += " (Se aplicó descuento del 50%)"
-            messages.success(request, msg)
-            
+            messages.success(request, "¡Registro Fast Food guardado correctamente!")
             return redirect('asistenciasff')
 
         except Exception as e:
-            messages.error(request, f"❌ Error: {e}")
+            messages.error(request, f"Error: {e}")
             return redirect('asistenciasff')
             
     # --- GET ---
