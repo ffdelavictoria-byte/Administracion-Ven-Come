@@ -675,16 +675,17 @@ def Asistencias_FF_view(request):
 
     # --- FUNCIÓN AUXILIAR ---
     # --- FUNCIÓN AUXILIAR CORREGIDA ---
-    def obtener_monto_bloque(base_puesto, entrada, salida, divisor_puesto=6.0):
+    def obtener_monto_bloque(base_calculo, entrada, salida, divisor_puesto=6.0):
         if not entrada or not salida:
             return 0.0
     
         ent_str = entrada.strip().upper()
         sal_str = salida.strip().upper()
     
-        # Si hay un retardo "R", devolvemos el sueldo base asignado a este bloque
+        # Si hay retardo, devolvemos el sueldo base de ese bloque íntegro
+        # El descuento se aplicará después en la lógica de "Pares"
         if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
-            return float(base_puesto)
+            return float(base_calculo)
     
         try:
             fmt = '%H:%M'
@@ -695,10 +696,10 @@ def Asistencias_FF_view(request):
             hrs = diferencia.total_seconds() / 3600
             if hrs < 0: hrs += 24
     
-            # CORRECCIÓN CLAVE: Usar el divisor del puesto real
-            return (float(base_puesto) / divisor_puesto) * hrs
+            # AQUÍ ESTABA EL ERROR: Debe usar el divisor que le mandamos (9 o 12)
+            return (float(base_calculo) / divisor_puesto) * hrs
         except (ValueError, ZeroDivisionError):
-            return float(base_puesto)
+            return float(base_calculo)
 
     # --- POST ---
     if request.method == 'POST':
@@ -734,7 +735,6 @@ def Asistencias_FF_view(request):
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
 
-            # BLOQUEO DE EDICIÓN
             if fecha_dt < limite_bloqueo:
                 messages.error(request, "No se pueden gestionar registros de periodos cerrados.")
                 return redirect('asistenciasff')
@@ -749,18 +749,12 @@ def Asistencias_FF_view(request):
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
             puesto_up = puesto_sel.upper()
 
-            # --- 1. LÓGICA DE RETARDOS (SISTEMA DE PUNTOS ACUMULATIVOS) ---
+            # --- 1. LÓGICA DE RETARDOS ---
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
-            reg_semana = Asistencia.objects.filter(
-                empleado=empleado_obj, 
-                fecha__range=[inicio_sem, fecha_dt]
-            ).exclude(id=id_excluir)
+            reg_semana = Asistencia.objects.filter(empleado=empleado_obj, fecha__range=[inicio_sem, fecha_dt]).exclude(id=id_excluir)
 
-            r1_acum = sum(
-                (1 if r.entrada_matutina and ('R1' in r.entrada_matutina.upper() or 'R2' in r.entrada_matutina.upper()) else 0) +
-                (1 if r.entrada_vespertina and ('R1' in r.entrada_vespertina.upper() or 'R2' in r.entrada_vespertina.upper()) else 0)
-                for r in reg_semana
-            )
+            r1_acum = sum((1 if r.entrada_matutina and ('R1' in r.entrada_matutina.upper() or 'R2' in r.entrada_matutina.upper()) else 0) +
+                         (1 if r.entrada_vespertina and ('R1' in r.entrada_vespertina.upper() or 'R2' in r.entrada_vespertina.upper()) else 0) for r in reg_semana)
 
             puntos_hoy = (1 if 'R1' in ent_m.upper() or 'R2' in ent_m.upper() else 0) + \
                          (1 if 'R1' in ent_v.upper() or 'R2' in ent_v.upper() else 0)
@@ -771,7 +765,6 @@ def Asistencias_FF_view(request):
             # --- 2. CÁLCULO DE MONTO DE JORNADA ---
             monto_calc = 0.0
             if estatus_jornada in ["Normal", "Descanso trabajado", "Festivo"]:
-                # Determinamos el divisor según el puesto
                 if "INTERMEDIO" in puesto_up or "9 HORAS" in puesto_up:
                     divisor = 9.0
                 elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
@@ -779,15 +772,13 @@ def Asistencias_FF_view(request):
                 else:
                     divisor = 6.0
 
-                # Puestos de un solo bloque (Intermedio, Gerente, etc.)
                 if any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"]):
+                    # Un solo bloque: Usamos base completa y divisor real (9 o 12)
                     ini = ent_m if (ent_m and ":" in ent_m) else ent_v
                     fin = sal_v if (sal_v and ":" in sal_v) else sal_m
-                    # Usamos base_puesto COMPLETA y el divisor correspondiente
                     monto_calc = obtener_monto_bloque(base_puesto, ini, fin, divisor)
                 else:
-                    # Puestos normales de dos bloques (6h cada uno)
-                    # Cada bloque representa la mitad del sueldo diario
+                    # Dos bloques: Cada uno vale la mitad del sueldo base y se divide entre 6h
                     monto_calc = obtener_monto_bloque(base_puesto/2, ent_m, sal_m, 6.0) + \
                                  obtener_monto_bloque(base_puesto/2, ent_v, sal_v, 6.0)
 
@@ -796,32 +787,27 @@ def Asistencias_FF_view(request):
             elif estatus_jornada == "Descanso":
                 monto_calc = 138.00 if (puesto_sel in ["Hamburguesas FF", "Tuppers"]) else 0.0
 
-            # --- 3. CÁLCULO DE DESCUENTO POR PARES (AL VUELO) ---
+            # --- 3. DESCUENTOS POR PARES ---
             pares_anteriores = r1_acum // 2
             pares_totales = total_puntos_semana // 2
             nuevos_descuentos = pares_totales - pares_anteriores
-            
-            # El descuento es la mitad del sueldo base (proporcional al puesto)
             retardos_total_pesos = nuevos_descuentos * (base_puesto / 2)
 
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
 
-            # --- 4. ASIGNACIÓN FINAL Y GUARDADO ---
+            # --- 4. GUARDADO ---
             asistencia = get_object_or_404(Asistencia, id=id_excluir) if id_excluir != -1 else Asistencia(sucursal="FastFood")
-            
             asistencia.empleado, asistencia.fecha = empleado_obj, fecha_dt
             asistencia.estatus, asistencia.puesto = estatus_jornada, puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
-            asistencia.bonificacion = bono
-            asistencia.descuento = desc_man 
+            asistencia.bonificacion, asistencia.descuento = bono, desc_man
             
-            # Pago final: Jornada + Bono - (Manual + Retardos)
+            # EL PAGO FINAL (Sueldo + Bono - (Manual + Retardos))
             asistencia.pago_dia = round(max(0, monto_calc + bono - (desc_man + retardos_total_pesos)), 2)
             asistencia.horas = float(total_puntos_semana)
 
-            # Observaciones
             obs_original = (request.POST.get('observaciones') or "").split('|')[0].strip()
             if nuevos_descuentos > 0:
                 asistencia.observaciones = f"{obs_original} | Sistema: Descuento medio turno (Pares: {pares_totales})"
@@ -829,7 +815,7 @@ def Asistencias_FF_view(request):
                 asistencia.observaciones = obs_original
 
             asistencia.save()
-            messages.success(request, "¡Registro procesado correctamente!")
+            messages.success(request, "¡Registro procesado!")
             return redirect('asistenciasff')
 
         except Exception as e:
