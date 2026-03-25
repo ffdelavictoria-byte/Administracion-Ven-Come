@@ -748,132 +748,71 @@ def Asistencias_FF_view(request):
                 messages.error(request, "¡ERROR! Ya existe un registro matutino hoy.")
                 return redirect('asistenciasff')
 
-          # # --- CORRECCIÓN EN LÓGICA DE RETARDOS R1 ---
+            # --- LÓGICA DE RETARDOS R1 ---
             ent_m_up = ent_m.upper()
             ent_v_up = ent_v.upper()
             
-            # 1. Contar retardos SOLO de hoy (para guardar en la base de datos)
+            # 1. Contar retardos de hoy (se guardan en campo 'horas')
             r_hoy = (1 if 'R1' in ent_m_up else 0) + (1 if 'R1' in ent_v_up else 0)
             
-            # 2. Para el cálculo del descuento inmediato en el pago del día:
+            # 2. Calcular acumulado semanal para el descuento
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
             reg_semana = Asistencia.objects.filter(
                 empleado=empleado_obj, 
                 fecha__range=[inicio_sem, fecha_dt]
             ).exclude(id=id_excluir)
             
-            r_acumulado_previo = 0
-            for reg in reg_semana:
-                # Usamos el campo 'horas' que es donde guardas los R1
-                r_acumulado_previo += int(reg.horas or 0)
-            
+            r_acumulado_previo = sum(int(reg.horas or 0) for reg in reg_semana)
             total_r_semanal = r_acumulado_previo + r_hoy
             
-            # 3. Cálculo del descuento (Si con el de hoy llegamos a un par)
+            # 3. Cálculo del descuento por par de retardos
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
             desc_retardo = 0.0
-            # Si el total semanal es par y el de hoy es el que "completa" el par, o si ya es par
+            
+            # Si el total acumulado al día de hoy es par, aplicamos el descuento de medio turno
             if total_r_semanal > 0 and total_r_semanal % 2 == 0:
-                # Solo aplicamos descuento si este registro no lo tenía ya o si es nuevo
                 desc_retardo = (base_puesto / 2)
 
-            # Cálculo de Monto Base
-            monto_calc = 0.0
-            puesto_up = puesto_sel.upper()
+            # ... (Cálculo de monto_calc por horas/puesto que ya tienes)
 
-            if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
-                monto_calc = 0.0
-            elif estatus_jornada == "Descanso":
-                monto_calc = 138.00 if puesto_sel in ["Hamburguesas FF", "Tuppers"] else 0.0
-            elif puesto_sel == "Hamburguesas FF":
-                c_ff = float(request.POST.get('cantidad_cargas') or 0)
-                c_mom = float(request.POST.get('cantidad_cargas_momias') or 0)
-                monto_calc = (c_ff * 62.00) + (c_mom * 51.50)
-            elif puesto_sel == "Tuppers":
-                monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
-            else:
-                # 1. Determinación de divisor
-                if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA","TURNO INTERMEDIO"]): 
-                    divisor = 9.0
-                elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): # <--- Agregamos FIN DE SEMANA aquí
-                    divisor = 12.0
-                else: 
-                    divisor = 6.0
-
-                # 2. Calculamos cuánto valen 6 horas de ese puesto
-                base_6h = (base_puesto / divisor) * 6
-                
-                # 3. Identificamos si es un bloque único (un solo registro de entrada/salida para todo el día)
-                es_bloque_u = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
-                
-                if es_bloque_u:
-                    # Buscamos la entrada y salida válida entre matutino y vespertino
-                    ini = ent_m if (ent_m and ":" in ent_m) else ent_v
-                    fin = sal_v if (sal_v and ":" in sal_v) else sal_m
-                    monto_calc = obtener_monto_bloque(base_6h, ini, fin)
-                else:
-                    # Sumamos los dos bloques (matutino + vespertino)
-                    monto_calc = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
-                    
-            # Aplicar multiplicador si es festivo o descanso trabajado
-            if estatus_jornada in ["Descanso trabajado", "Festivo"]:
-                monto_calc *= 2.0
-
-            # GUARDADO
+            # --- GUARDADO FINAL ---
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
 
-            # --- LÓGICA DE GUARDADO FINAL ---
-            # Recuperar o Crear registro
             if id_excluir != -1:
                 asistencia = get_object_or_404(Asistencia, id=id_excluir)
             else:
                 asistencia = Asistencia(sucursal="FastFood")
 
-            # Asignación de datos básicos
             asistencia.empleado = empleado_obj
             asistencia.fecha = fecha_dt
             asistencia.estatus = estatus_jornada
             asistencia.puesto = puesto_sel
-            
-            # Tiempos de entrada y salida
             asistencia.entrada_matutina = ent_m
             asistencia.salida_matutina = sal_m
             asistencia.entrada_vespertina = ent_v
             asistencia.salida_vespertina = sal_v
-
-            # Captura de valores económicos del formulario
-            bono = float(request.POST.get('bonificacion') or 0)
-            desc_man = float(request.POST.get('descuento') or 0)
             
-            # Aplicación de descuentos y cálculos finales
-            # 'desc_retardo' viene de la lógica de conteo R1 previa
+            # IMPORTANTE: Guardamos R1 en 'horas' para el conteo semanal
+            asistencia.horas = float(r_hoy) 
             asistencia.bonificacion = bono
+            # Sumamos descuento manual + descuento automático por retardos
             asistencia.descuento = desc_man + desc_retardo
             
-            # El pago del día considera: Monto por horas/cargas + Bonos - Descuentos totales
-            asistencia.horas = float(r_hoy) # <--- CAMBIO: Guarda solo los de hoy
-            asistencia.descuento = desc_man + desc_retardo
+            # Pago final: (Sueldo base o por horas) + Bonos - Descuentos
             asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
             
-            # Gestión de Observaciones (Automáticas si hay retardo)
+            # Observaciones automáticas
             obs_form = (request.POST.get('observaciones') or "").strip()
             if desc_retardo > 0:
-                asistencia.observaciones = f"{obs_form} | Desc. por {total_r} retardos R1 acumulados.".strip(" |")
+                asistencia.observaciones = f"{obs_form} | Desc. Automático por {total_r_semanal} retardos R1 acumulados.".strip(" |")
             else:
                 asistencia.observaciones = obs_form
 
-            # Campos adicionales (opcional, según tu modelo)
-            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
-            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
-
             asistencia.save()
-            messages.success(request, f"¡Registro de FastFood guardado con éxito! (R1 semanales: {int(total_r)})")
+            messages.success(request, f"¡Guardado! R1 semanales acumulados: {int(total_r_semanal)}")
             return redirect('asistenciasff')
-        except Exception as e:
-            messages.error(request, f"❌ Error: {e}")
-            return redirect('asistenciasff')
-
+            
     # --- LÓGICA GET (FILTROS Y RENDER) ---
     fecha_filtro = request.GET.get('fecha_filtro', '').strip()
     query = request.GET.get('q', '').strip()
