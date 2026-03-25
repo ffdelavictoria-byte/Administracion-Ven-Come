@@ -734,6 +734,7 @@ def Asistencias_FF_view(request):
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
 
+            # BLOQUEO DE EDICIÓN
             if fecha_dt < limite_bloqueo:
                 messages.error(request, "No se pueden gestionar registros de periodos cerrados.")
                 return redirect('asistenciasff')
@@ -748,18 +749,28 @@ def Asistencias_FF_view(request):
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
             puesto_up = puesto_sel.upper()
 
-            # --- 1. LÓGICA DE RETARDOS (SÓLO CÁLCULO VOLÁTIL) ---
+            # --- 1. LÓGICA DE RETARDOS (SISTEMA DE PUNTOS ACUMULATIVOS) ---
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
-            reg_semana = Asistencia.objects.filter(empleado=empleado_obj, fecha__range=[inicio_sem, fecha_dt]).exclude(id=id_excluir)
+            reg_semana = Asistencia.objects.filter(
+                empleado=empleado_obj, 
+                fecha__range=[inicio_sem, fecha_dt]
+            ).exclude(id=id_excluir)
 
-            r1_acum = sum((1 if r.entrada_matutina and 'R1' in r.entrada_matutina.upper() else 0) + (1 if r.entrada_vespertina and 'R1' in r.entrada_vespertina.upper() else 0) for r in reg_semana)
-            r1_hoy = (1 if 'R1' in ent_m.upper() else 0) + (1 if 'R1' in ent_v.upper() else 0)
-            total_r1 = r1_acum + r1_hoy
-            r2_hoy = (1 if 'R2' in ent_m.upper() else 0) + (1 if 'R2' in ent_v.upper() else 0)
+            # Cada R1 o R2 cuenta como 1 punto para la regla de pares
+            r1_acum = sum(
+                (1 if r.entrada_matutina and ('R1' in r.entrada_matutina.upper() or 'R2' in r.entrada_matutina.upper()) else 0) +
+                (1 if r.entrada_vespertina and ('R1' in r.entrada_vespertina.upper() or 'R2' in r.entrada_vespertina.upper()) else 0)
+                for r in reg_semana
+            )
+
+            puntos_hoy = (1 if 'R1' in ent_m.upper() or 'R2' in ent_m.upper() else 0) + \
+                         (1 if 'R1' in ent_v.upper() or 'R2' in ent_v.upper() else 0)
+            
+            total_puntos_semana = r1_acum + puntos_hoy
 
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
             
-            # --- 2. CÁLCULO DE MONTO (DIVISOR CORREGIDO) ---
+            # --- 2. CÁLCULO DE MONTO DE JORNADA ---
             monto_calc = 0.0
             if estatus_jornada in ["Normal", "Descanso trabajado", "Festivo"]:
                 if "INTERMEDIO" in puesto_up or "9 HORAS" in puesto_up:
@@ -776,43 +787,49 @@ def Asistencias_FF_view(request):
                     fin = sal_v if (sal_v and ":" in sal_v) else sal_m
                     monto_calc = obtener_monto_bloque(base_6h, ini, fin)
                 else:
-                    monto_calc = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
+                    monto_calc = obtener_monto_bloque(base_6h, ent_m, sal_m) + \
+                                 obtener_monto_bloque(base_6h, ent_v, sal_v)
 
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calc *= 2.0
             elif estatus_jornada == "Descanso":
-                monto_calc = 138.00 if (puesto_sel == "Hamburguesas FF" or puesto_sel == "Tuppers") else 0.0
+                monto_calc = 138.00 if (puesto_sel in ["Hamburguesas FF", "Tuppers"]) else 0.0
 
-            # --- 3. DESCUENTOS POR RETARDOS (AL VUELO) ---
-            desc_r2 = r2_hoy * (base_puesto / 2)
-            desc_r1 = (base_puesto / 2) if (total_r1 > 0 and total_r1 % 2 == 0) else 0.0
-            retardos_total_pesos = desc_r2 + desc_r1
+            # --- 3. CÁLCULO DE DESCUENTO POR PARES (AL VUELO) ---
+            # Solo descontamos si el total de puntos de la semana cambia el número de pares
+            pares_anteriores = r1_acum // 2
+            pares_totales = total_puntos_semana // 2
+            nuevos_descuentos = pares_totales - pares_anteriores
+            
+            retardos_total_pesos = nuevos_descuentos * (base_puesto / 2)
 
             bono = float(request.POST.get('bonificacion') or 0)
-            # AQUÍ EL CAMBIO: desc_man SOLO toma lo que tú escribes, no lo que el sistema calculó antes
             desc_man = float(request.POST.get('descuento') or 0)
 
-            # --- 4. ASIGNACIÓN FINAL ---
+            # --- 4. ASIGNACIÓN FINAL Y GUARDADO ---
             asistencia = get_object_or_404(Asistencia, id=id_excluir) if id_excluir != -1 else Asistencia(sucursal="FastFood")
-            asistencia.empleado, asistencia.fecha, asistencia.estatus, asistencia.puesto = empleado_obj, fecha_dt, estatus_jornada, puesto_sel
+            
+            asistencia.empleado, asistencia.fecha = empleado_obj, fecha_dt
+            asistencia.estatus, asistencia.puesto = estatus_jornada, puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
             asistencia.bonificacion = bono
             
-            # NO guardamos los retardos aquí para no verlos en la casilla
+            # Guardamos SOLO lo manual en la casilla de descuento
             asistencia.descuento = desc_man 
             
-            # Restamos el total (manual + retardos) solo para el pago final
+            # El pago resta lo manual + la penalización por pares de retardos
             asistencia.pago_dia = round(max(0, monto_calc + bono - (desc_man + retardos_total_pesos)), 2)
-            asistencia.horas = float(total_r1 + (r2_hoy * 2))
-
-            # Observaciones sin acumular basura
-            obs_usuario = (request.POST.get('observaciones') or "").split('|')[0].strip()
-            detalles = []
-            if r2_hoy > 0: detalles.append(f"{r2_hoy} R2")
-            if desc_r1 > 0: detalles.append(f"Par R1 (Total sem: {total_r1})")
             
-            asistencia.observaciones = f"{obs_usuario} | Sistema: {', '.join(detalles)}" if detalles else obs_usuario
+            # Guardamos el total de puntos de la semana en el campo horas para auditoría
+            asistencia.horas = float(total_puntos_semana)
+
+            # Limpieza de observaciones para evitar duplicados del sistema
+            obs_original = (request.POST.get('observaciones') or "").split('|')[0].strip()
+            if nuevos_descuentos > 0:
+                asistencia.observaciones = f"{obs_original} | Sistema: Descuento medio turno (Pares: {pares_totales})"
+            else:
+                asistencia.observaciones = obs_original
 
             asistencia.save()
             messages.success(request, "¡Registro procesado correctamente!")
