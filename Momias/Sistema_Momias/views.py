@@ -661,19 +661,10 @@ def Asistencias_FF_view(request):
     puestos_salarios_ff = {p.puesto: float(p.monto) for p in puestos_db}
 
     hoy_dt = date.today()
-
-    # --- LÓGICA DE BLOQUEO (GRACIA DEL LUNES) ---
-    dia_semana = hoy_dt.weekday()  # 0=Lunes
-
-    if dia_semana == 0:
-        limite_bloqueo = hoy_dt - timedelta(days=7)
-    else:
-        limite_bloqueo = hoy_dt - timedelta(days=dia_semana)
-
     semana_actual = hoy_dt.isocalendar()[1]
     anio_actual = hoy_dt.isocalendar()[0]
 
-    # --- FUNCIÓN AUXILIAR ---
+    # --- FUNCIÓN AUXILIAR DE CÁLCULO ---
     def obtener_monto_bloque(base_puesto, entrada, salida):
         if not entrada or not salida:
             return 0.0
@@ -700,10 +691,10 @@ def Asistencias_FF_view(request):
         except (ValueError, ZeroDivisionError):
             return float(base_puesto)
 
-    # --- POST ---
+    # --- PROCESAMIENTO POST ---
     if request.method == 'POST':
 
-        # A. ELIMINAR
+        # A. LÓGICA DE ELIMINACIÓN
         if 'eliminar_id' in request.POST:
             CLAVE_BORRADO = "1234"
 
@@ -716,15 +707,18 @@ def Asistencias_FF_view(request):
 
             asistencia = get_object_or_404(Asistencia, id=asistencia_id)
 
-            if asistencia.fecha < limite_bloqueo:
-                messages.error(request, "El periodo de edición para este registro ha vencido.")
+            sem_reg = asistencia.fecha.isocalendar()[1]
+            anio_reg = asistencia.fecha.isocalendar()[0]
+
+            if anio_reg < anio_actual or (anio_reg == anio_actual and sem_reg < semana_actual):
+                messages.error(request, "No puedes eliminar registros de semanas PASADAS.")
             else:
                 asistencia.delete()
                 messages.success(request, "Registro eliminado.")
 
             return redirect('asistenciasff')
 
-        # B. GUARDAR / EDITAR
+        # B. GUARDADO / MODIFICACIÓN
         try:
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
@@ -733,12 +727,14 @@ def Asistencias_FF_view(request):
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
 
-            # BLOQUEO
-            if fecha_dt < limite_bloqueo:
-                messages.error(request, "No se pueden gestionar registros de periodos cerrados.")
+            sem_f = fecha_dt.isocalendar()[1]
+            anio_f = fecha_dt.isocalendar()[0]
+
+            if anio_f < anio_actual or (anio_f == anio_actual and sem_f < semana_actual):
+                messages.error(request, "Error: No se pueden gestionar registros de semanas pasadas.")
                 return redirect('asistenciasff')
 
-            # DATOS FORM
+            # CAPTURA DE DATOS
             puesto_sel = (request.POST.get('puesto') or "").strip()
             estatus_jornada = request.POST.get('estatus_jornada')
 
@@ -747,7 +743,7 @@ def Asistencias_FF_view(request):
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
             sal_v = (request.POST.get('salida_vespertina') or "").strip()
 
-            # DUPLICADOS
+            # VALIDACIÓN DE DUPLICADOS
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
 
             registros_dia = Asistencia.objects.filter(
@@ -779,10 +775,9 @@ def Asistencias_FF_view(request):
             total_r = r_acum + r_hoy
 
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
-
             desc_retardo = (base_puesto / 2) if (total_r > 0 and total_r % 2 == 0) else 0.0
 
-            # MONTO
+            # CÁLCULO DE MONTO
             monto_calc = 0.0
             puesto_up = puesto_sel.upper()
 
@@ -825,10 +820,10 @@ def Asistencias_FF_view(request):
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calc *= 2.0
 
+            # GUARDADO
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
 
-            # CREAR / EDITAR
             if id_excluir != -1:
                 asistencia = get_object_or_404(Asistencia, id=id_excluir)
             else:
@@ -846,7 +841,6 @@ def Asistencias_FF_view(request):
 
             asistencia.bonificacion = bono
             asistencia.descuento = desc_man + desc_retardo
-
             asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
             asistencia.horas = float(total_r)
 
@@ -898,7 +892,6 @@ def Asistencias_FF_view(request):
         'fecha_filtro': fecha_filtro,
         'query': query,
         'anio_actual': anio_actual,
-        'limite_bloqueo': limite_bloqueo,
     })
 
 @login_required
