@@ -748,16 +748,16 @@ def Asistencias_FF_view(request):
                 messages.error(request, "¡ERROR! Ya existe un registro matutino hoy.")
                 return redirect('asistenciasff')
 
-           ## --- LÓGICA DE RETARDOS R1 (CORREGIDA) ---
+          # --- LÓGICA DE RETARDOS R1 (CONTEO SEMANAL) ---
             ent_m_up = ent_m.upper()
             ent_v_up = ent_v.upper()
 
-            # 1. Contar retardos en los datos que vienen del formulario (HOY)
+            # 1. Contar retardos en el formulario actual (HOY)
             r_hoy = (1 if 'R1' in ent_m_up else 0) + (1 if 'R1' in ent_v_up else 0)
 
             # 2. Contar retardos previos de la semana en la DB
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
-            # Importante: Buscamos registros de la semana EXCLUYENDO el que estamos procesando
+            # Excluimos el registro actual para no duplicar si es una edición
             reg_semana = Asistencia.objects.filter(
                 empleado=empleado_obj, 
                 fecha__range=[inicio_sem, fecha_dt]
@@ -770,13 +770,11 @@ def Asistencias_FF_view(request):
                 if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper():
                     r_acumulado += 1
             
-            # 3. El total real es lo de la DB + lo de HOY
+            # 3. Total acumulado incluyendo hoy
             total_r = r_acumulado + r_hoy
             
-            # 4. Cálculo del descuento
+            # 4. Cálculo del descuento (Cada par de R1 = -0.5 día)
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
-            
-            # REGLA: Descuento de medio día si el total acumulado es par (2, 4, 6...)
             desc_retardo = 0.0
             if total_r > 0 and total_r % 2 == 0:
                 desc_retardo = (base_puesto / 2)
@@ -827,34 +825,54 @@ def Asistencias_FF_view(request):
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
 
-            # Recuperar o Crear
+            # --- LÓGICA DE GUARDADO FINAL ---
+            # Recuperar o Crear registro
             if id_excluir != -1:
                 asistencia = get_object_or_404(Asistencia, id=id_excluir)
             else:
                 asistencia = Asistencia(sucursal="FastFood")
 
+            # Asignación de datos básicos
             asistencia.empleado = empleado_obj
             asistencia.fecha = fecha_dt
             asistencia.estatus = estatus_jornada
             asistencia.puesto = puesto_sel
-            asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
-            asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
+            
+            # Tiempos de entrada y salida
+            asistencia.entrada_matutina = ent_m
+            asistencia.salida_matutina = sal_m
+            asistencia.entrada_vespertina = ent_v
+            asistencia.salida_vespertina = sal_v
+
+            # Captura de valores económicos del formulario
+            bono = float(request.POST.get('bonificacion') or 0)
+            desc_man = float(request.POST.get('descuento') or 0)
+            
+            # Aplicación de descuentos y cálculos finales
+            # 'desc_retardo' viene de la lógica de conteo R1 previa
             asistencia.bonificacion = bono
             asistencia.descuento = desc_man + desc_retardo
-            asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
-            asistencia.horas = float(total_r) # Guardamos R1 acumulados
             
-            # Observaciones automáticas por retardo
-            obs = (request.POST.get('observaciones') or "").strip()
+            # El pago del día considera: Monto por horas/cargas + Bonos - Descuentos totales
+            asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
+            
+            # Guardamos el total de retardos R1 de la semana en el campo 'horas' para reporte
+            asistencia.horas = float(total_r) 
+            
+            # Gestión de Observaciones (Automáticas si hay retardo)
+            obs_form = (request.POST.get('observaciones') or "").strip()
             if desc_retardo > 0:
-                asistencia.observaciones = f"{obs} | Desc. por {total_r} retardos R1.".strip(" |")
+                asistencia.observaciones = f"{obs_form} | Desc. por {total_r} retardos R1 acumulados.".strip(" |")
             else:
-                asistencia.observaciones = obs
+                asistencia.observaciones = obs_form
+
+            # Campos adicionales (opcional, según tu modelo)
+            asistencia.motivo_bonificacion = request.POST.get('motivo_bonificacion')
+            asistencia.motivo_descuento = request.POST.get('motivo_descuento')
 
             asistencia.save()
-            #messages.success(request, f"✅ Guardado. R1 en la semana: {total_r}")
+            messages.success(request, f"¡Registro de FastFood guardado con éxito! (R1 semanales: {int(total_r)})")
             return redirect('asistenciasff')
-
         except Exception as e:
             messages.error(request, f"❌ Error: {e}")
             return redirect('asistenciasff')
