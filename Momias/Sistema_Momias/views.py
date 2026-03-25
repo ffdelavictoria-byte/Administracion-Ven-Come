@@ -752,26 +752,24 @@ def Asistencias_FF_view(request):
             ent_m_up = ent_m.upper()
             ent_v_up = ent_v.upper()
             
-            # 1. Contar retardos de hoy (se guardan en campo 'horas')
-            r_hoy = (1 if 'R1' in ent_m_up else 0) + (1 if 'R1' in ent_v_up else 0)
+
+            # Contamos si hubo R1 hoy
+            r_hoy = (1 if 'R1' in ent_m.upper() else 0) + (1 if 'R1' in ent_v.upper() else 0)
             
-            # 2. Calcular acumulado semanal para el descuento
+            # Buscamos historial de la semana para el conteo acumulado
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
             reg_semana = Asistencia.objects.filter(
                 empleado=empleado_obj, 
                 fecha__range=[inicio_sem, fecha_dt]
-            ).exclude(id=id_excluir)
+            ).exclude(id=asistencia_id or -1)
             
+            # Usamos el campo 'horas' para guardar el conteo de R1s
             r_acumulado_previo = sum(int(reg.horas or 0) for reg in reg_semana)
             total_r_semanal = r_acumulado_previo + r_hoy
             
-            # 3. Cálculo del descuento por par de retardos
-            base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
-            desc_retardo = 0.0
-            
-            # Si el total acumulado al día de hoy es par, aplicamos el descuento de medio turno
-            if total_r_semanal > 0 and total_r_semanal % 2 == 0:
-                desc_retardo = (base_puesto / 2)
+            # Descuento: Si al sumar el de hoy el total es par, aplicamos medio turno de multa
+            base_puesto = float(puestos_salarios_ff.get(puesto_seleccionado, 0.0))
+            desc_retardo = (base_puesto / 2) if (total_r_semanal > 0 and total_r_semanal % 2 == 0) else 0.0
 
             # ... (Cálculo de monto_calc por horas/puesto que ya tienes)
 
@@ -794,21 +792,16 @@ def Asistencias_FF_view(request):
             asistencia.salida_vespertina = sal_v
             
             # IMPORTANTE: Guardamos R1 en 'horas' para el conteo semanal
-            asistencia.horas = float(r_hoy) 
             asistencia.bonificacion = bono
             # Sumamos descuento manual + descuento automático por retardos
+            asistencia.pago_dia = round(monto_final + bono - (desc_man + desc_retardo), 2)
+            asistencia.horas = float(r_hoy) # <--- AQUÍ SE GUARDA EL R1 PARA EL CONTEO SEMANAL
             asistencia.descuento = desc_man + desc_retardo
             
-            # Pago final: (Sueldo base o por horas) + Bonos - Descuentos
-            asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
-            
-            # Observaciones automáticas
-            obs_form = (request.POST.get('observaciones') or "").strip()
+            # Observación automática del descuento
             if desc_retardo > 0:
-                asistencia.observaciones = f"{obs_form} | Desc. Automático por {total_r_semanal} retardos R1 acumulados.".strip(" |")
-            else:
-                asistencia.observaciones = obs_form
-
+                asistencia.observaciones = f"{observaciones_prev} | Desc. Automático R1 (Total:{total_r_semanal})".strip(" |")
+            
             asistencia.save()
             messages.success(request, f"¡Guardado! R1 semanales acumulados: {int(total_r_semanal)}")
             return redirect('asistenciasff')
