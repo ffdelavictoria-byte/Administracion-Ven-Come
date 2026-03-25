@@ -748,35 +748,33 @@ def Asistencias_FF_view(request):
                 messages.error(request, "¡ERROR! Ya existe un registro matutino hoy.")
                 return redirect('asistenciasff')
 
-          # --- LÓGICA DE RETARDOS R1 (CONTEO SEMANAL) ---
+          # # --- CORRECCIÓN EN LÓGICA DE RETARDOS R1 ---
             ent_m_up = ent_m.upper()
             ent_v_up = ent_v.upper()
-
-            # 1. Contar retardos en el formulario actual (HOY)
+            
+            # 1. Contar retardos SOLO de hoy (para guardar en la base de datos)
             r_hoy = (1 if 'R1' in ent_m_up else 0) + (1 if 'R1' in ent_v_up else 0)
-
-            # 2. Contar retardos previos de la semana en la DB
+            
+            # 2. Para el cálculo del descuento inmediato en el pago del día:
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
-            # Excluimos el registro actual para no duplicar si es una edición
             reg_semana = Asistencia.objects.filter(
                 empleado=empleado_obj, 
                 fecha__range=[inicio_sem, fecha_dt]
             ).exclude(id=id_excluir)
             
-            r_acumulado = 0
+            r_acumulado_previo = 0
             for reg in reg_semana:
-                if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper():
-                    r_acumulado += 1
-                if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper():
-                    r_acumulado += 1
+                # Usamos el campo 'horas' que es donde guardas los R1
+                r_acumulado_previo += int(reg.horas or 0)
             
-            # 3. Total acumulado incluyendo hoy
-            total_r = r_acumulado + r_hoy
+            total_r_semanal = r_acumulado_previo + r_hoy
             
-            # 4. Cálculo del descuento (Cada par de R1 = -0.5 día)
+            # 3. Cálculo del descuento (Si con el de hoy llegamos a un par)
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
             desc_retardo = 0.0
-            if total_r > 0 and total_r % 2 == 0:
+            # Si el total semanal es par y el de hoy es el que "completa" el par, o si ya es par
+            if total_r_semanal > 0 and total_r_semanal % 2 == 0:
+                # Solo aplicamos descuento si este registro no lo tenía ya o si es nuevo
                 desc_retardo = (base_puesto / 2)
 
             # Cálculo de Monto Base
@@ -854,10 +852,9 @@ def Asistencias_FF_view(request):
             asistencia.descuento = desc_man + desc_retardo
             
             # El pago del día considera: Monto por horas/cargas + Bonos - Descuentos totales
+            asistencia.horas = float(r_hoy) # <--- CAMBIO: Guarda solo los de hoy
+            asistencia.descuento = desc_man + desc_retardo
             asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
-            
-            # Guardamos el total de retardos R1 de la semana en el campo 'horas' para reporte
-            asistencia.horas = float(total_r) 
             
             # Gestión de Observaciones (Automáticas si hay retardo)
             obs_form = (request.POST.get('observaciones') or "").strip()
