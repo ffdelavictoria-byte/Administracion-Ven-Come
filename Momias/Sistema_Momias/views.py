@@ -745,12 +745,13 @@ def Asistencias_FF_view(request):
 
             # --- 1. LÓGICA DE RETARDOS (R1=1pt, R2=2pts) ---
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
-            reg_semana = Asistencia.objects.filter(empleado=empleado_obj, fecha__range=[inicio_sem, fecha_dt]).exclude(id=id_excluir)
+            reg_semana = Asistencia.objects.filter(
+                empleado=empleado_obj, 
+                fecha__range=[inicio_sem, fecha_dt]
+            ).exclude(id=id_excluir)
 
-            # Sumamos puntos acumulados en la semana
             puntos_acum = sum(getattr(r, 'horas', 0) for r in reg_semana)
 
-            # Puntos de hoy: R1 suma 1, R2 suma 2 (condición inmediata)
             def calcular_puntos_hoy(val):
                 if 'R2' in val: return 2
                 if 'R1' in val: return 1
@@ -759,18 +760,28 @@ def Asistencias_FF_view(request):
             puntos_hoy = calcular_puntos_hoy(ent_m) + calcular_puntos_hoy(ent_v)
             total_puntos_semana = puntos_acum + puntos_hoy
 
-            # --- 2. CÁLCULO DE MONTO DE JORNADA (BLOQUES FIJOS) ---
+            # --- 2. CÁLCULO DE MONTO DE JORNADA (NORMALIZACIÓN DE BLOQUES) ---
             monto_calc = 0.0
+            
+            # Determinamos el valor de un bloque estándar de 6 horas según el puesto
+            if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO"]):
+                valor_bloque_6h = (base_puesto / 1.5) # Proporción para 9h
+            elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
+                valor_bloque_6h = (base_puesto / 2.0) # Proporción para 12h
+            else:
+                # Puestos de 6h base o por evento (ej. Hamburguesas FF / Tuppers)
+                valor_bloque_6h = base_puesto
+
             if estatus_jornada in ["Normal", "Descanso trabajado", "Festivo"]:
-                # Si hay datos en los campos, pagamos el bloque completo (Sin proporcionalidad de horas)
                 if any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"]):
-                    # Puestos de un solo bloque largo
+                    # Puestos de bloque largo único
                     if (ent_m or ent_v) and (sal_m or sal_v):
                         monto_calc = base_puesto
                 else:
-                    # Puestos divididos (Matutino/Vespertino)
-                    pago_m = (base_puesto / 2) if (ent_m and sal_m) else 0.0
-                    pago_v = (base_puesto / 2) if (ent_v and sal_v) else 0.0
+                    # Puestos divididos en Matutino (6h) y Vespertino (6h)
+                    # Cada bloque exitoso paga el valor normalizado de 6h
+                    pago_m = valor_bloque_6h if (ent_m and sal_m) else 0.0
+                    pago_v = valor_bloque_6h if (ent_v and sal_v) else 0.0
                     monto_calc = pago_m + pago_v
 
             # Multiplicadores de estatus
@@ -779,15 +790,13 @@ def Asistencias_FF_view(request):
             elif estatus_jornada == "Descanso":
                 monto_calc = 138.00 if (puesto_sel in ["Hamburguesas FF", "Tuppers"]) else 0.0
 
-            # --- 3. DESCUENTOS POR PARES (2 puntos = medio turno) ---
-            # Calculamos cuántos medios turnos se deben descontar en total esta semana
+            # --- 3. DESCUENTOS POR PARES (2 puntos = medio turno de 6h) ---
             pares_totales = int(total_puntos_semana // 2)
-            # Calculamos cuántos ya se descontaron en días previos
             pares_anteriores = int(puntos_acum // 2)
             
-            # La diferencia es lo que descontamos hoy
             nuevos_descuentos = pares_totales - pares_anteriores
-            monto_descuento_retardos = nuevos_descuentos * (base_puesto / 2)
+            # El descuento por un par de retardos es la mitad de un bloque de 6h (o sea, 3h de sueldo)
+            monto_descuento_retardos = nuevos_descuentos * (valor_bloque_6h / 2)
 
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
@@ -798,17 +807,20 @@ def Asistencias_FF_view(request):
             asistencia.estatus, asistencia.puesto = estatus_jornada, puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
-            asistencia.bonificacion, asistencia.descuento = bono, desc_man
             
-            # Pago final restando los descuentos por pares calculados
-            asistencia.pago_dia = round(max(0, monto_calc + bono - (desc_man + monto_descuento_retardos)), 2)
+            # Guardamos la suma de descuentos (manual + penalización por retardos)
+            asistencia.bonificacion = bono
+            asistencia.descuento = desc_man + monto_descuento_retardos
             
-            # Guardamos los puntos en el campo 'horas' para el acumulado de la semana
+            # Pago final
+            asistencia.pago_dia = round(max(0, monto_calc + bono - asistencia.descuento), 2)
+            
+            # Guardamos puntos del día en 'horas' para el acumulado semanal
             asistencia.horas = float(puntos_hoy) 
 
             obs_original = (request.POST.get('observaciones') or "").split('|')[0].strip()
             if nuevos_descuentos > 0:
-                asistencia.observaciones = f"{obs_original} | Sistema: Descuento medio turno (Total Pares Semanales: {pares_totales})"
+                asistencia.observaciones = f"{obs_original} | Sistema: Descuento medio turno (Par #{pares_totales} semanal)"
             else:
                 asistencia.observaciones = obs_original
 
