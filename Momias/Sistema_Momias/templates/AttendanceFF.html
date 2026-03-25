@@ -570,16 +570,24 @@ function sincronizarTiempo(input, selectId) {
 
     // --- CÁLCULO DE HORAS ---
     function calcularHorasTrabajadas(inicio, fin) {
-        if (!inicio || !fin) return null;
-        if (inicio.includes('R') || fin.includes('R')) return 6; // Jornada estándar si hay retardos
-        
-        const [h1, m1] = inicio.split(':').map(Number);
-        const [h2, m2] = fin.split(':').map(Number);
-        const totalInicio = h1 * 60 + m1;
-        const totalFin = h2 * 60 + m2;
-        const diferenciaMins = totalFin - totalInicio;
-        return diferenciaMins > 0 ? diferenciaMins / 60 : 0;
-    }
+    if (!inicio || !fin) return null;
+    
+    // Detectar el divisor según el puesto actual
+    const puesto = puestoSelect.value.toUpperCase();
+    let divisor = 6.0;
+    if (puesto.includes("INTERMEDIO") || puesto.includes("9 HORAS")) divisor = 9.0;
+    else if (puesto.includes("GERENTE") || puesto.includes("12 HORAS")) divisor = 12.0;
+
+    // Si hay retardos, devolvemos la jornada completa según el puesto
+    if (inicio.includes('R') || fin.includes('R')) return divisor; 
+    
+    const [h1, m1] = inicio.split(':').map(Number);
+    const [h2, m2] = fin.split(':').map(Number);
+    const totalInicio = h1 * 60 + m1;
+    const totalFin = h2 * 60 + m2;
+    const diferenciaMins = totalFin - totalInicio;
+    return diferenciaMins > 0 ? diferenciaMins / 60 : 0;
+}
 
     // --- BÚSQUEDA DE EMPLEADO ---
     empleadoSearch.addEventListener('input', function() {
