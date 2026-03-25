@@ -446,13 +446,14 @@
         const valorPrevio = select.value;
         select.disabled = false;
         
-        // Reiniciar opciones
+        // Reiniciar opciones base
         select.innerHTML = '<option value="">--- No aplica ---</option><option value="OTRO">--- OTRO (Personalizado) ---</option>';
         
-        // --- 1. LÓGICA DE BLOQUEO ACTUALIZADA ---
+        // --- 1. LÓGICA DE BLOQUEO SEGÚN FAMILIA ---
         if (familiaKey === "JORNADA_12" || familiaKey === "JORNADA_12h") {
             select.disabled = false;
         } else if (familiaKey === "INTERMEDIO" || familiaKey === "INTERMEDIOh") {
+            // Intermedio bloquea salida matutina y entrada vespertina para forzar entrada única y salida única
             if (id === 'salida_matutina' || id === 'entrada_vespertina') { 
                 select.disabled = true; 
                 select.value = ""; 
@@ -469,14 +470,15 @@
             }
         }
 
-        // --- 2. POBLADO DE OPCIONES (CORREGIDO PARA RETARDOS) ---
+        // --- 2. POBLADO DE OPCIONES Y GENERACIÓN DE RETARDOS ---
         if (!select.disabled && familiaKey && familiaHorarios[familiaKey]) {
             const tipo = id.includes('entrada') ? 'entradas' : 'salidas';
             const opcionesBase = familiaHorarios[familiaKey][tipo] || [];
 
+            // Añadir hora puntual
             opcionesBase.forEach(h => select.add(new Option(h, h)));
             
-            // Generar R1 y R2 solo en entradas habilitadas
+            // Generar R1 y R2 solo en selectores de entrada
             if (id.includes('entrada') && opcionesBase.length > 0) {
                 const horaBaseStr = opcionesBase[0].split(' ')[0];
                 const [h, m] = horaBaseStr.split(':').map(Number);
@@ -488,21 +490,21 @@
 
                 rangos.forEach(r => {
                     const etiqueta = `${fmt(h, r.start)} - ${fmt(h, r.end)} (${r.label})`;
-                    // CRÍTICO: El segundo parámetro 'r.label' asegura que el VALUE enviado sea "R1" o "R2"
+                    // El value debe ser estrictamente "R1" o "R2" para que el servidor lo procese
                     select.add(new Option(etiqueta, r.label));
                 });
             }
         }
         
-        // --- 3. RESTAURACIÓN DE VALOR (CORREGIDA) ---
+        // --- 3. RESTAURACIÓN DE VALOR SELECCIONADO ---
         if (valorPrevio) {
-            // Buscamos si el valor previo existe en las nuevas opciones (incluyendo R1/R2)
+            // Verificamos si el valor previo existe entre las opciones recién creadas
             const existeOpcion = Array.from(select.options).some(opt => opt.value === valorPrevio);
             
             if (existeOpcion) {
                 select.value = valorPrevio;
-            } else if (valorPrevio.includes(':')) {
-                // Si es una hora manual (trae ":") y no está en el select, va a OTRO
+            } else if (valorPrevio.includes(':') || valorPrevio.includes('R')) {
+                // Si es una hora manual o un retardo que ya venía cargado
                 const optionOtro = select.querySelector('option[value="OTRO"]');
                 if (optionOtro) {
                     optionOtro.value = valorPrevio;
@@ -648,7 +650,7 @@ function verificarTodo() {
         inputMonto.value = monto;
         sueldoMsg.innerHTML = `<b style="color: purple;">Producción: $${monto} (Fijo)</b>`;
     } 
-    // 3. Estatus Especiales (No generan pago o son fijos de descanso)
+    // 3. Estatus Especiales
     else if (["Falta", "Permiso", "Vacaciones"].includes(estatus)) {
         inputMonto.value = "0.00";
         sueldoMsg.innerHTML = `<span style="color: grey;">Sin pago por ${estatus}</span>`;
@@ -658,7 +660,7 @@ function verificarTodo() {
         inputMonto.value = pagoDescanso;
         sueldoMsg.innerHTML = `<b>Descanso: $${pagoDescanso}</b>`;
     }
-    // 4. Lógica de Destajos (Cargas FF, Momias, Tuppers)
+    // 4. Lógica de Destajos
     else if (puesto === "Hamburguesas FF") {
         divCargas.style.display = "block";
         if (divMomiasExtra) divMomiasExtra.style.display = "block"; 
@@ -675,26 +677,34 @@ function verificarTodo() {
         inputMonto.value = (cargasFF * 46.50).toFixed(2);
         sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u)</b>`;
     }
-    // 5. Sueldo por Puesto con Lógica de Retardos/Manual
+    // 5. Sueldo por Puesto con Lógica de Retardos (CORREGIDO)
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
-        inputMonto.value = base.toFixed(2);
+        const v = [entMat.value, salMat.value, entVes.value, salVes.value];
+        
+        // REGLA: Si hay R2, R3, R4 o un par de R1, el pago de la jornada baja al 50%
+        const tieneCastigoDirecto = v.some(val => ["R2", "R3", "R4"].includes(val));
+        const tieneParR1 = (entMat.value === "R1" && entVes.value === "R1");
+        
+        let montoCalculado = base;
+        let mensajeExtra = "";
 
-        // Verificamos si hay algún retardo seleccionado o si hay horas manuales
-        const valoresHorarios = [entMat.value, salMat.value, entVes.value, salVes.value];
-        const hayRetardo = valoresHorarios.some(v => v === "R1" || v === "R2");
-        const hayHoraManual = valoresHorarios.some(v => v && v.includes(":") && v !== "R1" && v !== "R2");
-
-        if (hayRetardo) {
-            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: #EF6C00; font-weight: bold;">⏳ Retardo detectado: El descuento por pares se aplicará al guardar.</small>`;
-        } else if (hayHoraManual) {
-            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: #E53935; font-weight: bold;">⚠️ Hora manual: El sistema ajustará el pago proporcional.</small>`;
+        if (tieneCastigoDirecto || tieneParR1) {
+            montoCalculado = base / 2;
+            mensajeExtra = `<br><b style="color: #D32F2F;">⚠️ DESCUENTO 50%: Se detectó R2 o par de retardos.</b>`;
+        } else if (v.some(val => val === "R1")) {
+            mensajeExtra = `<br><b style="color: #EF6C00;">⏳ Retardo R1: Sin descuento hoy (acumulativo).</b>`;
+        } else if (v.some(val => val && val.includes(":") && !val.includes("R"))) {
+            mensajeExtra = `<br><b style="color: #E53935;">⚠️ Hora manual: Proporcional al guardar.</b>`;
         } else {
-            sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} <br><small style="color: blue;">(Jornada Completa / Puntual)</small>`;
+            mensajeExtra = `<br><small style="color: blue;">(Jornada Completa / Puntual)</small>`;
         }
+
+        inputMonto.value = montoCalculado.toFixed(2);
+        sueldoMsg.innerHTML = `Sueldo Base: $${base.toFixed(2)} ${mensajeExtra}`;
     }
 
-    // Asegurar que el descuento manual no sea nulo para evitar errores en el submit
+    // Asegurar que el descuento manual no sea nulo
     if (inputDescuento && (!inputDescuento.value || inputDescuento.value === "")) {
         inputDescuento.value = "0";
     }
