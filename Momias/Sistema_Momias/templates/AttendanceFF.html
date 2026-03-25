@@ -451,7 +451,6 @@
         
         // --- 1. LÓGICA DE BLOQUEO ACTUALIZADA ---
         if (familiaKey === "JORNADA_12" || familiaKey === "JORNADA_12h") {
-            // Para jornadas de 12 horas, habilitamos todo siempre
             select.disabled = false;
         } else if (familiaKey === "INTERMEDIO" || familiaKey === "INTERMEDIOh") {
             if (id === 'salida_matutina' || id === 'entrada_vespertina') { 
@@ -470,7 +469,7 @@
             }
         }
 
-        // --- 2. POBLADO DE OPCIONES ---
+        // --- 2. POBLADO DE OPCIONES (CORREGIDO PARA RETARDOS) ---
         if (!select.disabled && familiaKey && familiaHorarios[familiaKey]) {
             const tipo = id.includes('entrada') ? 'entradas' : 'salidas';
             const opcionesBase = familiaHorarios[familiaKey][tipo] || [];
@@ -489,21 +488,26 @@
 
                 rangos.forEach(r => {
                     const etiqueta = `${fmt(h, r.start)} - ${fmt(h, r.end)} (${r.label})`;
+                    // CRÍTICO: El segundo parámetro 'r.label' asegura que el VALUE enviado sea "R1" o "R2"
                     select.add(new Option(etiqueta, r.label));
                 });
             }
         }
         
-        // --- 3. RESTAURACIÓN DE VALOR (MANUAL O PREVIO) ---
-        if (valorPrevio && select.querySelector(`option[value="${valorPrevio}"]`)) {
-            select.value = valorPrevio;
-        } else if (valorPrevio && (valorPrevio.includes(':') || valorPrevio.startsWith('R'))) {
-            // Esto asegura que si ya había una hora manual o un retardo (R1/R2) seleccionado, 
-            // la opción "OTRO" adopte ese valor y no se bloquee.
-            const optionOtro = select.querySelector('option[value="OTRO"]');
-            if (optionOtro) {
-                optionOtro.value = valorPrevio;
+        // --- 3. RESTAURACIÓN DE VALOR (CORREGIDA) ---
+        if (valorPrevio) {
+            // Buscamos si el valor previo existe en las nuevas opciones (incluyendo R1/R2)
+            const existeOpcion = Array.from(select.options).some(opt => opt.value === valorPrevio);
+            
+            if (existeOpcion) {
                 select.value = valorPrevio;
+            } else if (valorPrevio.includes(':')) {
+                // Si es una hora manual (trae ":") y no está en el select, va a OTRO
+                const optionOtro = select.querySelector('option[value="OTRO"]');
+                if (optionOtro) {
+                    optionOtro.value = valorPrevio;
+                    select.value = valorPrevio;
+                }
             }
         }
     });
@@ -525,22 +529,42 @@
     }
 function sincronizarTiempo(input, selectId) {
     const select = document.getElementById(selectId);
+    if (!select) return;
+
     if (input.value) {
-        let optionOtro = select.querySelector('option[value="OTRO"]');
+        // 1. Buscamos la opción "OTRO"
+        let optionOtro = select.querySelector('option[value="OTRO"]') || 
+                         Array.from(select.options).find(opt => opt.text.includes("OTRO"));
+
         if (!optionOtro) {
-            // Si por error se borró, la recreamos
-            optionOtro = new Option("--- OTRO ---", "OTRO");
+            // Si no existe, la creamos para que el valor manual tenga donde vivir
+            optionOtro = new Option("--- OTRO (Personalizado) ---", "OTRO");
             select.add(optionOtro);
         }
-        // Asignamos el valor del reloj directamente al value de la opción
+
+        // 2. Sincronizamos: El valor del input de tiempo se vuelve el value de la opción
         optionOtro.value = input.value;
         select.value = input.value;
+        
+        // Ocultamos el select para mostrar el input manual (estética de tu código previo)
+        select.style.display = "none";
+        input.style.display = "block";
+
     } else {
-        // Si limpian el reloj, volvemos al estado inicial
-        const optionOtro = select.querySelector('option[text*="OTRO"]');
-        if (optionOtro) optionOtro.value = "OTRO";
-        select.value = "";
+        // 3. Si el input de tiempo se limpia:
+        // Solo reseteamos el select si su valor actual NO es un retardo (R1/R2)
+        const esRetardo = select.value === "R1" || select.value === "R2";
+        
+        if (!esRetardo) {
+            const optionOtro = Array.from(select.options).find(opt => opt.text.includes("OTRO"));
+            if (optionOtro) optionOtro.value = "OTRO";
+            
+            select.value = ""; // Regresamos al "No aplica"
+            select.style.display = "block";
+            input.style.display = "none";
+        }
     }
+    
     verificarTodo(); 
 }
 
