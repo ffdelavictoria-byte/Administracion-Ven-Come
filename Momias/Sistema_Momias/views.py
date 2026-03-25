@@ -661,19 +661,26 @@ def Asistencias_FF_view(request):
     puestos_salarios_ff = {p.puesto: float(p.monto) for p in puestos_db}
 
     hoy_dt = date.today()
+
+    # --- LÓGICA DE BLOQUEO (GRACIA DEL LUNES) ---
+    dia_semana = hoy_dt.weekday()  # 0=Lunes
+
+    if dia_semana == 0:
+        limite_bloqueo = hoy_dt - timedelta(days=7)
+    else:
+        limite_bloqueo = hoy_dt - timedelta(days=dia_semana)
+
     semana_actual = hoy_dt.isocalendar()[1]
     anio_actual = hoy_dt.isocalendar()[0]
 
-    # --- FUNCIÓN AUXILIAR DE CÁLCULO ---
+    # --- FUNCIÓN AUXILIAR ---
     def obtener_monto_bloque(base_puesto, entrada, salida):
-
         if not entrada or not salida:
             return 0.0
 
         ent_str = entrada.strip().upper()
         sal_str = salida.strip().upper()
 
-        # Si es retardo o formato inválido
         if 'R' in ent_str or ':' not in ent_str or 'R' in sal_str or ':' not in sal_str:
             return float(base_puesto)
 
@@ -693,51 +700,45 @@ def Asistencias_FF_view(request):
         except (ValueError, ZeroDivisionError):
             return float(base_puesto)
 
-    # --- PROCESAMIENTO POST ---
+    # --- POST ---
     if request.method == 'POST':
 
-        # --- ELIMINAR ---
+        # A. ELIMINAR
         if 'eliminar_id' in request.POST:
-
             CLAVE_BORRADO = "1234"
+
             asistencia_id = request.POST.get('eliminar_id')
             clave_ingresada = request.POST.get('clave_borrado')
 
             if clave_ingresada != CLAVE_BORRADO:
-                messages.error(request, "❌ Clave incorrecta.")
+                messages.error(request, "Clave incorrecta.")
                 return redirect('asistenciasff')
 
             asistencia = get_object_or_404(Asistencia, id=asistencia_id)
 
-            sem_reg = asistencia.fecha.isocalendar()[1]
-            anio_reg = asistencia.fecha.isocalendar()[0]
-
-            if anio_reg < anio_actual or (anio_reg == anio_actual and sem_reg < semana_actual):
-                messages.error(request, "🔒 No puedes eliminar registros de semanas PASADAS.")
+            if asistencia.fecha < limite_bloqueo:
+                messages.error(request, "El periodo de edición para este registro ha vencido.")
             else:
                 asistencia.delete()
-                messages.success(request, "✅ Registro eliminado.")
+                messages.success(request, "Registro eliminado.")
 
             return redirect('asistenciasff')
 
-        # --- GUARDAR / EDITAR ---
+        # B. GUARDAR / EDITAR
         try:
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
-
             empleado_obj = get_object_or_404(Empleado, id=empleado_id)
 
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
 
-            sem_f = fecha_dt.isocalendar()[1]
-            anio_f = fecha_dt.isocalendar()[0]
-
-            if anio_f < anio_actual or (anio_f == anio_actual and sem_f < semana_actual):
-                messages.error(request, "🔒 Error: No se pueden gestionar registros de semanas pasadas.")
+            # BLOQUEO
+            if fecha_dt < limite_bloqueo:
+                messages.error(request, "No se pueden gestionar registros de periodos cerrados.")
                 return redirect('asistenciasff')
 
-            # --- CAMPOS ---
+            # DATOS FORM
             puesto_sel = (request.POST.get('puesto') or "").strip()
             estatus_jornada = request.POST.get('estatus_jornada')
 
@@ -746,7 +747,7 @@ def Asistencias_FF_view(request):
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
             sal_v = (request.POST.get('salida_vespertina') or "").strip()
 
-            # --- VALIDACIÓN DUPLICADOS ---
+            # DUPLICADOS
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
 
             registros_dia = Asistencia.objects.filter(
@@ -757,11 +758,10 @@ def Asistencias_FF_view(request):
             if ent_m and sal_m and registros_dia.filter(
                 entrada_matutina__isnull=False
             ).exclude(entrada_matutina='').exists():
-
                 messages.error(request, "¡ERROR! Ya existe un registro matutino hoy.")
                 return redirect('asistenciasff')
 
-            # --- RETARDOS ---
+            # RETARDOS
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
 
             reg_semana = Asistencia.objects.filter(
@@ -779,9 +779,10 @@ def Asistencias_FF_view(request):
             total_r = r_acum + r_hoy
 
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
+
             desc_retardo = (base_puesto / 2) if (total_r > 0 and total_r % 2 == 0) else 0.0
 
-            # --- CÁLCULO ---
+            # MONTO
             monto_calc = 0.0
             puesto_up = puesto_sel.upper()
 
@@ -800,23 +801,20 @@ def Asistencias_FF_view(request):
                 monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
 
             else:
-                if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA"]):
+                if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA", "TURNO INTERMEDIO"]):
                     divisor = 9.0
-                elif any(x in puesto_up for x in ["12 HORAS", "GERENTE"]):
+                elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                     divisor = 12.0
                 else:
                     divisor = 6.0
 
                 base_6h = (base_puesto / divisor) * 6
 
-                es_bloque_u = any(
-                    x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"]
-                )
+                es_bloque_u = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
 
                 if es_bloque_u:
                     ini = ent_m if (ent_m and ":" in ent_m) else ent_v
                     fin = sal_v if (sal_v and ":" in sal_v) else sal_m
-
                     monto_calc = obtener_monto_bloque(base_6h, ini, fin)
                 else:
                     monto_calc = (
@@ -824,14 +822,13 @@ def Asistencias_FF_view(request):
                         obtener_monto_bloque(base_6h, ent_v, sal_v)
                     )
 
-            # Multiplicador
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calc *= 2.0
 
-            # --- GUARDADO ---
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
 
+            # CREAR / EDITAR
             if id_excluir != -1:
                 asistencia = get_object_or_404(Asistencia, id=id_excluir)
             else:
@@ -849,6 +846,7 @@ def Asistencias_FF_view(request):
 
             asistencia.bonificacion = bono
             asistencia.descuento = desc_man + desc_retardo
+
             asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
             asistencia.horas = float(total_r)
 
@@ -861,7 +859,6 @@ def Asistencias_FF_view(request):
 
             asistencia.save()
 
-            messages.success(request, f"✅ Guardado. R1 en la semana: {total_r}")
             return redirect('asistenciasff')
 
         except Exception as e:
@@ -901,6 +898,7 @@ def Asistencias_FF_view(request):
         'fecha_filtro': fecha_filtro,
         'query': query,
         'anio_actual': anio_actual,
+        'limite_bloqueo': limite_bloqueo,
     })
 
 @login_required
