@@ -734,63 +734,45 @@ def Asistencias_FF_view(request):
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
 
-            # BLOQUEO
+            # BLOQUEO DE EDICIÓN
             if fecha_dt < limite_bloqueo:
                 messages.error(request, "No se pueden gestionar registros de periodos cerrados.")
                 return redirect('asistenciasff')
 
-            # DATOS FORM
             puesto_sel = (request.POST.get('puesto') or "").strip()
             estatus_jornada = request.POST.get('estatus_jornada')
-
             ent_m = (request.POST.get('entrada_matutina') or "").strip()
             sal_m = (request.POST.get('salida_matutina') or "").strip()
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
             sal_v = (request.POST.get('salida_vespertina') or "").strip()
 
-            # DUPLICADOS
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
 
-            registros_dia = Asistencia.objects.filter(
-                empleado=empleado_obj,
-                fecha=fecha_captura
-            ).exclude(id=id_excluir)
-
-            if ent_m and sal_m and registros_dia.filter(
-                entrada_matutina__isnull=False
-            ).exclude(entrada_matutina='').exists():
-                messages.error(request, "¡ERROR! Ya existe un registro matutino hoy.")
-                return redirect('asistenciasff')
-
-            # --- RETARDOS (Lógica Corregida) ---
+            # --- LÓGICA DE RETARDOS DINÁMICA (SOLUCIONA EL ERROR DE EDICIÓN) ---
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
+            
+            # Consultamos los R1 de otros días de la semana (excluyendo el actual que se está editando)
             reg_semana = Asistencia.objects.filter(
                 empleado=empleado_obj,
                 fecha__range=[inicio_sem, fecha_dt]
             ).exclude(id=id_excluir)
 
-            # Conteo R1
             r1_acum = sum(
                 (1 if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper() else 0) +
                 (1 if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper() else 0)
                 for reg in reg_semana
             )
+            
+            # Sumamos los R1 que el usuario puso en el formulario actual
             r1_hoy = (1 if 'R1' in ent_m.upper() else 0) + (1 if 'R1' in ent_v.upper() else 0)
             total_r1 = r1_acum + r1_hoy
 
-            # Conteo R2 (Descuento directo)
+            # R2 siempre descuenta directo (medio turno)
             r2_hoy_count = (1 if 'R2' in ent_m.upper() else 0) + (1 if 'R2' in ent_v.upper() else 0)
 
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
             
-            # Cálculo de descuentos
-            desc_por_r2 = r2_hoy_count * (base_puesto / 2)
-            desc_por_r1 = (base_puesto / 2) if (total_r1 > 0 and total_r1 % 2 == 0) else 0.0
-            
-            # ESTA ES LA VARIABLE QUE USAREMOS
-            desc_retardo_total = desc_por_r2 + desc_por_r1
-
-            # --- MONTO DE JORNADA ---
+            # --- CÁLCULO DE MONTO DE JORNADA ---
             monto_calc = 0.0
             puesto_up = puesto_sel.upper()
             
@@ -805,6 +787,7 @@ def Asistencias_FF_view(request):
             elif puesto_sel == "Tuppers":
                 monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
             else:
+                # Determinamos divisor para el cálculo por horas
                 if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA", "TURNO INTERMEDIO"]):
                     divisor = 9.0
                 elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
@@ -828,10 +811,16 @@ def Asistencias_FF_view(request):
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calc *= 2.0
 
+            # --- APLICACIÓN DE DESCUENTOS ---
+            # El descuento se calcula sobre base_puesto para que sea medio turno real del puesto
+            desc_por_r2 = r2_hoy_count * (base_puesto / 2)
+            desc_por_r1 = (base_puesto / 2) if (total_r1 > 0 and total_r1 % 2 == 0) else 0.0
+            desc_retardo_total = desc_por_r2 + desc_por_r1
+
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
 
-            # --- ASIGNACIÓN FINAL Y GUARDADO ---
+            # --- ASIGNACIÓN FINAL ---
             if id_excluir != -1:
                 asistencia = get_object_or_404(Asistencia, id=id_excluir)
             else:
@@ -847,27 +836,26 @@ def Asistencias_FF_view(request):
             asistencia.salida_vespertina = sal_v
             asistencia.bonificacion = bono
             
-            # Usamos la variable unificada
+            # Sumamos descuento manual + descuentos por retardos
             asistencia.descuento = desc_man + desc_retardo_total
-            asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
             
-            # Guardamos total de retardos (R1 + R2*2 si quieres o solo R1)
-            # Para mantener compatibilidad con tu sistema de puntos:
+            # EL TRUCO: max(0, ...) asegura que no existan pagos negativos
+            asistencia.pago_dia = round(max(0, monto_calc + bono - asistencia.descuento), 2)
+            
             asistencia.horas = float(total_r1 + (r2_hoy_count * 2))
 
+            # Observaciones dinámicas
             obs = (request.POST.get('observaciones') or "").strip()
-            
-            # Detalle de descuento en observaciones
             if desc_retardo_total > 0:
                 detalles = []
                 if r2_hoy_count > 0: detalles.append(f"{r2_hoy_count} R2")
-                if desc_por_r1 > 0: detalles.append(f"2do R1")
+                if desc_por_r1 > 0: detalles.append(f"Par de R1 (Total sem: {total_r1})")
                 asistencia.observaciones = f"{obs} | Desc. por {', '.join(detalles)}".strip(" |")
             else:
                 asistencia.observaciones = obs
 
             asistencia.save()
-            messages.success(request, "¡Registro guardado con éxito!")
+            messages.success(request, "¡Registro procesado correctamente!")
             return redirect('asistenciasff')
 
         except Exception as e:
