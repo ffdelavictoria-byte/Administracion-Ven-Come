@@ -685,13 +685,19 @@ def Asistencias_FF_view(request):
     def obtener_monto_bloque(base_puesto, entrada, salida, divisor_puesto, es_corrida=False):
         if not entrada or not salida: return 0.0
         ent_str, sal_str = entrada.strip().upper(), salida.strip().upper()
-    
-        # SI ES RETARDO (R1, R2) o Texto:
-        # IMPORTANTE: Aquí devolvemos el pago del bloque COMPLETO (100% o 50% según el tipo)
-        # No restamos nada aquí para no duplicar el descuento con 'desc_retardo'.
-        if any(x in ent_str for x in ['R1', 'R2']) or ':' not in ent_str:
-            return float(base_puesto) if es_corrida else (float(base_puesto) / 2)
-    
+        
+        # Monto que representa este bloque (Si es corrida es el 100%, si es partido es el 50%)
+        monto_del_bloque = float(base_puesto) if es_corrida else (float(base_puesto) / 2)
+
+        # SI ES RETARDO (R1, R2): Devolvemos el monto del bloque INTEGRO.
+        # El descuento real se aplicará en la variable 'desc_retardo' más abajo.
+        if any(x in ent_str for x in ['R1', 'R2']):
+            return monto_del_bloque
+            
+        # SI ES TEXTO O PERSONALIZADO (OTRO)
+        if ':' not in ent_str:
+            return monto_del_bloque
+
         try:
             fmt = '%H:%M'
             inicio = datetime.strptime(ent_str[:5], fmt)
@@ -699,10 +705,10 @@ def Asistencias_FF_view(request):
             hrs = (fin - inicio).total_seconds() / 3600
             if hrs < 0: hrs += 24
             
-            # Pago proporcional por horas reales trabajadas
+            # Solo si es hora manual (p.ej. entró a las 10:30), calculamos el proporcional
             return (float(base_puesto) / divisor_puesto) * hrs
         except:
-            return float(base_puesto) if es_corrida else (float(base_puesto) / 2)
+            return monto_del_bloque
 
     # --- POST ---
     if request.method == 'POST':
@@ -751,20 +757,19 @@ def Asistencias_FF_view(request):
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
 
-            # 1. DETERMINAR DIVISOR
-            # Prioridad a 12h y Especiales
+            # 1. DETERMINAR DIVISOR Y TIPO DE JORNADA
             if any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                 divisor = 12.0
                 es_corrida = True
             elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO", "CHEF"]):
                 divisor = 9.0
-                # Solo es corrida si es Intermedio o Crepas (una sola firma)
+                # Solo es corrida si es una sola firma (Intermedio/Chef/Crepas)
                 es_corrida = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "CHEF"])
             else:
                 divisor = 6.0
                 es_corrida = False
 
-            # 2. LÓGICA DE RETARDOS
+            # 2. LÓGICA DE RETARDOS (ACUMULADOS SEMANALES)
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
             fin_sem = inicio_sem + timedelta(days=6)
             asistencias_semana = Asistencia.objects.filter(empleado=empleado_obj, fecha__range=[inicio_sem, fin_sem]).exclude(id=id_excluir)
@@ -780,11 +785,13 @@ def Asistencias_FF_view(request):
             total_r1_semana = r1_previos + r1_hoy
             desc_retardo = 0.0
             
-            # Condición de descuento: Si hay un R2 hoy o si hoy se completa un par de R1
-            if (r1_hoy > 0 and total_r1_semana >= 2 and total_r1_semana % 2 == 0) or (r2_hoy > 0):
+            # EL DESCUENTO SOLO SE APLICA AQUÍ:
+            # Si hay un R2 hoy (50% de descuento directo) 
+            # O si hoy se completa un par de R1 (2, 4, 6...)
+            if (r2_hoy > 0) or (r1_hoy > 0 and total_r1_semana >= 2 and total_r1_semana % 2 == 0):
                 desc_retardo = (base_puesto / 2)
 
-            # 3. LÓGICA DE MONTO CALC
+            # 3. LÓGICA DE MONTO CALC (Pago por tiempo trabajado)
             monto_calc = 0.0
             if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
                 monto_calc = 0.0
@@ -797,19 +804,20 @@ def Asistencias_FF_view(request):
                 monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
             else:
                 if es_corrida:
-                    # Una sola firma (Gerente / Intermedio / Crepas)
+                    # Una sola firma (12h, Intermedios)
                     ini_b = ent_m if (ent_m and (":" in ent_m or "R" in ent_m)) else ent_v
                     fin_b = sal_v if (sal_v and (":" in sal_v or "R" in sal_v)) else sal_m
                     monto_calc = obtener_monto_bloque(base_puesto, ini_b, fin_b, divisor, es_corrida=True)
                 else:
                     # Turnos partidos (6h y 9h Matutino/Vespertino)
+                    # Cada bloque representa el 50% del sueldo base.
                     monto_calc = obtener_monto_bloque(base_puesto, ent_m, sal_m, divisor, es_corrida=False) + \
                                  obtener_monto_bloque(base_puesto, ent_v, sal_v, divisor, es_corrida=False)
 
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calc *= 2.0
 
-            # 4. GUARDAR
+            # 4. GUARDAR REGISTRO
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
 
@@ -819,10 +827,11 @@ def Asistencias_FF_view(request):
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
             asistencia.bonificacion, asistencia.descuento = bono, desc_man
             
-            # EL CÁLCULO FINAL:
+            # PAGO FINAL: Monto bruto menos descuentos manuales y el castigo por retardo
             pago_total = (monto_calc + bono) - desc_man - desc_retardo
             asistencia.pago_dia = round(max(0, pago_total), 2)
             
+            # Guardamos el conteo de R1 en el campo 'horas' para auditoría semanal
             asistencia.horas = float(total_r1_semana)
             asistencia.observaciones = request.POST.get('observaciones', '').strip()
             asistencia.save()
