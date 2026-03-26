@@ -767,18 +767,14 @@ def Asistencias_FF_view(request):
             # Retardos en el registro actual
             r1_hoy = (1 if 'R1' in ent_m else 0) + (1 if 'R1' in ent_v else 0)
             r2_hoy = (1 if 'R2' in ent_m else 0) + (1 if 'R2' in ent_v else 0)
-
+            
             desc_retardo = 0.0
-            # Regla R1: Se descuenta la mitad cada vez que el total de R1 es par (2, 4, 6...)
-            # Si hoy pongo el R1 que hace el número par, se descuenta hoy.
-            if r1_hoy > 0:
-                total_r1_con_hoy = r1_acumulados + r1_hoy
-                if total_r1_con_hoy >= 2 and total_r1_con_hoy % 2 == 0:
-                    desc_retardo += (base_puesto / 2)
-
-            # Regla R2: Descuento inmediato de la mitad del sueldo
-            if r2_hoy > 0:
-                desc_retardo += (base_puesto / 2)
+            total_r1_con_hoy = r1_acumulados + r1_hoy
+            
+            # Condición: Si hoy se completa un par de R1 O si hoy hay un R2
+            # Solo aplicamos el descuento UNA VEZ (la mitad del sueldo base)
+            if (r1_hoy > 0 and total_r1_con_hoy >= 2 and total_r1_con_hoy % 2 == 0) or (r2_hoy > 0):
+                desc_retardo = (base_puesto / 2)
 
             # --- LÓGICA DE MONTO FINAL ---
             monto_calc = 0.0
