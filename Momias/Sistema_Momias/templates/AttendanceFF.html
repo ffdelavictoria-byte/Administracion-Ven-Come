@@ -680,27 +680,32 @@ function verificarTodo() {
         sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u)</b>`;
     }
     // 5. Sueldo por Puesto con Lógica de Retardos (CORREGIDO)
-    // 5. Sueldo por Puesto con Lógica de Retardos (CORREGIDO)
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
         const v = [entMat.value, salMat.value, entVes.value, salVes.value];
         
-        // REGLA VISUAL: Si hay R2 o un par de R1 en el mismo día
+        // Reglas de validación
         const tieneR2 = v.some(val => val === "R2");
-        const tieneParR1 = (entMat.value === "R1" && entVes.value === "R1");
+        // Par de R1 el mismo día (Matutino y Vespertino)
+        const tieneParR1Dia = (entMat.value === "R1" && entVes.value === "R1");
         
-        let montoCalculado = base;
+        let montoCalculado = base; // Iniciamos asumiendo pago completo
         let mensajeExtra = "";
 
-        if (tieneR2 || tieneParR1) {
+        if (tieneR2 || tieneParR1Dia) {
+            // Descuento inmediato por falta grave o doble retardo hoy
             montoCalculado = base / 2;
-            mensajeExtra = `<br><b style="color: #D32F2F;">⚠️ DESCUENTO 50%: Se aplicará por R2 o par de R1.</b>`;
-        } else if (v.some(val => val === "R1")) {
-            // El servidor validará si este R1 es el que completa el par semanal
-            mensajeExtra = `<br><b style="color: #EF6C00;">⏳ Retardo R1: El sistema verificará si corresponde descuento semanal.</b>`;
-        } else if (v.some(val => val && val.includes(":") && !val.includes("R"))) {
+            mensajeExtra = `<br><b style="color: #D32F2F;">⚠️ DESCUENTO 50%: Se aplicará por R2 o par de R1 hoy.</b>`;
+        } 
+        else if (v.some(val => val === "R1")) {
+            // Retardo R1 único hoy: No descontamos visualmente, pero advertimos
+            montoCalculado = base; 
+            mensajeExtra = `<br><b style="color: #EF6C00;">⏳ Retardo R1: El sistema verificará el acumulado semanal al guardar para aplicar descuento.</b>`;
+        } 
+        else if (v.some(val => val && val.includes(":") && !val.includes("R"))) {
             mensajeExtra = `<br><b style="color: #E53935;">⚠️ Hora manual: Se calculará proporcional al guardar.</b>`;
-        } else {
+        } 
+        else {
             mensajeExtra = `<br><small style="color: blue;">(Jornada Completa / Puntual)</small>`;
         }
 
