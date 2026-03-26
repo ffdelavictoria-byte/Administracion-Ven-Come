@@ -806,9 +806,9 @@ def Asistencias_FF_view(request):
                 # 1. Determinamos el divisor basado en el nombre del puesto
                 if "6 HORAS" in puesto_up or "6HRS" in puesto_up:
                     divisor = 6.0
-                elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO"]):
+                elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "TURNO INTERMEDIO"]):
                     divisor = 9.0
-                elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
+                elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "TURNO FIN DE SEMANA"]):
                     divisor = 12.0
                 elif "LIMPIEZA" in puesto_up:
                     # Si es fin de semana es 9, si no es 6. 
