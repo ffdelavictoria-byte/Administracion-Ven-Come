@@ -488,10 +488,12 @@
                     { label: "R2", start: m + 11, end: m + 30 }
                 ];
 
+                // DENTRO DE actualizarHorariosPorPuesto()
+                // ...
                 rangos.forEach(r => {
                     const etiqueta = `${fmt(h, r.start)} - ${fmt(h, r.end)} (${r.label})`;
-                    // El value debe ser estrictamente "R1" o "R2" para que el servidor lo procese
-                    select.add(new Option(etiqueta, r.label));
+                    // EL VALUE DEBE SER SOLO EL CÓDIGO (R1 o R2)
+                    select.add(new Option(etiqueta, r.label)); 
                 });
             }
         }
@@ -678,24 +680,26 @@ function verificarTodo() {
         sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u)</b>`;
     }
     // 5. Sueldo por Puesto con Lógica de Retardos (CORREGIDO)
+    // 5. Sueldo por Puesto con Lógica de Retardos (CORREGIDO)
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
         const v = [entMat.value, salMat.value, entVes.value, salVes.value];
         
-        // REGLA: Si hay R2, R3, R4 o un par de R1, el pago de la jornada baja al 50%
-        const tieneCastigoDirecto = v.some(val => ["R2", "R3", "R4"].includes(val));
+        // REGLA VISUAL: Si hay R2 o un par de R1 en el mismo día
+        const tieneR2 = v.some(val => val === "R2");
         const tieneParR1 = (entMat.value === "R1" && entVes.value === "R1");
         
         let montoCalculado = base;
         let mensajeExtra = "";
 
-        if (tieneCastigoDirecto || tieneParR1) {
+        if (tieneR2 || tieneParR1) {
             montoCalculado = base / 2;
-            mensajeExtra = `<br><b style="color: #D32F2F;">⚠️ DESCUENTO 50%: Se detectó R2 o par de retardos.</b>`;
+            mensajeExtra = `<br><b style="color: #D32F2F;">⚠️ DESCUENTO 50%: Se aplicará por R2 o par de R1.</b>`;
         } else if (v.some(val => val === "R1")) {
-            mensajeExtra = `<br><b style="color: #EF6C00;">⏳ Retardo R1: Sin descuento hoy (acumulativo).</b>`;
+            // El servidor validará si este R1 es el que completa el par semanal
+            mensajeExtra = `<br><b style="color: #EF6C00;">⏳ Retardo R1: El sistema verificará si corresponde descuento semanal.</b>`;
         } else if (v.some(val => val && val.includes(":") && !val.includes("R"))) {
-            mensajeExtra = `<br><b style="color: #E53935;">⚠️ Hora manual: Proporcional al guardar.</b>`;
+            mensajeExtra = `<br><b style="color: #E53935;">⚠️ Hora manual: Se calculará proporcional al guardar.</b>`;
         } else {
             mensajeExtra = `<br><small style="color: blue;">(Jornada Completa / Puntual)</small>`;
         }
@@ -720,7 +724,7 @@ function verificarTodo() {
     asistenciaIdInput.value = d.id;
     empleadoHidden.value = d.emp;
 
-    // 3. Sincronizar el buscador visual del empleado
+    // 3. Sincronizar el buscador visual del empleado (Datalist)
     const opciones = datalist.options;
     for (let i = 0; i < opciones.length; i++) {
         if (opciones[i].getAttribute('data-id') == d.emp) {
@@ -735,7 +739,9 @@ function verificarTodo() {
     estatusJornada.value = d.est;
 
     // 5. Lógica de Horarios (Sincronización de Selects y Custom Inputs)
-    // Mapeamos las llaves del dataset a los IDs de los selectores
+    // Primero actualizamos las opciones del select según el puesto cargado para que existan R1, R2, etc.
+    actualizarHorariosPorPuesto();
+
     const mapeoHorarios = {
         'mat': 'entrada_matutina',
         'smat': 'salida_matutina',
@@ -743,30 +749,34 @@ function verificarTodo() {
         'sves': 'salida_vespertina'
     };
 
-    // Primero actualizamos las opciones del select según el puesto cargado
-    actualizarHorariosPorPuesto();
-
     Object.entries(mapeoHorarios).forEach(([dataKey, selectId]) => {
         const valorGuardado = d[dataKey];
         const selectElement = document.getElementById(selectId);
         const customInput = document.getElementById('custom_' + selectId);
 
         if (valorGuardado && valorGuardado !== "None" && valorGuardado !== "") {
-            // Intentamos encontrar el valor en las opciones existentes
+            // Intentamos encontrar el valor en las opciones existentes (incluyendo R1, R2 o las horas base)
             const existeOpcion = Array.from(selectElement.options).some(opt => opt.value === valorGuardado);
 
             if (existeOpcion) {
                 selectElement.value = valorGuardado;
+                selectElement.style.display = "block";
+                customInput.style.display = "none";
             } else {
                 // Si el valor no está en la lista (es una hora manual), activamos el modo OTRO
-                selectElement.value = "OTRO";
+                selectElement.value = "OTRO"; 
                 selectElement.style.display = "none";
                 customInput.style.display = "block";
                 customInput.value = valorGuardado;
                 
-                // Actualizamos el valor del select para que el POST lo reconozca
-                const optionOtro = selectElement.querySelector('option[value="OTRO"]');
-                if (optionOtro) optionOtro.value = valorGuardado;
+                // Sincronizamos el valor real en el select para que el POST de Django lo reciba
+                let optionOtro = selectElement.querySelector('option[value="OTRO"]');
+                if (!optionOtro) {
+                    optionOtro = new Option("--- OTRO ---", valorGuardado);
+                    selectElement.add(optionOtro);
+                }
+                optionOtro.value = valorGuardado;
+                selectElement.value = valorGuardado;
             }
         } else {
             selectElement.value = "";
@@ -782,15 +792,15 @@ function verificarTodo() {
     // 7. Cargar Observaciones
     document.getElementById('observaciones').value = d.obs || "";
 
-    // 8. Cambiar estética del botón a modo Edición
+    // 8. Cambiar estética del botón a modo Edición (Estilo Comic/Advertencia)
     btnPrincipal.innerText = "CORREGIR REGISTRO";
-    btnPrincipal.style.background = "#FFC107";
+    btnPrincipal.style.background = "#FFC107"; // Amarillo/Naranja de advertencia
     btnPrincipal.style.color = "black";
     
-    // 9. IMPORTANTE: Ejecutar verificaciones visuales (Cargas FF/Sueldos sugeridos)
+    // 9. Ejecutar verificaciones visuales (Cálculo de sueldo, visibilidad de cargas FF, etc.)
     verificarTodo();
     
-    // 10. Scroll suave al inicio para editar
+    // 10. Scroll suave al inicio para que el usuario vea el formulario cargado
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
