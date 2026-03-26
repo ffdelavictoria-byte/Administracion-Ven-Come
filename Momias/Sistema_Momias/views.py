@@ -436,6 +436,7 @@ def Asistencias_view(request):
                 messages.error(request, "⚠️ Error: No puedes modificar registros anteriores al cierre del lunes.")
                 return redirect('asistencias')
 
+            
             # --- LÓGICA DE CÁLCULO DE MONTO ---
             monto_final = 0.0
             DESCANSO_DESTAJO = 138.00
@@ -444,11 +445,25 @@ def Asistencias_view(request):
                 monto_final = 0.0
             
             elif estatus == "Descanso":
-                if puesto_seleccionado == "Tuppers":
+                # 1. Definir el rango completo de la semana (Lunes a Domingo)
+                inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday())
+                fin_semana = inicio_semana + timedelta(days=6)
+
+                # 2. VALIDACIÓN CRÍTICA: Si tiene alguna falta en la semana, el descanso no se paga
+                tiene_faltas_en_semana = Asistencia.objects.filter(
+                    empleado=empleado_obj,
+                    fecha__range=[inicio_semana, fin_semana],
+                    estatus="Falta"
+                ).exists()
+
+                if tiene_faltas_en_semana:
+                    monto_final = 0.0
+                
+                # 3. Si no hay faltas, procedemos con la lógica habitual
+                elif puesto_seleccionado == "Tuppers":
                     monto_final = DESCANSO_DESTAJO
                 else:
-                    inicio_semana = fecha_dt - timedelta(days=fecha_dt.weekday())
-                    
+                    # Obtenemos asistencias previas para el cálculo de turnos
                     asistencias_semana = Asistencia.objects.filter(
                         empleado=empleado_obj, 
                         fecha__range=[inicio_semana, fecha_dt - timedelta(days=1)]
@@ -477,30 +492,23 @@ def Asistencias_view(request):
                             if turnos_hoy == 2:
                                 dias_doble_turno += 1
 
-                        # Ordenar puestos por volumen de turnos
                         puestos_ordenados = sorted(conteo_turnos_por_puesto.items(), key=lambda x: x[1], reverse=True)
-
-                        # DETERMINAR EL MONTO BASE (Puesto más recurrente o mezcla)
                         monto_base_descanso = 0.0
                         
-                        # CASO 2: Empate de turnos (mitad y mitad)
                         if len(puestos_ordenados) > 1 and puestos_ordenados[0][1] == puestos_ordenados[1][1]:
                             p1_n, p2_n = puestos_ordenados[0][0], puestos_ordenados[1][0]
                             s1 = float(ConfigSueldo.objects.filter(puesto=p1_n).first().monto or 0)
                             s2 = float(ConfigSueldo.objects.filter(puesto=p2_n).first().monto or 0)
                             monto_base_descanso = (s1 / 2) + (s2 / 2)
                         else:
-                            # CASO 1: Puesto con más turnos
                             p_top = puestos_ordenados[0][0]
                             config_p = ConfigSueldo.objects.filter(puesto=p_top).first()
                             monto_base_descanso = float(config_p.monto) if config_p else 0.0
 
-                        # APLICAR MULTIPLICADOR (Solo es 2 si trabajó 6 o más días dobles)
-                        # CASO 3: Condición de 6 días dobles
+                        # Aplicar multiplicador si trabajó 6 o más días dobles
                         if dias_doble_turno >= 6:
                             monto_final = monto_base_descanso * 2
                         else:
-                            # CASO 1 y 4: Solo se paga un turno
                             monto_final = monto_base_descanso
                                 
             elif puesto_seleccionado == "Tuppers":
