@@ -803,11 +803,27 @@ def Asistencias_FF_view(request):
             elif puesto_sel == "Tuppers":
                 monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
 
+            # --- LÓGICA DE MONTO FINAL CORREGIDA ---
             else:
-                # Cálculo por horas para puestos normales
-                divisor = 9.0 if any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "LIMPIEZA", "TURNO INTERMEDIO"]) else (12.0 if any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]) else 6.0)
+                # 1. Determinamos el divisor real basado en el nombre del puesto
+                # Priorizamos detectar si dice 6 horas explícitamente antes que la palabra LIMPIEZA
+                if "6 HORAS" in puesto_up or "6HRS" in puesto_up:
+                    divisor = 6.0
+                elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "TURNO INTERMEDIO"]):
+                    divisor = 9.0
+                elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
+                    divisor = 12.0
+                elif "LIMPIEZA" in puesto_up:
+                    # Si dice limpieza pero no especificó horas arriba, 
+                    # verificamos si es el de fin de semana (que es de 9)
+                    divisor = 9.0 if "FIN DE SEMANA" in puesto_up else 6.0
+                else:
+                    divisor = 6.0 # Por defecto para puestos de 6 horas
+            
+                # 2. Calculamos la base de 6 horas para la función obtener_monto_bloque
                 base_6h = (base_puesto / divisor) * 6
                 
+                # 3. Aplicamos el cálculo según el tipo de turno
                 if any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"]):
                     ini_b = ent_m if (ent_m and ":" in ent_m) else ent_v
                     fin_b = sal_v if (sal_v and ":" in sal_v) else sal_m
