@@ -730,6 +730,7 @@ def Asistencias_FF_view(request):
 
             return redirect('asistenciasff')
 
+
         # B. GUARDAR / EDITAR
         # B. GUARDAR / EDITAR
         try:
@@ -848,6 +849,10 @@ def Asistencias_FF_view(request):
 
             asistencia.save()
             messages.success(request, "Registro guardado correctamente.")
+            return redirect('asistenciasff')
+        
+        except Exception as e:
+            messages.error(request, f"❌ Error: {e}")
             return redirect('asistenciasff')
 
     # --- GET ---
