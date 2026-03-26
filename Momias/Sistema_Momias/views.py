@@ -1672,8 +1672,13 @@ def vista_reportes(request):
                     'empleado': f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip(),
                     'sucursal': suc,
                     'puesto': pue_display,
-                    'total_turnos': 0, 'desc_retardos': 0.0,'monto_descuentos': 0.0,
-                    'total_bonos': 0.0, 'total_fila': 0.0, 'motivos_descuentos': []
+                    'total_turnos': 0, 
+                    'total_retardos': 0,      # Puntos acumulados (1, 2, 3...)
+                    'desc_retardos': 0.0,     # MONTO REAL EN DINERO ($)
+                    'monto_descuentos': 0.0,  # Suma de (Manual + Retardo)
+                    'total_bonos': 0.0, 
+                    'total_fila': 0.0, 
+                    'motivos_descuentos': []
                 }
 
             fila = agrupados_dict[key]
@@ -1684,9 +1689,10 @@ def vista_reportes(request):
 
             # Cálculo final de la fila
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
-            
+
             fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
-            fila['desc_retardos'] += desc_retardo_calculado  # <--- ACUMULACIÓN REAL
+            fila['total_retardos'] += puntos_retardo       # Esto suma los puntos para el HTML
+            fila['desc_retardos'] += desc_retardo_calculado # Esto suma el dinero real
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
