@@ -733,6 +733,7 @@ def Asistencias_FF_view(request):
 
         # B. GUARDAR / EDITAR
         # B. GUARDAR / EDITAR
+        # B. GUARDAR / EDITAR
         try:
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
@@ -755,40 +756,31 @@ def Asistencias_FF_view(request):
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
 
-            # 1. DETERMINAR DIVISOR Y TIPO DE JORNADA
+            # 1. DETERMINAR DIVISOR Y TIPO DE JORNADA (Basado en tu mapa de puestos)
             es_corrida = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
             
             if any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                 divisor = 12.0
-            elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO", "CHEF"]):
+            elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO", "CHEF", "LIMPIEZA FIN DE SEMANA"]):
                 divisor = 9.0
             else:
-                divisor = 6.0
+                divisor = 6.0 # Para los de 6 horas y Limpieza matutino/vespertino
 
             # 2. LÓGICA DE RETARDOS (POR SEMANA)
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
             fin_sem = inicio_sem + timedelta(days=6)
-            
-            asistencias_semana = Asistencia.objects.filter(
-                empleado=empleado_obj,
-                fecha__range=[inicio_sem, fin_sem]
-            ).exclude(id=id_excluir)
+            asistencias_semana = Asistencia.objects.filter(empleado=empleado_obj, fecha__range=[inicio_sem, fin_sem]).exclude(id=id_excluir)
 
             r1_previos = sum(
                 (1 if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper() else 0) +
                 (1 if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper() else 0)
                 for reg in asistencias_semana
             )
-
             r1_hoy = (1 if 'R1' in ent_m else 0) + (1 if 'R1' in ent_v else 0)
             r2_hoy = (1 if 'R2' in ent_m else 0) + (1 if 'R2' in ent_v else 0)
             
             total_r1_semana = r1_previos + r1_hoy
-            desc_retardo = 0.0
-            
-            # El descuento (media jornada) aplica si hay un R2 hoy o si hoy se completa un nuevo par de R1
-            if (total_r1_semana // 2 > r1_previos // 2) or r2_hoy > 0:
-                desc_retardo = (base_puesto / 2)
+            desc_retardo = (base_puesto / 2) if ((total_r1_semana // 2 > r1_previos // 2) or r2_hoy > 0) else 0.0
 
             # 3. LÓGICA DE MONTO CALC
             monto_calc = 0.0
@@ -800,26 +792,27 @@ def Asistencias_FF_view(request):
                 if tiene_falta:
                     monto_calc = 0.0
                 else:
-                    monto_calc = 138.00 if puesto_sel in ["Hamburguesas FF", "Tuppers"] else 0.0
+                    monto_calc = 138.00 if any(x in puesto_up for x in ["HAMBURGUESAS", "TUPPERS"]) else 0.0
 
-            elif puesto_sel == "Hamburguesas FF":
+            elif "HAMBURGUESAS" in puesto_up:
                 c_ff = float(request.POST.get('cantidad_cargas') or 0)
                 c_mom = float(request.POST.get('cantidad_cargas_momias') or 0)
                 monto_calc = (c_ff * 62.00) + (c_mom * 51.50)
 
-            elif puesto_sel == "Tuppers":
+            elif "TUPPERS" in puesto_up:
                 monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
 
             else:
                 if es_corrida:
-                    # Bloque único: Usamos la entrada/salida que tenga datos
+                    # Lógica para Gerente/Intermedio/12h
                     ini_b = ent_m if (ent_m and (":" in ent_m or "R" in ent_m)) else ent_v
                     fin_b = sal_v if (sal_v and (":" in sal_v or "R" in sal_v)) else sal_m
                     monto_calc = obtener_monto_bloque(base_puesto, ini_b, fin_b, divisor, es_corrida=True)
                 else:
-                    # Dos bloques independientes
-                    monto_calc = obtener_monto_bloque(base_puesto, ent_m, sal_m, divisor) + \
-                                 obtener_monto_bloque(base_puesto, ent_v, sal_v, divisor)
+                    # Lógica para 6h y 9h (Partidos)
+                    # Forzamos que cada bloque sume su parte proporcional (máximo 50% cada uno)
+                    monto_calc = obtener_monto_bloque(base_puesto, ent_m, sal_m, divisor, es_corrida=False) + \
+                                 obtener_monto_bloque(base_puesto, ent_v, sal_v, divisor, es_corrida=False)
 
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calc *= 2.0
@@ -835,22 +828,19 @@ def Asistencias_FF_view(request):
             asistencia.puesto = puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
+            asistencia.bonificacion, asistencia.descuento = bono, desc_man
             
-            asistencia.bonificacion = bono
-            asistencia.descuento = desc_man
-            
-            # El pago final es el monto proporcional + bono - descuento manual - castigo de retardo
+            # Cálculo final: Proporcional + Bono - Descuento RH - Castigo Retardo
             pago_total = (monto_calc + bono) - desc_man - desc_retardo
             asistencia.pago_dia = round(max(0, pago_total), 2)
             
-            # Guardamos el acumulado de R1 en 'horas' para auditoría de RH
-            asistencia.horas = float(total_r1_semana) 
+            asistencia.horas = float(total_r1_semana) # Para ver el conteo de retardos en la tabla
             asistencia.observaciones = request.POST.get('observaciones', '').strip()
-
             asistencia.save()
+            
             messages.success(request, "Registro guardado correctamente.")
             return redirect('asistenciasff')
-        
+
         except Exception as e:
             messages.error(request, f"❌ Error: {e}")
             return redirect('asistenciasff')
