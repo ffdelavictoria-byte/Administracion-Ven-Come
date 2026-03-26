@@ -1614,7 +1614,11 @@ def vista_reportes(request):
         for asis in asistencias_query:
             emp = asis.empleado
             estatus_limpio = (asis.estatus or "").strip().upper()
+            
+            # Identificadores de estatus
             es_descanso = "DESCANSO" in estatus_limpio
+            es_falta = "FALTA" in estatus_limpio
+            
             pue_original = asis.puesto or emp.puesto or "GENERAL"
             pue_up = pue_original.upper()
             suc = asis.sucursal or "Victoria"
@@ -1623,10 +1627,15 @@ def vista_reportes(request):
             salario_referencia = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
             
             pago_registrado = float(asis.pago_dia or 0)
-            if pago_registrado > 0:
-                pago_base_dia = pago_registrado
+            
+            # CORRECCIÓN: Si es FALTA, el pago base siempre es 0. 
+            # Si es DESCANSO, respetamos el pago registrado (que puede ser 0 o 138).
+            if es_falta:
+                pago_base_dia = 0.0
+            elif es_descanso:
+                pago_base_dia = pago_registrado # Aquí ya viene procesado por la lógica de asistencias
             else:
-                pago_base_dia = salario_referencia if es_descanso else 0
+                pago_base_dia = pago_registrado if pago_registrado > 0 else 0
 
             bono_dia = float(asis.bonificacion or 0)
             desc_manual = float(asis.descuento or 0)
@@ -1642,13 +1651,20 @@ def vista_reportes(request):
             else:
                 valor_turno = salario_referencia 
 
-            desc_retardo_calculado = valor_turno * factor if (not es_descanso) else 0
+            desc_retardo_calculado = valor_turno * factor if (not es_descanso and not es_falta) else 0
             monto_descuento_total_dia = desc_manual + desc_retardo_calculado
 
             cantidad_turnos = 2 if (asis.entrada_matutina and asis.salida_vespertina) else 1
 
-            # --- AGRUPACIÓN ---
-            pue_display = "DESCANSO" if es_descanso else pue_original
+            # --- CORRECCIÓN DE NOMBRE PARA AGRUPACIÓN ---
+            # Prioridad 1: Falta, Prioridad 2: Descanso, Prioridad 3: Puesto real
+            if es_falta:
+                pue_display = "FALTA"
+            elif es_descanso:
+                pue_display = "DESCANSO"
+            else:
+                pue_display = pue_original
+
             key = (emp.id, suc, pue_display)
             
             if key not in agrupados_dict:
@@ -1666,25 +1682,25 @@ def vista_reportes(request):
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
+            # Cálculo final de la fila
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
             
-            fila['total_turnos'] += cantidad_turnos
+            fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
 
-            # --- ACUMULACIÓN PARA LA CONTADORA ---
+            # --- ACUMULACIÓN ---
             if suc not in resumen_sucursales_dict:
                 resumen_sucursales_dict[suc] = 0.0
             resumen_sucursales_dict[suc] += pago_neto_dia
 
-            # --- ACTUALIZAR RESUMEN GLOBAL ---
-            resumen_global['total_pagar'] += pago_neto_dia # Corregido pago_net_dia
+            resumen_global['total_pagar'] += pago_neto_dia
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
             resumen_global['total_descuentos'] += monto_descuento_total_dia
-            resumen_global['total_turnos'] += cantidad_turnos
+            resumen_global['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
             
     # Formatear lista para la contadora
     resumen_sucursales = []
