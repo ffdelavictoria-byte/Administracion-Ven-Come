@@ -1190,10 +1190,14 @@ def calcular_nomina_web(request):
                     salario_descanso = float(empleado.sueldo_base or 0)
                     puesto_principal = "Sin Puesto"
     
+                
                 # --- PRE-CALCULO DE RETARDOS Y LÓGICA DE PAGO ÚNICO ---
                 lista_detalles_asistencia = []
                 total_retardos_semanales = 0
                 descanso_pagado = False  # Bandera para pago único
+                
+                # NUEVO: Verificar si el empleado tiene CUALQUIER falta en esta semana específica
+                tiene_falta_en_semana = asistencias.filter(estatus__icontains="FALTA").exists()
                 
                 for reg in asistencias:
                     estatus_limpio = (reg.estatus or "").upper()
@@ -1203,14 +1207,17 @@ def calcular_nomina_web(request):
                     if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
                     elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
 
-                    # Lógica de pago de descanso (Solo el primero se paga)
+                    # Lógica de pago de descanso
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
                         retardo_dia = 0
-                        if not descanso_pagado:
+                        # CORRECCIÓN: Solo paga si NO tiene faltas en la semana Y no se ha pagado otro descanso
+                        if not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
                         else:
                             salario_dia = 0.0
+                    
+                    # ... (el resto del código sigue igual)
                     elif float(reg.pago_dia or 0.0) > 0:
                         retardo_dia = int(reg.horas or 0)
                         salario_dia = float(reg.pago_dia)
