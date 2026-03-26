@@ -682,22 +682,24 @@ def Asistencias_FF_view(request):
     anio_actual = hoy_dt.isocalendar()[0]
 
     # --- FUNCIÓN AUXILIAR ---
-    def obtener_monto_bloque(base_puesto, entrada, salida):
+    def obtener_monto_bloque(base_puesto, entrada, salida, divisor_puesto): # <--- Nuevo parámetro
         if not entrada or not salida: return 0.0
         ent_str, sal_str = entrada.strip().upper(), salida.strip().upper()
-
-        # Si es un retardo (R1, R2) o texto manual, el sueldo base del bloque entra íntegro 
-        # (El descuento se aplica después sobre el total si se cumplen las condiciones)
+    
         if any(x in ent_str for x in ['R1', 'R2']) or ':' not in ent_str:
-            return float(base_puesto)
-
+            # Aquí hay un detalle: Si es R1/R2 en un solo bloque, 
+            # devolvemos la parte proporcional del bloque (usualmente la mitad del día)
+            return float(base_puesto) / 2 if divisor_puesto == 6 else float(base_puesto)
+    
         try:
             fmt = '%H:%M'
             inicio = datetime.strptime(ent_str[:5], fmt)
             fin = datetime.strptime(sal_str[:5], fmt)
             hrs = (fin - inicio).total_seconds() / 3600
             if hrs < 0: hrs += 24
-            return (float(base_puesto) / 6) * hrs
+            
+            # CÁLCULO REAL: (Sueldo del día / Horas del turno) * Horas trabajadas
+            return (float(base_puesto) / divisor_puesto) * hrs 
         except:
             return float(base_puesto)
 
@@ -804,25 +806,28 @@ def Asistencias_FF_view(request):
                 # 1. Determinamos el divisor basado en el nombre del puesto
                 if "6 HORAS" in puesto_up or "6HRS" in puesto_up:
                     divisor = 6.0
-                elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "TURNO INTERMEDIO"]):
+                elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO"]):
                     divisor = 9.0
                 elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                     divisor = 12.0
                 elif "LIMPIEZA" in puesto_up:
+                    # Si es fin de semana es 9, si no es 6. 
+                    # Pero ojo: esto depende de cómo nombres el puesto en la DB.
                     divisor = 9.0 if "FIN DE SEMANA" in puesto_up else 6.0
                 else:
-                    divisor = 6.0 
+                    divisor = 6.0 # Default de seguridad
 
                 # 2. Base de 6 horas para el cálculo proporcional
-                base_6h = (base_puesto / divisor) * 6
-                
-                # 3. Cálculo por bloques
+                # 2. Cálculo Proporcional Directo
                 if any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"]):
+                    # Turnos de bloque único (9 o 12 horas corridas)
                     ini_b = ent_m if (ent_m and ":" in ent_m) else ent_v
                     fin_b = sal_v if (sal_v and ":" in sal_v) else sal_m
-                    monto_calc = obtener_monto_bloque(base_6h, ini_b, fin_b)
+                    monto_calc = obtener_monto_bloque(base_puesto, ini_b, fin_b, divisor)
                 else:
-                    monto_calc = obtener_monto_bloque(base_6h, ent_m, sal_m) + obtener_monto_bloque(base_6h, ent_v, sal_v)
+                    # Turnos partidos (6 horas mañana + 6 horas tarde)
+                    monto_calc = obtener_monto_bloque(base_puesto, ent_m, sal_m, divisor) + \
+                                 obtener_monto_bloque(base_puesto, ent_v, sal_v, divisor)
 
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calc *= 2.0
