@@ -1672,7 +1672,7 @@ def vista_reportes(request):
                     'empleado': f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip(),
                     'sucursal': suc,
                     'puesto': pue_display,
-                    'total_turnos': 0, 'total_retardos': 0, 'monto_descuentos': 0.0,
+                    'total_turnos': 0, 'desc_retardos': 0.0,'monto_descuentos': 0.0,
                     'total_bonos': 0.0, 'total_fila': 0.0, 'motivos_descuentos': []
                 }
 
@@ -1686,7 +1686,7 @@ def vista_reportes(request):
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
             
             fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
-            fila['total_retardos'] += puntos_retardo
+            fila['desc_retardos'] += desc_retardo_calculado  # <--- ACUMULACIÓN REAL
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
