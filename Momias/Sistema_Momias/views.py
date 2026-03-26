@@ -685,14 +685,13 @@ def Asistencias_FF_view(request):
     def obtener_monto_bloque(base_puesto, entrada, salida, divisor_puesto, es_corrida=False):
         if not entrada or not salida: return 0.0
         ent_str, sal_str = entrada.strip().upper(), salida.strip().upper()
-
-        # SI ES RETARDO (R1, R2):
-        # Para turnos corridos (Gerente/Intermedio), devolvemos el sueldo BASE COMPLETO.
-        # Para turnos partidos (6h), devolvemos el sueldo de ESE bloque (la mitad del día).
-        # El descuento real se aplica después en la lógica de 'desc_retardo'.
+    
+        # SI ES RETARDO (R1, R2) o Texto:
+        # IMPORTANTE: Aquí devolvemos el pago del bloque COMPLETO (100% o 50% según el tipo)
+        # No restamos nada aquí para no duplicar el descuento con 'desc_retardo'.
         if any(x in ent_str for x in ['R1', 'R2']) or ':' not in ent_str:
             return float(base_puesto) if es_corrida else (float(base_puesto) / 2)
-
+    
         try:
             fmt = '%H:%M'
             inicio = datetime.strptime(ent_str[:5], fmt)
@@ -700,10 +699,9 @@ def Asistencias_FF_view(request):
             hrs = (fin - inicio).total_seconds() / 3600
             if hrs < 0: hrs += 24
             
-            # Cálculo proporcional: (Sueldo / Horas totales del turno) * Horas trabajadas
+            # Pago proporcional por horas reales trabajadas
             return (float(base_puesto) / divisor_puesto) * hrs
         except:
-            # En caso de error de formato, aplicamos la misma lógica de retardo
             return float(base_puesto) if es_corrida else (float(base_puesto) / 2)
 
     # --- POST ---
@@ -730,9 +728,6 @@ def Asistencias_FF_view(request):
 
             return redirect('asistenciasff')
 
-
-        # B. GUARDAR / EDITAR
-        # B. GUARDAR / EDITAR
         # B. GUARDAR / EDITAR
         try:
             asistencia_id = request.POST.get('asistencia_id')
@@ -756,34 +751,36 @@ def Asistencias_FF_view(request):
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
 
-            # 1. DETERMINAR DIVISOR Y TIPO DE JORNADA
-            es_corrida = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"])
-            
+            # 1. DETERMINAR DIVISOR
+            # Prioridad a 12h y Especiales
             if any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                 divisor = 12.0
-            elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO", "CHEF", "LIMPIEZA FIN DE SEMANA"]):
+                es_corrida = True
+            elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO", "CHEF"]):
                 divisor = 9.0
+                # Solo es corrida si es Intermedio o Crepas (una sola firma)
+                es_corrida = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "CHEF"])
             else:
                 divisor = 6.0
+                es_corrida = False
 
-            # 2. LÓGICA DE RETARDOS (POR SEMANA)
+            # 2. LÓGICA DE RETARDOS
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
             fin_sem = inicio_sem + timedelta(days=6)
             asistencias_semana = Asistencia.objects.filter(empleado=empleado_obj, fecha__range=[inicio_sem, fin_sem]).exclude(id=id_excluir)
 
-            r1_acumulados = sum(
+            r1_previos = sum(
                 (1 if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper() else 0) +
                 (1 if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper() else 0)
                 for reg in asistencias_semana
             )
-
             r1_hoy = (1 if 'R1' in ent_m else 0) + (1 if 'R1' in ent_v else 0)
             r2_hoy = (1 if 'R2' in ent_m else 0) + (1 if 'R2' in ent_v else 0)
             
-            total_r1_semana = r1_acumulados + r1_hoy
+            total_r1_semana = r1_previos + r1_hoy
             desc_retardo = 0.0
             
-            # Condición de descuento: Par de R1 completo o presencia de R2
+            # Condición de descuento: Si hay un R2 hoy o si hoy se completa un par de R1
             if (r1_hoy > 0 and total_r1_semana >= 2 and total_r1_semana % 2 == 0) or (r2_hoy > 0):
                 desc_retardo = (base_puesto / 2)
 
@@ -791,62 +788,45 @@ def Asistencias_FF_view(request):
             monto_calc = 0.0
             if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
                 monto_calc = 0.0
-
             elif estatus_jornada == "Descanso":
                 tiene_falta = asistencias_semana.filter(estatus__icontains="FALTA").exists()
-                if tiene_falta:
-                    monto_calc = 0.0
-                else:
-                    monto_calc = 138.00 if any(x in puesto_up for x in ["HAMBURGUESAS", "TUPPERS"]) else 0.0
-
+                monto_calc = 138.00 if (not tiene_falta and any(x in puesto_up for x in ["HAMBURGUESAS", "TUPPERS"])) else 0.0
             elif "HAMBURGUESAS" in puesto_up:
-                c_ff = float(request.POST.get('cantidad_cargas') or 0)
-                c_mom = float(request.POST.get('cantidad_cargas_momias') or 0)
-                monto_calc = (c_ff * 62.00) + (c_mom * 51.50)
-
+                monto_calc = (float(request.POST.get('cantidad_cargas') or 0) * 62.00) + (float(request.POST.get('cantidad_cargas_momias') or 0) * 51.50)
             elif "TUPPERS" in puesto_up:
                 monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
-
             else:
-                # --- AQUÍ ESTÁ EL AJUSTE PARA 6 Y 9 HORAS ---
                 if es_corrida:
-                    # Turnos de bloque único (Gerente/Intermedio)
+                    # Una sola firma (Gerente / Intermedio / Crepas)
                     ini_b = ent_m if (ent_m and (":" in ent_m or "R" in ent_m)) else ent_v
                     fin_b = sal_v if (sal_v and (":" in sal_v or "R" in sal_v)) else sal_m
                     monto_calc = obtener_monto_bloque(base_puesto, ini_b, fin_b, divisor, es_corrida=True)
                 else:
-                    # Turnos partidos (6h y 9h)
-                    # Forzamos que los retardos devuelvan la mitad exacta del sueldo base para evitar el error del 0 o cobros dobles
-                    m_val = obtener_monto_bloque(base_puesto, ent_m, sal_m, divisor, es_corrida=False)
-                    v_val = obtener_monto_bloque(base_puesto, ent_v, sal_v, divisor, es_corrida=False)
-                    monto_calc = m_val + v_val
+                    # Turnos partidos (6h y 9h Matutino/Vespertino)
+                    monto_calc = obtener_monto_bloque(base_puesto, ent_m, sal_m, divisor, es_corrida=False) + \
+                                 obtener_monto_bloque(base_puesto, ent_v, sal_v, divisor, es_corrida=False)
 
             if estatus_jornada in ["Descanso trabajado", "Festivo"]:
                 monto_calc *= 2.0
 
-            # 4. GUARDAR REGISTRO
+            # 4. GUARDAR
             bono = float(request.POST.get('bonificacion') or 0)
             desc_man = float(request.POST.get('descuento') or 0)
 
             asistencia = get_object_or_404(Asistencia, id=id_excluir) if id_excluir != -1 else Asistencia(sucursal="FastFood")
-            asistencia.empleado = empleado_obj
-            asistencia.fecha = fecha_dt
-            asistencia.estatus = estatus_jornada
-            asistencia.puesto = puesto_sel
+            asistencia.empleado, asistencia.fecha, asistencia.estatus, asistencia.puesto = empleado_obj, fecha_dt, estatus_jornada, puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
+            asistencia.bonificacion, asistencia.descuento = bono, desc_man
             
-            asistencia.bonificacion = bono
-            asistencia.descuento = desc_man
-            
-            # Pago final: El tiempo trabajado + bonos - descuentos manuales - castigo por retardos
+            # EL CÁLCULO FINAL:
             pago_total = (monto_calc + bono) - desc_man - desc_retardo
             asistencia.pago_dia = round(max(0, pago_total), 2)
             
             asistencia.horas = float(total_r1_semana)
             asistencia.observaciones = request.POST.get('observaciones', '').strip()
-
             asistencia.save()
+            
             messages.success(request, "Registro guardado correctamente.")
             return redirect('asistenciasff')
 
