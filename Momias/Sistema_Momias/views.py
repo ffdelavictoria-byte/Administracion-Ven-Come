@@ -799,10 +799,9 @@ def Asistencias_FF_view(request):
             elif puesto_sel == "Tuppers":
                 monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
 
-            # --- LÓGICA DE MONTO FINAL CORREGIDA ---
+            # --- LÓGICA DE MONTO FINAL ---
             else:
-                # 1. Determinamos el divisor real basado en el nombre del puesto
-                # Priorizamos detectar si dice 6 horas explícitamente antes que la palabra LIMPIEZA
+                # 1. Determinamos el divisor basado en el nombre del puesto
                 if "6 HORAS" in puesto_up or "6HRS" in puesto_up:
                     divisor = 6.0
                 elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "TURNO INTERMEDIO"]):
@@ -810,16 +809,14 @@ def Asistencias_FF_view(request):
                 elif any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                     divisor = 12.0
                 elif "LIMPIEZA" in puesto_up:
-                    # Si dice limpieza pero no especificó horas arriba, 
-                    # verificamos si es el de fin de semana (que es de 9)
                     divisor = 9.0 if "FIN DE SEMANA" in puesto_up else 6.0
                 else:
-                    divisor = 6.0 # Por defecto para puestos de 6 horas
-            
-                # 2. Calculamos la base de 6 horas para la función obtener_monto_bloque
+                    divisor = 6.0 
+
+                # 2. Base de 6 horas para el cálculo proporcional
                 base_6h = (base_puesto / divisor) * 6
                 
-                # 3. Aplicamos el cálculo según el tipo de turno
+                # 3. Cálculo por bloques
                 if any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "FIN DE SEMANA", "GERENTE"]):
                     ini_b = ent_m if (ent_m and ":" in ent_m) else ent_v
                     fin_b = sal_v if (sal_v and ":" in sal_v) else sal_m
@@ -832,7 +829,7 @@ def Asistencias_FF_view(request):
 
             # --- GUARDAR REGISTRO ---
             bono = float(request.POST.get('bonificacion') or 0)
-            desc_man = float(request.POST.get('descuento') or 0)
+            desc_man = float(request.POST.get('descuento') or 0) # Descuento manual de RH
 
             asistencia = get_object_or_404(Asistencia, id=id_excluir) if id_excluir != -1 else Asistencia(sucursal="FastFood")
             asistencia.empleado = empleado_obj
@@ -841,17 +838,19 @@ def Asistencias_FF_view(request):
             asistencia.puesto = puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
-            asistencia.bonificacion = bono
-            asistencia.descuento = desc_man + desc_retardo
-            asistencia.pago_dia = round(monto_calc + bono - asistencia.descuento, 2)
-            asistencia.horas = float(r1_acumulados + r1_hoy) # Guardamos total R1 en horas para referencia
             
-            # Observaciones automáticas
-            obs_lista = []
-            if (request.POST.get('observaciones') or "").strip(): obs_lista.append(request.POST.get('observaciones').strip())
-            if r2_hoy > 0: obs_lista.append("Desc. R2 aplicado.")
-            if desc_retardo > 0 and r1_hoy > 0: obs_lista.append(f"Desc. R1 aplicado (Par #{r1_acumulados + r1_hoy}).")
-            asistencia.observaciones = " | ".join(obs_lista)
+            asistencia.bonificacion = bono
+            asistencia.descuento = desc_man  # Se guarda solo el valor manual
+            
+            # El castigo por retardo se resta aquí, pero no se "ve" en la celda de descuento
+            # castigo_retardo ya debe venir calculado como (base_puesto / 2)
+            pago_total = (monto_calc + bono) - desc_man - desc_retardo
+            asistencia.pago_dia = round(max(0, pago_total), 2)
+            
+            asistencia.horas = float(r1_acumulados + r1_hoy) 
+            
+            # Observaciones: Solo guardamos lo que venga del POST
+            asistencia.observaciones = request.POST.get('observaciones', '').strip()
 
             asistencia.save()
             messages.success(request, "Registro guardado correctamente.")
