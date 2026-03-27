@@ -1334,7 +1334,7 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
         "Encargado Cocina (Matutino 12 horas)": 504.00, "Encargado de Cocina (12 horas)": 519.00,
         "Cocina y Barra (6 hrs)": 236.50, "Cocina y Barra (9 hrs)": 354.50,
-        "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
+        "Caja (6 horas)": 248.00, "Caja (9 horas)": 354.50,
         "Barra (6 horas) Entregas": 236.50, "Barra (9 horas) Entregas": 354.50,
         "Fin de Semana": 473.00, "Encargado Victoria (6 Horas)": 316.00,
         "Encargado Sucursales (6 Horas)": 262.00,
@@ -1344,11 +1344,11 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50,
         "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
         "Rappi": 354.75, "Fabrica Crystal": 262.00,
-        "Hamburguesas Momias": 0.00, "Tuppers": 0.00, 
+        "Hamburguesas Momias": 0.00, "Tuppers": 0.00,
         "PM": 236.50, "Caja Capacitacion": 236.50,
         "Freidor Capacitacion": 236.50,
         "Encargado Capacitacion": 248.00,
-        "Caja Matutina (6 horas)": 236.50, 
+        "Caja Matutina (6 horas)": 236.50,
         "Caja Vespertina (6 horas)": 236.50,
         "Caja Matutina (9 horas)": 354.50,
         "Caja Vespertina (9 horas)": 354.50,
@@ -1365,80 +1365,84 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         "Limpieza 4 Vespertino (6 horas)": 236.50,
         "Aux Produccion": 177.00,
         "Produccion": 370.00,
-        "TURNO MATUTINO (6 horas)": 236.50, 
+        "TURNO MATUTINO (6 horas)": 236.50,
         "TURNO VESPERTINO (6 horas)": 236.50,
         "TURNO MATUTINO (9 horas)": 354.50,
         "TURNO VESPERTINO (9 horas)": 354.50,
         "TURNO FIN DE SEMANA": 473.00,
         "TURNO INTERMEDIO": 354.50,
-        "Gerente (12 horas)": 600.00, 
+        "Gerente (12 horas)": 600.00,
         "Chef de Línea (9 horas)": 531.57,
         "Encargado Cocina (Matutino 6 horas)": 252.00,
         "Crepas": 354.50,
-        "Limpieza Fin De Semana (9 horas)": 408.00,
-        "Limpieza 1 Matutino (6 horas L)": 272.00,
-        "Limpieza 2 Matutino (6 horas)": 236.50,
-        "Limpieza 3 Vespertino (6 horas A)": 272.00,
-        "Limpieza 4 Vespertino (6 horas)": 236.50,
-        "Fin de Semana": 473.00,
-        "Aux Produccion": 177.00,
-        "Produccion": 370.00,
         "Hamburguesas FF": 0.0,
     }
 
     datos_completos = []
+
     filtros_base = Q(fecha__range=[inicio, fin])
-    
+
     if sucursal_sel and sucursal_sel != "TODAS":
         filtros_base &= Q(sucursal__iexact=sucursal_sel)
-    if nombre_busqueda:
-        filtros_base &= (Q(empleado__nombre__icontains=nombre_busqueda) | 
-                         Q(empleado__apellido_paterno__icontains=nombre_busqueda))
 
-    empleados_ids = Asistencia.objects.filter(filtros_base).values_list('empleado_id', flat=True).distinct()
+    if nombre_busqueda:
+        filtros_base &= (
+            Q(empleado__nombre__icontains=nombre_busqueda) |
+            Q(empleado__apellido_paterno__icontains=nombre_busqueda)
+        )
+
+    empleados_ids = (
+        Asistencia.objects
+        .filter(filtros_base)
+        .values_list('empleado_id', flat=True)
+        .distinct()
+    )
 
     for emp_id in empleados_ids:
         empleado = Empleado.objects.get(id=emp_id)
-        asistencias = Asistencia.objects.filter(filtros_base, empleado=empleado).order_by('fecha')
 
-        puestos_lista = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
-        puesto_principal = Counter(puestos_lista).most_common(1)[0][0] if puestos_lista else "Sin Puesto"
+        asistencias = (
+            Asistencia.objects
+            .filter(filtros_base, empleado=empleado)
+            .order_by('fecha')
+        )
 
-        # --- NUEVA LÓGICA: DETECCIÓN DE 6 DÍAS DOBLES ---
-        dias_completos = 0
-        asistencias_validas = [a for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper() and "FALTA" not in (a.estatus or "").upper()]
-        
-        for a in asistencias_validas:
-            puesto_asis = (a.puesto or "").upper()
-            # Unificado: Checa texto del puesto o marcas físicas de entrada/salida
-            es_12h = "12 HORAS" in puesto_asis or "GERENTE" in puesto_asis
-            tiene_ambos_turnos = a.entrada_matutina and a.entrada_vespertina
-            
-            if es_12h or tiene_ambos_turnos:
-                dias_completos += 1
+        puestos_lista = [a.puesto for a in asistencias if a.puesto]
 
-        # Si llegó a 6 días dobles, el multiplicador es 2.0 (Pago doble de descanso)
-        multiplicador_descanso = 2.0 if dias_completos >= 6 else 1.0
-        # -----------------------------------------------
+        puesto_principal = (
+            Counter(puestos_lista).most_common(1)[0][0]
+            if puestos_lista else "Sin Puesto"
+        )
 
         pago_base_acumulado = 0
         total_retardos = 0
         total_bonos = 0
         total_descuentos_manuales = 0
-        total_descuento_retardos_acumulado = 0 
-        
-        descanso_pagado = False # Para asegurar que solo se pague UN descanso por semana
-        tiene_falta_en_semana = asistencias.filter(estatus__icontains="FALTA").exists()
+        total_descuento_retardos_acumulado = 0
 
-        dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-        dias_map = {d: {
-            'horas': 0, 'estatus': '---', 'sucursal': '', 'puesto': '', 
-            'pago_dia': 0, 'descuento_aplicado': 0, 'descuento_retardo': 0
-        } for d in dias_semana_esp}
+        dias_semana_esp = [
+            "Lunes", "Martes", "Miércoles",
+            "Jueves", "Viernes", "Sábado", "Domingo"
+        ]
+
+        dias_map = {
+            d: {
+                'horas': 0,
+                'estatus': '---',
+                'sucursal': '',
+                'puesto': '',
+                'pago_dia': 0,
+                'descuento_aplicado': 0,
+                'descuento_retardo': 0
+            }
+            for d in dias_semana_esp
+        }
 
         for reg in asistencias:
-            sueldo_base_puesto_dia = float(puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0))
-            
+            sueldo_base_puesto_dia = float(
+                puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
+            )
+
             if reg.pago_dia and float(reg.pago_dia) > 0:
                 salario_dia_calculado = float(reg.pago_dia)
             elif reg.entrada_matutina and reg.salida_vespertina:
@@ -1447,20 +1451,25 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
                 salario_dia_calculado = sueldo_base_puesto_dia
 
             estatus_limpio = reg.estatus.upper() if reg.estatus else ""
-            
+
             if any(x in estatus_limpio for x in ["ACTIVO", "NORMAL"]):
                 pago_final_dia = salario_dia_calculado
             elif "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
-                pago_final_dia = (salario_dia_calculado * 2)
+                pago_final_dia = salario_dia_calculado * 2
             elif "DESCANSO" in estatus_limpio:
                 pago_final_dia = sueldo_base_puesto_dia
             else:
                 pago_final_dia = 0
 
             horas_retardo = int(reg.horas or 0)
-            desc_retardo_dia = (sueldo_base_puesto_dia / 6) * horas_retardo if "DESCANSO" not in estatus_limpio else 0
+
+            desc_retardo_dia = (
+                (sueldo_base_puesto_dia / 6) * horas_retardo
+                if "DESCANSO" not in estatus_limpio else 0
+            )
+
             desc_manual_dia = float(reg.descuento or 0)
-            
+
             sueldo_neto_diario = pago_final_dia - desc_manual_dia - desc_retardo_dia
 
             pago_base_acumulado += pago_final_dia
@@ -1470,6 +1479,7 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             total_descuento_retardos_acumulado += desc_retardo_dia
 
             nombre_dia = dias_semana_esp[reg.fecha.weekday()]
+
             dias_map[nombre_dia] = {
                 'horas': horas_retardo,
                 'estatus': estatus_limpio,
@@ -1481,7 +1491,11 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             }
 
         cuota_uniforme = float(getattr(empleado, 'cuota_uniforme', 0) or 0)
-        total_neto = (pago_base_acumulado + total_bonos) - (total_descuentos_manuales + total_descuento_retardos_acumulado + cuota_uniforme)
+
+        total_neto = (
+            (pago_base_acumulado + total_bonos) -
+            (total_descuentos_manuales + total_descuento_retardos_acumulado + cuota_uniforme)
+        )
 
         datos_completos.append({
             'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
@@ -1497,7 +1511,6 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             'total_neto': round(total_neto, 2)
         })
 
-    # ORDENAR POR NOMBRE ALFABÉTICAMENTE ANTES DE RETORNAR
     datos_completos = sorted(datos_completos, key=lambda x: x['nombre'].lower())
 
     return datos_completos
