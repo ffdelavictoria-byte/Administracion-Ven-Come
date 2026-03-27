@@ -1150,7 +1150,7 @@ def calcular_nomina_web(request):
 
                     # 3. Aplicar multiplicador SOLO si cumplió los 6 días dobles
                     if dias_completos >= 6:
-                        salario_descanso = salario_un_turno_promedio * 4
+                        salario_descanso = salario_un_turno_promedio * 2
                         puesto_principal = f"{puesto_frecuente} (Doble)"
                     else:
                         salario_descanso = salario_un_turno_promedio
@@ -1401,8 +1401,25 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         empleado = Empleado.objects.get(id=emp_id)
         asistencias = Asistencia.objects.filter(filtros_base, empleado=empleado).order_by('fecha')
 
-        puestos_lista = [a.puesto for a in asistencias if a.puesto]
+        puestos_lista = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
         puesto_principal = Counter(puestos_lista).most_common(1)[0][0] if puestos_lista else "Sin Puesto"
+
+        # --- NUEVA LÓGICA: DETECCIÓN DE 6 DÍAS DOBLES ---
+        dias_completos = 0
+        asistencias_validas = [a for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper() and "FALTA" not in (a.estatus or "").upper()]
+        
+        for a in asistencias_validas:
+            puesto_asis = (a.puesto or "").upper()
+            # Unificado: Checa texto del puesto o marcas físicas de entrada/salida
+            es_12h = "12 HORAS" in puesto_asis or "GERENTE" in puesto_asis
+            tiene_ambos_turnos = a.entrada_matutina and a.entrada_vespertina
+            
+            if es_12h or tiene_ambos_turnos:
+                dias_completos += 1
+
+        # Si llegó a 6 días dobles, el multiplicador es 2.0 (Pago doble de descanso)
+        multiplicador_descanso = 2.0 if dias_completos >= 6 else 1.0
+        # -----------------------------------------------
 
         pago_base_acumulado = 0
         total_retardos = 0
@@ -1410,6 +1427,9 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         total_descuentos_manuales = 0
         total_descuento_retardos_acumulado = 0 
         
+        descanso_pagado = False # Para asegurar que solo se pague UN descanso por semana
+        tiene_falta_en_semana = asistencias.filter(estatus__icontains="FALTA").exists()
+
         dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         dias_map = {d: {
             'horas': 0, 'estatus': '---', 'sucursal': '', 'puesto': '', 
