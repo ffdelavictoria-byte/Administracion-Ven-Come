@@ -761,7 +761,7 @@ def Asistencias_FF_view(request):
             else:
                 divisor = 6.0
 
-            # 2. LÓGICA DE RETARDOS SEMANALES
+            # 2. LÓGICA DE RETARDOS Y ASISTENCIAS SEMANALES
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
             fin_sem = inicio_sem + timedelta(days=6)
             asistencias_semana = Asistencia.objects.filter(
@@ -769,6 +769,7 @@ def Asistencias_FF_view(request):
                 fecha__range=[inicio_sem, fin_sem]
             ).exclude(id=id_excluir)
             
+            # Conteo de retardos R1 y R2
             r1_previos = 0
             for reg in asistencias_semana:
                 if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper(): r1_previos += 1
@@ -779,7 +780,6 @@ def Asistencias_FF_view(request):
             total_r1_semana = r1_previos + r1_hoy
             desc_retardo = 0.0
             
-            # Aplicar castigos por R2 (directo) y R1 (al acumular pares)
             if (r2_hoy > 0):
                 desc_retardo += (base_puesto / 2) * r2_hoy
             
@@ -791,23 +791,72 @@ def Asistencias_FF_view(request):
 
             # 3. LÓGICA DE MONTO CALC (PAGO BASE)
             monto_calc = 0.0
+            
             if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
                 monto_calc = 0.0
+                
             elif estatus_jornada == "Descanso":
+                # Regla: Si hay faltas en la semana, el descanso es $0
                 tiene_falta = asistencias_semana.filter(estatus__icontains="FALTA").exists()
-                monto_calc = 138.00 if (not tiene_falta and any(x in puesto_up for x in ["HAMBURGUESAS", "TUPPERS"])) else 0.0
+                
+                if tiene_falta:
+                    monto_calc = 0.0
+                elif "HAMBURGUESAS" in puesto_up:
+                    monto_calc = 138.00
+                else:
+                    # Lógica de Puesto Recurrente
+                    conteo_puestos = {}
+                    dias_doble_turno = 0
+                    
+                    for reg in asistencias_semana:
+                        if reg.estatus in ["Falta", "Descanso", "Permiso"]: continue
+                        
+                        p = reg.puesto
+                        conteo_puestos[p] = conteo_puestos.get(p, 0)
+                        
+                        turnos_hoy = 0
+                        if reg.entrada_matutina and reg.salida_matutina:
+                            conteo_puestos[p] += 1
+                            turnos_hoy += 1
+                        if reg.entrada_vespertina and reg.salida_vespertina:
+                            conteo_puestos[p] += 1
+                            turnos_hoy += 1
+                        
+                        if turnos_hoy == 2: dias_doble_turno += 1
+
+                    if not conteo_puestos:
+                        monto_calc = base_puesto
+                    else:
+                        puestos_ord = sorted(conteo_puestos.items(), key=lambda x: x[1], reverse=True)
+                        top_puesto = puestos_ord[0][0]
+                        
+                        # Manejo de empates
+                        if len(puestos_ord) > 1 and puestos_ord[0][1] == puestos_ord[1][1]:
+                            s1 = float(puestos_salarios_ff.get(puestos_ord[0][0], 0))
+                            s2 = float(puestos_salarios_ff.get(puestos_ord[1][0], 0))
+                            monto_base_desc = (s1 / 2) + (s2 / 2)
+                        else:
+                            monto_base_desc = float(puestos_salarios_ff.get(top_puesto, 0))
+                        
+                        # Bono doble turno (6 o más)
+                        monto_calc = monto_base_desc * 2 if dias_doble_turno >= 6 else monto_base_desc
+
             elif "HAMBURGUESAS" in puesto_up:
-                monto_calc = (float(request.POST.get('cantidad_cargas') or 0) * 62.00) + (float(request.POST.get('cantidad_cargas_momias') or 0) * 51.50)
-            elif "TUPPERS" in puesto_up:
-                monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
+                # Pago por producción (Cargas)
+                c_ff = float(request.POST.get('cantidad_cargas') or 0)
+                c_mom = float(request.POST.get('cantidad_cargas_momias') or 0)
+                monto_calc = (c_ff * 62.00) + (c_mom * 51.50)
+
             else:
-                # Lógica para 6, 9 y 12 horas por marcas de tiempo
+                # Lógica normal por tiempo
                 entrada_final = ent_m if ent_m else ent_v
                 salida_final = sal_v if sal_v else sal_m
 
                 if entrada_final and salida_final:
                     monto_calc = obtener_monto_bloque(base_puesto, entrada_final, salida_final, divisor)
                 else:
+                    # Si el puesto tiene sueldo base pero no hay marcas, se puede pagar el base 
+                    # o dejar en 0 según tu política. Aquí se mantiene 0 si no hay marcas.
                     monto_calc = 0.0
 
             # Aplicar pago doble si corresponde
