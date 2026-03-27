@@ -1120,10 +1120,12 @@ def calcular_nomina_web(request):
             for emp_id in empleados_ids:
                 empleado = Empleado.objects.get(id=emp_id)
                 asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
-                puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
-
+                
                 # --- LÓGICA DE DESCANSO CORREGIDA: DETECCIÓN DE 6 DÍAS DOBLES ---
-                asistencias_trabajadas = [a for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper() and "FALTA" not in (a.estatus or "").upper()]
+                asistencias_trabajadas = [
+                    a for a in asistencias 
+                    if a.puesto and "DESCANSO" not in (a.estatus or "").upper() and "FALTA" not in (a.estatus or "").upper()
+                ]
                 
                 if asistencias_trabajadas:
                     total_dias_trabajados = len(asistencias_trabajadas)
@@ -1133,12 +1135,18 @@ def calcular_nomina_web(request):
                     dias_completos = 0
                     for a in asistencias_trabajadas:
                         puesto_str = (a.puesto or "").upper()
-                        # Verificación robusta de celdas con datos (no solo None)
-                        tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
-                        tiene_v = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
                         
-                        # Es doble si tiene ambos registros o si el puesto es de 12h/Gerente
-                        if (tiene_m and tiene_v) or "12 HORAS" in puesto_str or "GERENTE" in puesto_str:
+                        # Verificación de marcas: entrada temprano Y salida tarde
+                        tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+                        tiene_sv = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
+                        # También checamos entrada vespertina por si usan el método de dos entradas
+                        tiene_ev = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
+                        
+                        es_12h_gerente = "12 HORAS" in puesto_str or "GERENTE" in puesto_str
+                        
+                        # Un día es completo si tiene entrada matutina Y (salida vespertina O entrada vespertina)
+                        # o si el puesto es inherentemente de 12 horas
+                        if (tiene_m and (tiene_sv or tiene_ev)) or es_12h_gerente:
                             dias_completos += 1
 
                     # 2. Determinar el salario de un solo turno (promedio de lo que trabajó)
@@ -1172,35 +1180,42 @@ def calcular_nomina_web(request):
                     salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
                     base_calc = float(salario_base_puesto)
                     
-                    if "(9 horas)" in (reg.puesto or ""): base_calc /= 1.5
-                    elif "(12 Horas)" in (reg.puesto or ""): base_calc /= 2
+                    # Ajuste de base_calc para cálculos de retardo según jornada
+                    if "(9 horas)" in (reg.puesto or ""): 
+                        base_calc /= 1.5
+                    elif "(12 Horas)" in (reg.puesto or "") or "GERENTE" in (reg.puesto or "").upper(): 
+                        base_calc /= 2
 
                     # Lógica de pago de descanso
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
                         retardo_dia = 0
-                        # CORRECCIÓN: Solo paga si NO tiene faltas en la semana Y no se ha pagado otro descanso
+                        # Solo paga si NO tiene faltas en la semana Y no se ha pagado otro descanso
                         if not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
                         else:
                             salario_dia = 0.0
                     
-                    # ... (el resto del código sigue igual)
                     elif float(reg.pago_dia or 0.0) > 0:
                         retardo_dia = int(reg.horas or 0)
                         salario_dia = float(reg.pago_dia)
                     else:
+                        # calcular_pago_dia_final ya maneja la lógica de entrada_m y salida_v
                         salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
                     
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
                         salario_dia *= 2
                     
-                    if retardo_dia > 0: total_retardos_semanales += 1
+                    if retardo_dia > 0: 
+                        total_retardos_semanales += 1
                     
                     lista_detalles_asistencia.append({
-                        'reg': reg, 'retardo_dia': retardo_dia, 'salario_dia': salario_dia,
-                        'salario_puesto_full': base_calc, 'estatus': estatus_limpio
+                        'reg': reg, 
+                        'retardo_dia': retardo_dia, 
+                        'salario_dia': salario_dia,
+                        'salario_puesto_full': base_calc, 
+                        'estatus': estatus_limpio
                     })
 
 
