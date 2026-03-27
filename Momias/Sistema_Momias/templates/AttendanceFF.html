@@ -159,9 +159,12 @@
 
             <div class="form-group">
                 <label>Puesto</label>
-                <select name="puesto" id="puesto_selector" onchange="verificarTodo()">
+                <select name="puesto" id="puesto_selector" onchange="verificarTodo()" required>
+                    <option value="" disabled selected>--- Selecciona puesto ---</option>
                     {% for puesto in lista_puestos %}
-                        <option value="{{ puesto }}">{{ puesto }}</option>
+                        {% if puesto != "Selecciona puesto..." %}
+                            <option value="{{ puesto }}">{{ puesto }}</option>
+                        {% endif %}
                     {% endfor %}
                 </select>
                 <div id="sueldo_sugerido"></div> 
@@ -629,7 +632,7 @@ function sincronizarTiempo(input, selectId) {
 
     // --- FUNCIÓN MAESTRA DE VERIFICACIÓN ---
 function verificarTodo() {
-    const puesto = puestoSelect.value.trim();
+    const puesto = puestoSelect.value ? puestoSelect.value.trim() : "";
     const estatus = estatusJornada.value;
     
     // Validar existencia de elementos de destajos
@@ -641,29 +644,41 @@ function verificarTodo() {
     const sueldosFijos = { "Produccion": 370.00, "Aux Produccion": 177.00 };
     const inputDescuento = document.getElementById('descuento');
 
-    // 1. Reset visual inicial
+    // 1. Reset visual inicial y validación de puesto seleccionado
     inputMonto.readOnly = true;
     divCargas.style.display = "none";
     if (divMomiasExtra) divMomiasExtra.style.display = "none";
 
-    // 2. Lógica de Puestos Fijos (Producción)
+    if (!puesto || puesto === "") {
+        inputMonto.value = "0.00";
+        sueldoMsg.innerHTML = `<span style="color: orange;">⚠️ Seleccione un puesto para calcular</span>`;
+        return; // Detiene la ejecución si no hay puesto
+    }
+
+    // 2. Lógica de Puestos Fijos (Prioridad Absoluta)
     if (sueldosFijos.hasOwnProperty(puesto)) {
         const monto = sueldosFijos[puesto].toFixed(2);
         inputMonto.value = monto;
-        sueldoMsg.innerHTML = `<b style="color: purple;">Producción: $${monto} (Fijo)</b>`;
-    } 
-    // 3. Estatus Especiales
-    else if (["Falta", "Permiso", "Vacaciones"].includes(estatus)) {
+        sueldoMsg.innerHTML = `<b style="color: purple;">${puesto}: $${monto} (Monto Único Fijo)</b>`;
+        return; // Importante: Salimos de la función para ignorar retardos o marcas faltantes
+    }
+
+    // 3. Estatus Especiales (Faltas, Permisos, etc.)
+    if (["Falta", "Permiso", "Vacaciones"].includes(estatus)) {
         inputMonto.value = "0.00";
         sueldoMsg.innerHTML = `<span style="color: grey;">Sin pago por ${estatus}</span>`;
+        return;
     } 
-    else if (estatus === "Descanso") {
+    
+    if (estatus === "Descanso") {
         const pagoDescanso = (puesto === "Hamburguesas FF" || puesto === "Tuppers") ? "138.00" : "0.00";
         inputMonto.value = pagoDescanso;
         sueldoMsg.innerHTML = `<b>Descanso: $${pagoDescanso}</b>`;
+        return;
     }
+
     // 4. Lógica de Destajos
-    else if (puesto === "Hamburguesas FF") {
+    if (puesto === "Hamburguesas FF") {
         divCargas.style.display = "block";
         if (divMomiasExtra) divMomiasExtra.style.display = "block"; 
         
@@ -676,10 +691,11 @@ function verificarTodo() {
     } 
     else if (puesto === "Tuppers") {
         divCargas.style.display = "block";
-        inputMonto.value = (cargasFF * 46.50).toFixed(2);
-        sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u)</b>`;
+        const montoTuppers = (cargasFF * 46.50).toFixed(2);
+        inputMonto.value = montoTuppers;
+        sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u) = $${montoTuppers}</b>`;
     }
-    // 5. Sueldo por Puesto (Lógica Unificada por Presencia de Marcas)
+    // 5. Sueldo por Puesto (Lógica de Marcas y Retardos)
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
         
@@ -696,7 +712,6 @@ function verificarTodo() {
         let mensajeExtra = "";
 
         if (tieneEntrada && tieneSalida) {
-            // El punto de partida es el 100% de la base del puesto
             montoCalculado = base;
 
             // Lógica de Castigos (R1 / R2)
@@ -713,12 +728,11 @@ function verificarTodo() {
                 mensajeExtra = `<br><small style="color: blue;">(Jornada Completa / Puntual)</small>`;
             }
         } else {
-            // Si falta alguna de las dos marcas (Entrada o Salida)
             montoCalculado = 0;
             mensajeExtra = `<br><b style="color: #D32F2F;">❌ Falta registro de entrada o salida.</b>`;
         }
 
-        // Aviso de hora manual (HH:MM) - Esto no cambia el monto visual pero advierte proporcionalidad
+        // Aviso de hora manual (HH:MM)
         if ([eM, sM, eV, sV].some(val => val && val.includes(":") && !val.includes("R"))) {
             mensajeExtra = `<br><b style="color: #E53935;">⚠️ Hora manual: El cálculo proporcional se hará al guardar.</b>`;
         }
