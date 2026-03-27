@@ -1718,6 +1718,8 @@ def vista_reportes(request):
                 Q(empleado__codigo_empleado__icontains=query_nombre)
             )
 
+        ids_con_falta = set(asistencias_query.filter(estatus__icontains="FALTA").values_list('empleado_id', flat=True))
+
         for asis in asistencias_query:
             emp = asis.empleado
             estatus_limpio = (asis.estatus or "").strip().upper()
@@ -1729,7 +1731,7 @@ def vista_reportes(request):
             pue_up = pue_original.upper()
             suc = asis.sucursal or "Victoria"
 
-            # 1. DETERMINAR VALOR DEL TURNO (Base para cálculos)
+            # 1. DETERMINAR VALOR DEL TURNO
             salario_referencia = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
             
             if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]):
@@ -1739,46 +1741,36 @@ def vista_reportes(request):
             else:
                 valor_turno = salario_referencia
 
-            # 2. LÓGICA DE JORNADA DOBLE (Detección por marcas de tiempo)
+            # 2. LÓGICA DE JORNADA DOBLE
             tiene_m = asis.entrada_matutina and str(asis.entrada_matutina).strip() != ""
             tiene_sv = asis.salida_vespertina and str(asis.salida_vespertina).strip() != ""
             tiene_ev = asis.entrada_vespertina and str(asis.entrada_vespertina).strip() != ""
             
-            # Es doble si tiene (Entrada M + Salida V) o (Entrada M + Entrada V) o es puesto de 12h/Gerente
             es_jornada_doble = (tiene_m and (tiene_sv or tiene_ev)) or \
                                any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"])
             
-            cantidad_turnos = 2 if es_jornada_doble else 1
+            cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
-            # 3. CÁLCULO DEL PAGO BASE (Cálculo dinámico si no hay pago_registrado)
+            # 3. CÁLCULO DEL PAGO BASE
             pago_registrado = float(asis.pago_dia or 0)
 
-            # --- BUSCAR SI TIENE FALTAS EN EL PERIODO (Solo para el cálculo del descanso) ---
-            tiene_falta_periodo = asistencias_query.filter(empleado=emp, estatus__icontains="FALTA").exists()
-            
             if es_falta:
                 pago_base_dia = 0.0
             elif es_descanso:
                 if pago_registrado > 0:
                     pago_base_dia = pago_registrado
-                elif not tiene_falta_periodo:
-                    # Si no hay pago registrado pero NO tiene faltas, calculamos el valor del descanso
-                    # Usamos el valor_turno que ya calculaste arriba
-                    pago_base_dia = valor_turno 
+                # Usamos nuestro set de IDs para saber si tiene falta sin consultar la BD otra vez
+                elif emp.id not in ids_con_falta:
+                    # Cálculo de descanso: Si trabajó 6 días dobles, el descanso es doble
+                    # Filtramos en memoria para no romper el query original
+                    asistencias_este_emp = [a for a in asistencias_query if a.empleado_id == emp.id]
+                    dias_completos = sum(1 for a in asistencias_este_emp if a.entrada_matutina and a.salida_vespertina)
                     
-                    # OJO: Si quieres que detecte los "6 días dobles" como en la nómina, 
-                    # tendrías que contar las asistencias dobles aquí también:
-                    asistencias_emp = asistencias_query.filter(empleado=emp)
-                    dias_completos = 0
-                    for a in asistencias_emp:
-                        t_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
-                        t_sv = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
-                        if t_m and t_sv: dias_completos += 1
-                    
-                    if dias_completos >= 6:
-                        pago_base_dia = valor_turno * 2
+                    pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
                 else:
                     pago_base_dia = 0.0
+            else:
+                pago_base_dia = pago_registrado if pago_registrado > 0 else (valor_turno * cantidad_turnos_dia)
 
             # Aplicar doble si es descanso/festivo trabajado
             if "TRABAJADO" in estatus_limpio:
