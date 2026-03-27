@@ -799,10 +799,16 @@ def Asistencias_FF_view(request):
                 monto_calc = 0.0
                 
             elif estatus_jornada == "Descanso":
-                # Regla: Si hay faltas en la semana, el descanso es $0
-                tiene_falta = asistencias_semana.filter(estatus__icontains="FALTA").exists()
+                # 1. Definir rango completo de la semana (ya lo tienes como inicio_sem y fin_sem)
                 
-                if tiene_falta:
+                # 2. VALIDACIÓN: Buscar si existe alguna falta en la base de datos para esta semana
+                tiene_falta_en_semana = Asistencia.objects.filter(
+                    empleado=empleado_obj,
+                    fecha__range=[inicio_sem, fin_sem],
+                    estatus="Falta" # O "FALTA", asegúrate de que coincida con tu select del HTML
+                ).exists()
+    
+                if tiene_falta_en_semana:
                     monto_calc = 0.0
                 elif "HAMBURGUESAS" in puesto_up:
                     monto_calc = 138.00
