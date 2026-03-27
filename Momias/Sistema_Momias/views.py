@@ -682,25 +682,29 @@ def Asistencias_FF_view(request):
     anio_actual = hoy_dt.isocalendar()[0]
 
     # --- FUNCIÓN AUXILIAR ---
-    def obtener_monto_bloque(base_puesto, entrada, salida, divisor_puesto, es_corrida=False):
+    def obtener_monto_bloque(base_puesto, entrada, salida, divisor_puesto):
         if not entrada or not salida: return 0.0
         ent_str = entrada.strip().upper()
+        sal_str = salida.strip().upper()
         
-        monto_del_bloque = float(base_puesto) if es_corrida else (float(base_puesto) / 2)
-    
-        # Si es etiqueta de retardo, el tiempo es "completo", el castigo se resta al final
+        # Si es etiqueta (NORMAL, R1, R2), el pago base es el 100% (el castigo va aparte)
         if any(x in ent_str for x in ['R1', 'R2', 'NORMAL']):
-            return monto_del_bloque
+            return float(base_puesto)
     
-        # Si es hora manual (ej. 10:30), sigue calculando el proporcional
-        if ':' in ent_str:
+        # Si es hora manual (ej. 10:30)
+        if ':' in ent_str and ':' in sal_str:
             try:
-                # ... (tu lógica de datetime.strptime que ya tienes) ...
-                return (float(base_puesto) / divisor_puesto) * hrs
+                fmt = '%H:%M'
+                t1 = datetime.strptime(ent_str, fmt)
+                t2 = datetime.strptime(sal_str, fmt)
+                delta = t2 - t1
+                hrs = delta.total_seconds() / 3600.0
+                # Regla de tres: (Base / Horas que debería trabajar) * Horas que trabajó
+                return round((float(base_puesto) / divisor_puesto) * hrs, 2)
             except:
-                return monto_del_bloque
+                return float(base_puesto)
         
-        return monto_del_bloque
+        return float(base_puesto)
 
     # --- POST ---
     if request.method == 'POST':
@@ -749,17 +753,14 @@ def Asistencias_FF_view(request):
             id_excluir = int(asistencia_id) if (asistencia_id and asistencia_id.isdigit()) else -1
             base_puesto = float(puestos_salarios_ff.get(puesto_sel, 0.0))
 
+
             # 1. DETERMINAR DIVISOR Y TIPO DE JORNADA
             if any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                 divisor = 12.0
-                es_corrida = True
             elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO", "CHEF"]):
                 divisor = 9.0
-                # Solo es corrida si es una sola firma (Intermedio/Chef/Crepas)
-                es_corrida = any(x in puesto_up for x in ["INTERMEDIO", "CREPAS", "CHEF"])
             else:
                 divisor = 6.0
-                es_corrida = False
 
             # 2. LÓGICA DE RETARDOS (ACUMULADOS SEMANALES)
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
@@ -771,7 +772,6 @@ def Asistencias_FF_view(request):
             
             r1_previos = 0
             for reg in asistencias_semana:
-                # Contamos R1 en cualquier bloque de la semana
                 if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper(): r1_previos += 1
                 if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper(): r1_previos += 1
             
@@ -783,21 +783,38 @@ def Asistencias_FF_view(request):
             desc_retardo = 0.0
             
             # 4. APLICAR REGLA DE DESCUENTO
-            # R2 descuenta medio turno (50% de la base) inmediatamente.
-            # R1 solo descuenta si es el segundo, cuarto, sexto... (el par completa el castigo).
             if (r2_hoy > 0):
                 desc_retardo += (base_puesto / 2) * r2_hoy
             
             if (r1_hoy > 0 and total_r1_semana >= 2):
-                # Calculamos cuántos pares nuevos se formaron hoy
-                # Ejemplo: Tenía 1 R1, hoy pongo 1 R1 -> total 2 -> descuenta 1 medio turno.
                 pares_viejos = r1_previos // 2
                 pares_nuevos = total_r1_semana // 2
                 if pares_nuevos > pares_viejos:
                     desc_retardo += (base_puesto / 2) * (pares_nuevos - pares_viejos)
 
-            # 3. LÓGICA DE MONTO CALC (Pago por tiempo trabajado)
+            # 5. LÓGICA DE MONTO CALC (Pago por cumplimiento de jornada)
             monto_calc = 0.0
+            if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
+                monto_calc = 0.0
+            elif estatus_jornada == "Descanso":
+                tiene_falta = asistencias_semana.filter(estatus__icontains="FALTA").exists()
+                monto_calc = 138.00 if (not tiene_falta and any(x in puesto_up for x in ["HAMBURGUESAS", "TUPPERS"])) else 0.0
+            elif "HAMBURGUESAS" in puesto_up:
+                monto_calc = (float(request.POST.get('cantidad_cargas') or 0) * 62.00) + (float(request.POST.get('cantidad_cargas_momias') or 0) * 51.50)
+            elif "TUPPERS" in puesto_up:
+                monto_calc = float(request.POST.get('cantidad_cargas') or 0) * 46.50
+            else:
+                # LÓGICA UNIFICADA PARA 6, 9 y 12 HORAS:
+                # Identificamos el par de marcas presentes sin importar el bloque
+                entrada_final = ent_m if ent_m else ent_v
+                salida_final = sal_v if sal_v else sal_m
+
+                if entrada_final and salida_final:
+                    # La función obtener_monto_bloque ahora se encarga de dar el 100% 
+                    # o calcular proporcional si detecta ":" (horas manuales)
+                    monto_calc = obtener_monto_bloque(base_puesto, entrada_final, salida_final, divisor)
+                else:
+                    monto_calc = 0.0
             if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
                 monto_calc = 0.0
             elif estatus_jornada == "Descanso":
