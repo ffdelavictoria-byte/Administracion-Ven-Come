@@ -1786,7 +1786,7 @@ def vista_reportes(request):
             desc_retardo_calculado = (valor_turno * factor) if (not es_descanso and not es_falta) else 0
             
             # Sumamos descuento manual y el calculado por retardo
-            monto_descuento_total_dia = desc_manual + desc_retardo_calculado
+            monto_descuento_total_dia = desc_manual + desc_retardo_calculado/2
             
             # RESULTADO FINAL DEL DÍA
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
