@@ -756,6 +756,8 @@ def Asistencias_FF_view(request):
             # 1. DETERMINAR DIVISOR DE JORNADA
             if any(x in puesto_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
                 divisor = 12.0
+            elif "9" in puesto_up and "HORA" in puesto_up: 
+                divisor = 9.0
             elif any(x in puesto_up for x in ["9 HORAS", "9HRS", "CREPAS", "INTERMEDIO", "CHEF"]):
                 divisor = 9.0
             else:
