@@ -1729,22 +1729,9 @@ def vista_reportes(request):
             pue_up = pue_original.upper()
             suc = asis.sucursal or "Victoria"
 
+            # 1. DETERMINAR VALOR DEL TURNO (Base para cálculos)
             salario_referencia = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
-            pago_registrado = float(asis.pago_dia or 0)
-
-            if es_falta:
-                pago_base_dia = 0.0
-            elif es_descanso:
-                pago_base_dia = pago_registrado
-            else:
-                pago_base_dia = pago_registrado if pago_registrado > 0 else 0
-
-            bono_dia = float(asis.bonificacion or 0)
-            desc_manual = float(asis.descuento or 0)
-            puntos_retardo = int(float(asis.horas or 0))
-
-            factor = FACTORES_RETARDO.get(puntos_retardo, 0)
-
+            
             if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]):
                 valor_turno = salario_referencia / 1.5
             elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
@@ -1752,11 +1739,51 @@ def vista_reportes(request):
             else:
                 valor_turno = salario_referencia
 
-            desc_retardo_calculado = (
-                valor_turno * factor if (not es_descanso and not es_falta) else 0
-            )
+            # 2. LÓGICA DE JORNADA DOBLE (Detección por marcas de tiempo)
+            tiene_m = asis.entrada_matutina and str(asis.entrada_matutina).strip() != ""
+            tiene_sv = asis.salida_vespertina and str(asis.salida_vespertina).strip() != ""
+            tiene_ev = asis.entrada_vespertina and str(asis.entrada_vespertina).strip() != ""
+            
+            # Es doble si tiene (Entrada M + Salida V) o (Entrada M + Entrada V) o es puesto de 12h/Gerente
+            es_jornada_doble = (tiene_m and (tiene_sv or tiene_ev)) or \
+                               any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"])
+            
+            cantidad_turnos = 2 if es_jornada_doble else 1
 
-            monto_descuento_total_dia = desc_manual + desc_retardo_calculado/2
+            # 3. CÁLCULO DEL PAGO BASE (Cálculo dinámico si no hay pago_registrado)
+            pago_registrado = float(asis.pago_dia or 0)
+
+            if es_falta:
+                pago_base_dia = 0.0
+            elif es_descanso:
+                # Si el descanso tiene un pago guardado lo usa, si no, es 0
+                pago_base_dia = pago_registrado
+            else:
+                if pago_registrado > 0:
+                    # Si ya hay un valor guardado (pago manual), respetarlo
+                    pago_base_dia = pago_registrado
+                else:
+                    # Si está en 0, calcularlo: valor de un turno x cantidad de turnos detectados
+                    pago_base_dia = valor_turno * cantidad_turnos
+
+            # Aplicar doble si es descanso/festivo trabajado
+            if "TRABAJADO" in estatus_limpio:
+                pago_base_dia *= 2
+
+            # 4. DESCUENTOS Y BONOS
+            bono_dia = float(asis.bonificacion or 0)
+            desc_manual = float(asis.descuento or 0)
+            puntos_retardo = int(float(asis.horas or 0))
+            factor = FACTORES_RETARDO.get(puntos_retardo, 0)
+
+            # El descuento por retardo se calcula sobre el valor de un turno
+            desc_retardo_calculado = (valor_turno * factor) if (not es_descanso and not es_falta) else 0
+            
+            # Sumamos descuento manual y el calculado por retardo
+            monto_descuento_total_dia = desc_manual + desc_retardo_calculado
+            
+            # RESULTADO FINAL DEL DÍA
+            pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
             cantidad_turnos = 2 if (asis.entrada_matutina and asis.salida_vespertina) else 1
 
             if es_falta:
