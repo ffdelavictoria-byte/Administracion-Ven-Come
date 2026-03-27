@@ -159,12 +159,10 @@
 
             <div class="form-group">
                 <label>Puesto</label>
-                <select name="puesto" id="puesto_selector" onchange="verificarTodo()" required>
-                    <option value="" disabled selected>--- Selecciona puesto ---</option>
+                <select name="puesto" id="puesto_selector" onchange="verificarTodo()">
+                    <option value="">--- Selecciona puesto ---</option>
                     {% for puesto in lista_puestos %}
-                        {% if puesto != "Selecciona puesto..." %}
-                            <option value="{{ puesto }}">{{ puesto }}</option>
-                        {% endif %}
+                        <option value="{{ puesto }}">{{ puesto }}</option>
                     {% endfor %}
                 </select>
                 <div id="sueldo_sugerido"></div> 
