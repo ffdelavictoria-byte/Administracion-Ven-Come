@@ -1816,9 +1816,10 @@ def vista_reportes(request):
 
             if es_falta:
                 pago_base_dia = 0.0
-            elif es_descanso:
-                if pago_registrado > 0:
-                    pago_base_dia = pago_registrado
+            # --- BUSCA ESTO EN TU FUNCIÓN DE REPORTES ---
+                elif es_descanso:
+                    if pago_registrado > 0:
+                        pago_base_dia = pago_registrado
                 # Usamos nuestro set de IDs para saber si tiene falta sin consultar la BD otra vez
                 elif emp.id not in ids_con_falta:
                     # Cálculo de descanso: Si trabajó 6 días dobles, el descanso es doble
