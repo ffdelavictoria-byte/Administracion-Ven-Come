@@ -1122,33 +1122,32 @@ def calcular_nomina_web(request):
                 asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
                 puestos_semana = [a.puesto for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper()]
 
-
                 # --- LÓGICA DE DESCANSO CORREGIDA: DETECCIÓN DE 6 DÍAS DOBLES ---
-
                 asistencias_trabajadas = [a for a in asistencias if a.puesto and "DESCANSO" not in (a.estatus or "").upper() and "FALTA" not in (a.estatus or "").upper()]
                 
                 if asistencias_trabajadas:
                     total_dias_trabajados = len(asistencias_trabajadas)
                     conteo_puestos = Counter([a.puesto for a in asistencias_trabajadas])
                     
-                    # 1. Contar cuántos días trabajó REALMENTE jornada doble (Matutino y Vespertino)
+                    # 1. Contar cuántos días trabajó REALMENTE jornada doble
                     dias_completos = 0
                     for a in asistencias_trabajadas:
-                        # Verificamos si tiene registros en ambos bloques
-                        tiene_m = a.entrada_matutina and a.salida_matutina
-                        tiene_v = a.entrada_vespertina and a.salida_vespertina
-                        # O si es un registro de 12 horas directo
-                        if (tiene_m and tiene_v) or "(12 Horas)" in (a.puesto or ""):
+                        puesto_str = (a.puesto or "").upper()
+                        # Verificación robusta de celdas con datos (no solo None)
+                        tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+                        tiene_v = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
+                        
+                        # Es doble si tiene ambos registros o si el puesto es de 12h/Gerente
+                        if (tiene_m and tiene_v) or "12 HORAS" in puesto_str or "GERENTE" in puesto_str:
                             dias_completos += 1
 
-                    # 2. Determinar el puesto principal (o mezcla) para 1 solo turno
-                    # Calculamos el promedio ponderado de 1 solo turno
+                    # 2. Determinar el salario de un solo turno (promedio de lo que trabajó)
                     salario_un_turno_promedio = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
                                                for p, c in conteo_puestos.items())
                     
                     puesto_frecuente = conteo_puestos.most_common(1)[0][0]
 
-                    # 3. Aplicar multiplicador SOLO si cumplió los 6 días dobles
+                    # 3. Aplicar multiplicador si cumplió los 6 días dobles
                     if dias_completos >= 6:
                         salario_descanso = salario_un_turno_promedio * 2
                         puesto_principal = f"{puesto_frecuente} (Doble)"
@@ -1159,14 +1158,13 @@ def calcular_nomina_web(request):
                 else:
                     salario_descanso = float(empleado.sueldo_base or 0)
                     puesto_principal = "Sin Puesto"
-    
                 
                 # --- PRE-CALCULO DE RETARDOS Y LÓGICA DE PAGO ÚNICO ---
                 lista_detalles_asistencia = []
                 total_retardos_semanales = 0
                 descanso_pagado = False  # Bandera para pago único
                 
-                # NUEVO: Verificar si el empleado tiene CUALQUIER falta en esta semana específica
+                # Verificar si el empleado tiene CUALQUIER falta en esta semana
                 tiene_falta_en_semana = asistencias.filter(estatus__icontains="FALTA").exists()
                 
                 for reg in asistencias:
