@@ -1689,7 +1689,7 @@ def vista_reportes(request):
                 valor_turno * factor if (not es_descanso and not es_falta) else 0
             )
 
-            monto_descuento_total_dia = desc_manual + desc_retardo_calculado
+            monto_descuento_total_dia = desc_manual + desc_retardo_calculado/2
             cantidad_turnos = 2 if (asis.entrada_matutina and asis.salida_vespertina) else 1
 
             if es_falta:
