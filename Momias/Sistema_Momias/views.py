@@ -1753,18 +1753,32 @@ def vista_reportes(request):
             # 3. CÁLCULO DEL PAGO BASE (Cálculo dinámico si no hay pago_registrado)
             pago_registrado = float(asis.pago_dia or 0)
 
+            # --- BUSCAR SI TIENE FALTAS EN EL PERIODO (Solo para el cálculo del descanso) ---
+            tiene_falta_periodo = asistencias_query.filter(empleado=emp, estatus__icontains="FALTA").exists()
+            
             if es_falta:
                 pago_base_dia = 0.0
             elif es_descanso:
-                # Si el descanso tiene un pago guardado lo usa, si no, es 0
-                pago_base_dia = pago_registrado
-            else:
                 if pago_registrado > 0:
-                    # Si ya hay un valor guardado (pago manual), respetarlo
                     pago_base_dia = pago_registrado
+                elif not tiene_falta_periodo:
+                    # Si no hay pago registrado pero NO tiene faltas, calculamos el valor del descanso
+                    # Usamos el valor_turno que ya calculaste arriba
+                    pago_base_dia = valor_turno 
+                    
+                    # OJO: Si quieres que detecte los "6 días dobles" como en la nómina, 
+                    # tendrías que contar las asistencias dobles aquí también:
+                    asistencias_emp = asistencias_query.filter(empleado=emp)
+                    dias_completos = 0
+                    for a in asistencias_emp:
+                        t_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+                        t_sv = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
+                        if t_m and t_sv: dias_completos += 1
+                    
+                    if dias_completos >= 6:
+                        pago_base_dia = valor_turno * 2
                 else:
-                    # Si está en 0, calcularlo: valor de un turno x cantidad de turnos detectados
-                    pago_base_dia = valor_turno * cantidad_turnos
+                    pago_base_dia = 0.0
 
             # Aplicar doble si es descanso/festivo trabajado
             if "TRABAJADO" in estatus_limpio:
