@@ -841,6 +841,11 @@ def Asistencias_FF_view(request):
                         # Bono doble turno (6 o más)
                         monto_calc = monto_base_desc * 2 if dias_doble_turno >= 6 else monto_base_desc
 
+
+            # --- NUEVA CORRECCIÓN: Puestos de Monto Fijo ---
+            elif any(x in puesto_up for x in ["PRODUCCION", "AUX PRODUCCION"]):
+                monto_calc = base_puesto # Se toma directo de la DB sin validar horas
+
             elif "HAMBURGUESAS" in puesto_up:
                 # Pago por producción (Cargas)
                 c_ff = float(request.POST.get('cantidad_cargas') or 0)
