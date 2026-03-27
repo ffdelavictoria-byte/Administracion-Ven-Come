@@ -1150,7 +1150,7 @@ def calcular_nomina_web(request):
 
                     # 3. Aplicar multiplicador SOLO si cumplió los 6 días dobles
                     if dias_completos >= 6:
-                        salario_descanso = salario_un_turno_promedio * 2
+                        salario_descanso = salario_un_turno_promedio * 4
                         puesto_principal = f"{puesto_frecuente} (Doble)"
                     else:
                         salario_descanso = salario_un_turno_promedio
