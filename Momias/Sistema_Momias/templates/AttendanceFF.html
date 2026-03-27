@@ -679,7 +679,7 @@ function verificarTodo() {
         inputMonto.value = (cargasFF * 46.50).toFixed(2);
         sueldoMsg.innerHTML = `<b>Destajo Tuppers: ${cargasFF} ($46.50 c/u)</b>`;
     }
-    // 5. Sueldo por Puesto con Lógica de Retardos (CORREGIDO PARA EVITAR DIVISIONES ERRÓNEAS)
+    // 5. Sueldo por Puesto (Lógica Unificada por Presencia de Marcas)
     else {
         let base = parseFloat(puestosSalarios[puesto]) || 0;
         
@@ -688,54 +688,37 @@ function verificarTodo() {
         const eV = entVes.value;
         const sV = salVes.value;
 
-        // Determinar si el puesto es de jornada corrida (Intermedios, 12h, Crepas, etc.)
-        const familia = mapaPuestos[puesto] || "";
-        const esCorrida = familia.includes("JORNADA_12") || familia.includes("INTERMEDIO") || familia.includes("Crepas");
+        // ¿Tiene al menos una entrada y una salida registradas?
+        const tieneEntrada = (eM !== "" || eV !== "");
+        const tieneSalida = (sM !== "" || sV !== "");
 
         let montoCalculado = 0;
         let mensajeExtra = "";
 
-        if (esCorrida) {
-            // Lógica para JORNADA ÚNICA (12h, Intermedios)
-            const entrada = eM || eV; // Busca en qué bloque firmó
-            const salida = sV || sM;
+        if (tieneEntrada && tieneSalida) {
+            // El punto de partida es el 100% de la base del puesto
+            montoCalculado = base;
 
-            if (entrada === "R2") {
+            // Lógica de Castigos (R1 / R2)
+            const hayR2 = (eM === "R2" || eV === "R2");
+            const hayDobleR1 = (eM === "R1" && eV === "R1");
+
+            if (hayR2 || hayDobleR1) {
                 montoCalculado = base / 2;
-                mensajeExtra = `<br><b style="color: #D32F2F;">⚠️ R2 detectado: Descuento del 50% en jornada única.</b>`;
+                mensajeExtra = `<br><b style="color: #D32F2F;">⚠️ DESCUENTO 50%: Se aplicó por R2 o doble R1 hoy.</b>`;
+            } 
+            else if (eM === "R1" || eV === "R1") {
+                mensajeExtra = `<br><b style="color: #EF6C00;">⏳ Retardo R1: El sistema validará el acumulado semanal al guardar.</b>`;
             } else {
-                montoCalculado = base;
-                if (entrada === "R1") {
-                    mensajeExtra = `<br><b style="color: #EF6C00;">⏳ R1 detectado: Se validará acumulado semanal al guardar.</b>`;
-                } else {
-                    mensajeExtra = `<br><small style="color: blue;">(Jornada Corrida Puntual)</small>`;
-                }
+                mensajeExtra = `<br><small style="color: blue;">(Jornada Completa / Puntual)</small>`;
             }
         } else {
-            // Lógica para JORNADA PARTIDA (6h / 9h)
-            // Cada bloque de entrada/salida representa el 50% de la base
-            let pagoBloque1 = (eM && sM) ? (base / 2) : 0;
-            let pagoBloque2 = (eV && sV) ? (base / 2) : 0;
-
-            // Si hay un R2 en un bloque, ese bloque se paga a la mitad (25% del total diario)
-            if (eM === "R2") pagoBloque1 = base / 4;
-            if (eV === "R2") pagoBloque2 = base / 4;
-
-            // Si hay R1 en ambos bloques el mismo día, se aplica castigo directo del 50% (como un R2)
-            if (eM === "R1" && eV === "R1") {
-                montoCalculado = base / 2;
-                mensajeExtra = `<br><b style="color: #D32F2F;">⚠️ Doble R1 hoy: Descuento del 50% aplicado.</b>`;
-            } else {
-                montoCalculado = pagoBloque1 + pagoBloque2;
-                if (eM === "R1" || eV === "R1") {
-                    mensajeExtra = `<br><b style="color: #EF6C00;">⏳ R1 detectado: Se validará acumulado semanal al guardar.</b>`;
-                } else if (montoCalculado > 0) {
-                    mensajeExtra = `<br><small style="color: blue;">(Puntual)</small>`;
-                }
-            }
+            // Si falta alguna de las dos marcas (Entrada o Salida)
+            montoCalculado = 0;
+            mensajeExtra = `<br><b style="color: #D32F2F;">❌ Falta registro de entrada o salida.</b>`;
         }
 
-        // Aviso de hora manual (HH:MM)
+        // Aviso de hora manual (HH:MM) - Esto no cambia el monto visual pero advierte proporcionalidad
         if ([eM, sM, eV, sV].some(val => val && val.includes(":") && !val.includes("R"))) {
             mensajeExtra = `<br><b style="color: #E53935;">⚠️ Hora manual: El cálculo proporcional se hará al guardar.</b>`;
         }
