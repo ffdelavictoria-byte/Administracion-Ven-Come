@@ -1708,7 +1708,6 @@ def vista_reportes(request):
                     'puesto': pue_display,
                     'total_turnos': 0,
                     'total_retardos': 0,
-                    'desc_retardos': 0.0,  # <--- AÑADIR ESTA LÍNEA
                     'monto_descuentos': 0.0,
                     'total_bonos': 0.0,
                     'total_fila': 0.0,
@@ -1726,7 +1725,6 @@ def vista_reportes(request):
 
             fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
             fila['total_retardos'] += puntos_retardo
-            fila['desc_retardos'] += desc_retardo_calculado # <--- AÑADIR ESTA LÍNEA
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
@@ -1751,12 +1749,6 @@ def vista_reportes(request):
             'total': round(total_n, 2)
         })
 
-    # Calculamos el descuento manual restando los retardos del total de descuentos
-    for f in agrupados_dict.values():
-        # Esta variable la usaremos en el HTML para "Otros Desc."
-        f['desc_manual_solo'] = f['monto_descuentos'] - f['desc_retardos']
-    
-    lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
 
     lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
 
