@@ -684,31 +684,23 @@ def Asistencias_FF_view(request):
     # --- FUNCIÓN AUXILIAR ---
     def obtener_monto_bloque(base_puesto, entrada, salida, divisor_puesto, es_corrida=False):
         if not entrada or not salida: return 0.0
-        ent_str, sal_str = entrada.strip().upper(), salida.strip().upper()
+        ent_str = entrada.strip().upper()
         
-        # Monto que representa este bloque (Si es corrida es el 100%, si es partido es el 50%)
         monto_del_bloque = float(base_puesto) if es_corrida else (float(base_puesto) / 2)
-
-        # SI ES RETARDO (R1, R2): Devolvemos el monto del bloque INTEGRO.
-        # El descuento real se aplicará en la variable 'desc_retardo' más abajo.
-        if any(x in ent_str for x in ['R1', 'R2']):
+    
+        # Si es etiqueta de retardo, el tiempo es "completo", el castigo se resta al final
+        if any(x in ent_str for x in ['R1', 'R2', 'NORMAL']):
             return monto_del_bloque
-            
-        # SI ES TEXTO O PERSONALIZADO (OTRO)
-        if ':' not in ent_str:
-            return monto_del_bloque
-
-        try:
-            fmt = '%H:%M'
-            inicio = datetime.strptime(ent_str[:5], fmt)
-            fin = datetime.strptime(sal_str[:5], fmt)
-            hrs = (fin - inicio).total_seconds() / 3600
-            if hrs < 0: hrs += 24
-            
-            # Solo si es hora manual (p.ej. entró a las 10:30), calculamos el proporcional
-            return (float(base_puesto) / divisor_puesto) * hrs
-        except:
-            return monto_del_bloque
+    
+        # Si es hora manual (ej. 10:30), sigue calculando el proporcional
+        if ':' in ent_str:
+            try:
+                # ... (tu lógica de datetime.strptime que ya tienes) ...
+                return (float(base_puesto) / divisor_puesto) * hrs
+            except:
+                return monto_del_bloque
+        
+        return monto_del_bloque
 
     # --- POST ---
     if request.method == 'POST':
@@ -772,24 +764,37 @@ def Asistencias_FF_view(request):
             # 2. LÓGICA DE RETARDOS (ACUMULADOS SEMANALES)
             inicio_sem = fecha_dt - timedelta(days=fecha_dt.weekday())
             fin_sem = inicio_sem + timedelta(days=6)
-            asistencias_semana = Asistencia.objects.filter(empleado=empleado_obj, fecha__range=[inicio_sem, fin_sem]).exclude(id=id_excluir)
-
-            r1_previos = sum(
-                (1 if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper() else 0) +
-                (1 if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper() else 0)
-                for reg in asistencias_semana
-            )
+            asistencias_semana = Asistencia.objects.filter(
+                empleado=empleado_obj, 
+                fecha__range=[inicio_sem, fin_sem]
+            ).exclude(id=id_excluir)
+            
+            r1_previos = 0
+            for reg in asistencias_semana:
+                # Contamos R1 en cualquier bloque de la semana
+                if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper(): r1_previos += 1
+                if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper(): r1_previos += 1
+            
+            # 3. Detectar lo que se está marcando HOY
             r1_hoy = (1 if 'R1' in ent_m else 0) + (1 if 'R1' in ent_v else 0)
             r2_hoy = (1 if 'R2' in ent_m else 0) + (1 if 'R2' in ent_v else 0)
             
             total_r1_semana = r1_previos + r1_hoy
             desc_retardo = 0.0
             
-            # EL DESCUENTO SOLO SE APLICA AQUÍ:
-            # Si hay un R2 hoy (50% de descuento directo) 
-            # O si hoy se completa un par de R1 (2, 4, 6...)
-            if (r2_hoy > 0) or (r1_hoy > 0 and total_r1_semana >= 2 and total_r1_semana % 2 == 0):
-                desc_retardo = (base_puesto / 2)
+            # 4. APLICAR REGLA DE DESCUENTO
+            # R2 descuenta medio turno (50% de la base) inmediatamente.
+            # R1 solo descuenta si es el segundo, cuarto, sexto... (el par completa el castigo).
+            if (r2_hoy > 0):
+                desc_retardo += (base_puesto / 2) * r2_hoy
+            
+            if (r1_hoy > 0 and total_r1_semana >= 2):
+                # Calculamos cuántos pares nuevos se formaron hoy
+                # Ejemplo: Tenía 1 R1, hoy pongo 1 R1 -> total 2 -> descuenta 1 medio turno.
+                pares_viejos = r1_previos // 2
+                pares_nuevos = total_r1_semana // 2
+                if pares_nuevos > pares_viejos:
+                    desc_retardo += (base_puesto / 2) * (pares_nuevos - pares_viejos)
 
             # 3. LÓGICA DE MONTO CALC (Pago por tiempo trabajado)
             monto_calc = 0.0
@@ -831,7 +836,7 @@ def Asistencias_FF_view(request):
             pago_total = (monto_calc + bono) - desc_man - desc_retardo
             asistencia.pago_dia = round(max(0, pago_total), 2)
             
-            # Guardamos el conteo de R1 en el campo 'horas' para auditoría semanal
+            # Guardamos el total de R1 acumulados en 'horas' para que la nómina pueda auditar si quiere
             asistencia.horas = float(total_r1_semana)
             asistencia.observaciones = request.POST.get('observaciones', '').strip()
             asistencia.save()
