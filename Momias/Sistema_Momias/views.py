@@ -1412,6 +1412,24 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             if puestos_lista else "Sin Puesto"
         )
 
+        # --- LÓGICA DE APOYO: CONTEO DE DÍAS DOBLES EN LA SEMANA ---
+        dias_completos_semana = 0
+        for a in asistencias:
+            p_str = (a.puesto or "").upper()
+            est = (a.estatus or "").upper()
+            
+            # Saltamos descansos y faltas para el conteo de días trabajados
+            if "DESCANSO" in est or "FALTA" in est:
+                continue
+            
+            # Verificación robusta de celdas con datos
+            tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+            tiene_v = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
+            
+            # Se considera día doble si tiene ambos bloques o es puesto de 12h/Gerente
+            if (tiene_m and tiene_v) or "12 HORAS" in p_str or "GERENTE" in p_str:
+                dias_completos_semana += 1
+
         pago_base_acumulado = 0
         total_retardos = 0
         total_bonos = 0
@@ -1435,7 +1453,6 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             }
             for d in dias_semana_esp
         }
-
         for reg in asistencias:
             sueldo_base_puesto_dia = float(
                 puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
@@ -1455,9 +1472,13 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             elif "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
                 pago_final_dia = salario_dia_calculado * 2
             elif "DESCANSO" in estatus_limpio:
-                pago_final_dia = sueldo_base_puesto_dia
-            else:
-                pago_final_dia = 0
+                # El descanso se paga según el puesto que más hizo en la semana
+                sueldo_puesto_top = float(puestos_salarios.get(puesto_principal, empleado.sueldo_base or 0))
+                
+                if dias_completos_semana >= 6:
+                    pago_final_dia = sueldo_puesto_top * 2
+                else:
+                    pago_final_dia = sueldo_puesto_top
 
             horas_retardo = int(reg.horas or 0)
 
