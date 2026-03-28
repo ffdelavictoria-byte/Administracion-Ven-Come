@@ -1806,13 +1806,16 @@ def vista_reportes(request):
             tiene_sv = asis.salida_vespertina and str(asis.salida_vespertina).strip() != ""
             tiene_ev = asis.entrada_vespertina and str(asis.entrada_vespertina).strip() != ""
             
-            # EXCEPCIÓN: Si es puesto INTERMEDIO, nunca es jornada doble para el conteo de turnos
-            es_intermedio = "INTERMEDIO" in pue_up
+            # EXCEPCIONES: Puestos que son de un solo turno largo (no se cuentan como 2 turnos)
+            puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
+            es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
 
+            # La jornada es doble SOLO si tiene marcas en ambos bloques Y NO es una excepción
             es_jornada_doble = ((tiene_m and (tiene_sv or tiene_ev)) or \
-                               any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"])) \
-                               and not es_intermedio # <-- Agregamos esta condición
+                               any(x in pue_up for x in ["12 HORAS", "GERENTE"])) \
+                               and not es_excepcion_turno
             
+            # Para el cálculo del pago base
             cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
             # 3. CÁLCULO DEL PAGO BASE
@@ -1832,11 +1835,8 @@ def vista_reportes(request):
                 
                 # 3. Si NO tiene falta y NO hay pago guardado, calculamos por lógica de turnos
                 else:
-                    # Filtramos en memoria las asistencias de este empleado para contar turnos dobles
                     asistencias_este_emp = [a for a in asistencias_query if a.empleado_id == emp.id]
-                    # Nota: Asegúrate que esta condición coincida con cómo marcas los dobles en FastFood
                     dias_completos = sum(1 for a in asistencias_este_emp if a.entrada_matutina and a.salida_vespertina)
-                    
                     pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
 
             else:
@@ -1853,15 +1853,15 @@ def vista_reportes(request):
             puntos_retardo = int(float(asis.horas or 0))
             factor = FACTORES_RETARDO.get(puntos_retardo, 0)
 
-            # El descuento por retardo se calcula sobre el valor de un turno
             desc_retardo_calculado = (valor_turno * factor) if (not es_descanso and not es_falta) else 0
-            
-            # Sumamos descuento manual y el calculado por retardo
             monto_descuento_total_dia = desc_manual + desc_retardo_calculado/2
             
             # RESULTADO FINAL DEL DÍA
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
-            cantidad_turnos = 1 if es_intermedio else (2 if (asis.entrada_matutina and asis.salida_vespertina) else 1)
+            
+            # 5. CONTEO DE TURNOS (Para la columna T1/T2 en el reporte)
+            # Usamos la variable de excepción para forzar 1 turno en los puestos indicados
+            cantidad_turnos = 1 if es_excepcion_turno else (2 if (asis.entrada_matutina and asis.salida_vespertina) else 1)
 
             if es_falta:
                 pue_display = "FALTA"
