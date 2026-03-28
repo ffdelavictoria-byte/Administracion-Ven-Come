@@ -1311,38 +1311,41 @@ def calcular_nomina_web(request):
                 # Definimos los factores por nivel de acumulado
                 FACTORES = {0: 0.0, 1: 0.0, 2: 0.5, 3: 0.5, 4: 1.0, 5: 1.0, 6: 1.5, 7: 1.5, 8: 2.0, 9: 2.0, 10: 2.5, 11: 2.5, 12: 3.0}
                 
+                total_retardos_acumulados = 0 
+        
                 for item in lista_detalles_asistencia:
                     reg = item['reg']
-                    retardo_dia = item['retardo_dia']
-                    salario_dia = item['salario_dia'] # Valor total del día
+                    # CORRECCIÓN: Usar el valor guardado en 'horas' (que ya trae el peso 1 o 2)
+                    retardo_dia = int(reg.horas or 0) 
+                    salario_dia = item['salario_dia'] 
                     
                     desc_retardo_dia = 0.0
                     
-                    # 1. Determinamos si es jornada física completa
+                    # Determinamos si es jornada física completa
                     es_jornada_completa = (
                         (reg.entrada_matutina and reg.salida_vespertina and not reg.salida_matutina) or 
                         (reg.entrada_matutina and reg.salida_matutina and reg.entrada_vespertina and reg.salida_vespertina)
                     )
                     
                     if retardo_dia > 0:
+                        # Obtenemos el factor antes de sumar los retardos de este registro
                         factor_anterior = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
-                        total_retardos_acumulados += retardo_dia
-                        factor_actual = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         
+                        # Sumamos el peso del retardo de este registro (1 para R1, 2 para R2)
+                        total_retardos_acumulados += retardo_dia
+                        
+                        # Obtenemos el nuevo factor
+                        factor_actual = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         diferencia_factor = factor_actual - factor_anterior
                         
-                        # 2. Aplicamos el descuento:
-                        # Si es jornada completa, queremos 1/4 de un turno de 236.50
-                        # 0.5 (diferencia) * 473.0 (salario total) * 0.25 = 59.125 (Esto no es 118)
-                        # Para obtener 118.25 directamente:
-                        if es_jornada_completa:
-                            # 0.5 * 236.50 = 118.25
-                            # Usamos la base de un solo turno (236.50) si es jornada completa
-                            base_turno = float(salario_dia) / 2
-                            desc_retardo_dia = diferencia_factor * base_turno
-                        else:
-                            # Jornada sencilla: diferencia factor * salario total
-                            desc_retardo_dia = diferencia_factor * float(salario_dia)
+                        if diferencia_factor > 0:
+                            if es_jornada_completa:
+                                # Si es doble turno, el castigo se basa en el sueldo de UN turno (base/2)
+                                base_turno = float(salario_dia) / 2
+                                desc_retardo_dia = diferencia_factor * base_turno
+                            else:
+                                # Jornada sencilla
+                                desc_retardo_dia = diferencia_factor * float(salario_dia)
                         
                     val_bono = float(reg.bonificacion or 0.0)
                     val_desc = float(reg.descuento or 0.0)
@@ -1369,18 +1372,19 @@ def calcular_nomina_web(request):
                         cantidad_turnos = 2 if es_jornada_completa else 1
                     # --------------------------------------------------
                     
-                    dias_map[nombre_dia].append({
-                        'fecha_dia': fecha_str,
-                        'puesto': reg.puesto or '---',
-                        'sucursal': reg.sucursal or '---',
-                        'pago_dia': round(salario_dia, 2),
-                        'descuento_retardo': round(desc_retardo_dia, 2),
-                        'monto_bono': float(reg.bonificacion or 0),
-                        'motivo_bono': reg.motivo_bonificacion,
-                        'monto_descuento': float(reg.descuento or 0),
-                        'motivo_descuento': reg.motivo_descuento,
-                        'estatus': item['estatus'],
-                        'cantidad_turnos': cantidad_turnos # Ahora usará el valor corregido
+                    resultados_nomina.append({
+                        'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
+                        'puesto_principal': puesto_principal,
+                        'periodo_info': f"{sem_inicio.strftime('%d/%m')} al {sem_fin.strftime('%d/%m')}",
+                        'dias': [dias_map[d] for d in dias_semana_esp],
+                        'pago_base': round(pago_base_total, 2),
+                        'retardos': total_retardos_acumulados, # Ahora muestra el total de "puntos" de retardo
+                        'motivo_bonificacion': motivo_bono_texto,
+                        'desc_retardos': round(total_desc_retardos_semanal, 2), 
+                        'bonos': round(total_bonos, 2), # Usa el acumulado total_bonos
+                        'descuentos': round(total_descuentos_manuales, 2), # Usa el acumulado total_descuentos_manuales
+                        'uniforme': round(total_uniforme, 2),
+                        'total_neto': round(total_neto, 2),
                     })
                 # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
                 total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
