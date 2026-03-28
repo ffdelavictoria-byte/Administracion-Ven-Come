@@ -906,11 +906,11 @@ def Asistencias_FF_view(request):
             asistencia.bonificacion, asistencia.descuento = bono, desc_man
             
             # PAGO FINAL: Monto bruto menos descuentos manuales y el castigo por retardo
-            pago_total = (monto_calc + bono) - desc_man - desc_retardo
+            pago_total = (monto_calc + bono) - desc_man # El castigo por retardo NO se resta aquí.
             asistencia.pago_dia = round(max(0, pago_total), 2)
             
             # Guardamos el total de R1 acumulados en 'horas' para que la nómina pueda auditar si quiere
-            asistencia.horas = float(total_puntos_semana) # Ahora guarda el peso real (R1=1, R2=2)
+            asistencia.horas = float(puntos_hoy)
             asistencia.observaciones = request.POST.get('observaciones', '').strip()
             asistencia.save()
             
