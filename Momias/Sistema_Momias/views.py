@@ -772,23 +772,41 @@ def Asistencias_FF_view(request):
                 fecha__range=[inicio_sem, fin_sem]
             ).exclude(id=id_excluir)
             
-            # Conteo de retardos R1 y R2
-            r1_previos = 0
+            # --- NUEVA LÓGICA DE PESOS ---
+            puntos_previos = 0
             for reg in asistencias_semana:
-                if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper(): r1_previos += 1
-                if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper(): r1_previos += 1
+                # Sumamos lo que ya estaba guardado en 'horas' de los días anteriores
+                puntos_previos += int(reg.horas or 0)
             
-            r1_hoy = (1 if 'R1' in ent_m else 0) + (1 if 'R1' in ent_v else 0)
-            r2_hoy = (1 if 'R2' in ent_m else 0) + (1 if 'R2' in ent_v else 0)
-            total_r1_semana = r1_previos + r1_hoy
+            # Calculamos los puntos de HOY
+            # R1 = 1 punto, R2 = 2 puntos
+            puntos_hoy = 0
+            for marca in [ent_m, ent_v]:
+                if 'R1' in marca: puntos_hoy += 1
+                if 'R2' in marca: puntos_hoy += 2
+            
+            total_puntos_semana = puntos_previos + puntos_hoy
             desc_retardo = 0.0
             
-            if (r2_hoy > 0):
-                desc_retardo += (base_puesto / 2) * r2_hoy
+            # Cálculo del descuento de HOY basado en los puntos que aporta hoy
+            # Si hoy entró un R2, sumamos (base/2) * 1 (o *2 si hubo R2 en ambas vueltas)
+            r2_hoy_count = (1 if 'R2' in ent_m else 0) + (1 if 'R2' in ent_v else 0)
+            if r2_hoy_count > 0:
+                desc_retardo += (base_puesto / 2) * r2_hoy_count
             
-            if (r1_hoy > 0 and total_r1_semana >= 2):
+            # Lógica de pares para R1 (Solo descuenta si se completa un nuevo par)
+            r1_hoy_count = (1 if 'R1' in ent_m else 0) + (1 if 'R1' in ent_v else 0)
+            if r1_hoy_count > 0:
+                # Contamos cuántos R1 había antes (esto requiere filtrar los previos)
+                r1_previos = 0
+                for reg in asistencias_semana:
+                    # Buscamos físicamente la cadena R1 en registros pasados
+                    if reg.entrada_matutina and 'R1' in reg.entrada_matutina.upper(): r1_previos += 1
+                    if reg.entrada_vespertina and 'R1' in reg.entrada_vespertina.upper(): r1_previos += 1
+                
+                total_r1_solo_semana = r1_previos + r1_hoy_count
                 pares_viejos = r1_previos // 2
-                pares_nuevos = total_r1_semana // 2
+                pares_nuevos = total_r1_solo_semana // 2
                 if pares_nuevos > pares_viejos:
                     desc_retardo += (base_puesto / 2) * (pares_nuevos - pares_viejos)
 
@@ -892,7 +910,7 @@ def Asistencias_FF_view(request):
             asistencia.pago_dia = round(max(0, pago_total), 2)
             
             # Guardamos el total de R1 acumulados en 'horas' para que la nómina pueda auditar si quiere
-            asistencia.horas = float(total_r1_semana)
+            asistencia.horas = float(total_puntos_semana) # Ahora guarda el peso real (R1=1, R2=2)
             asistencia.observaciones = request.POST.get('observaciones', '').strip()
             asistencia.save()
             
