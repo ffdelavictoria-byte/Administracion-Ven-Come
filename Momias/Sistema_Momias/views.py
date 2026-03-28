@@ -1193,20 +1193,24 @@ def calcular_nomina_web(request):
                     
                     # 1. Contar cuántos días trabajó REALMENTE jornada doble
                     dias_completos = 0
+                    # 1. Contar cuántos días trabajó REALMENTE jornada doble
+                    dias_completos = 0
                     for a in asistencias_trabajadas:
                         puesto_str = (a.puesto or "").upper()
                         
-                        # Verificación de marcas: entrada temprano Y salida tarde
+                        # --- NUEVA LÓGICA DE EXCEPCIONES ---
+                        puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
+                        es_excepcion_turno = any(x in puesto_str for x in puestos_turno_unico)
+                        # ----------------------------------
+
                         tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
                         tiene_sv = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
-                        # También checamos entrada vespertina por si usan el método de dos entradas
                         tiene_ev = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
                         
                         es_12h_gerente = "12 HORAS" in puesto_str or "GERENTE" in puesto_str
                         
-                        # Un día es completo si tiene entrada matutina Y (salida vespertina O entrada vespertina)
-                        # o si el puesto es inherentemente de 12 horas
-                        if (tiene_m and (tiene_sv or tiene_ev)) or es_12h_gerente:
+                        # Agregamos "and not es_excepcion_turno" al final de la condición
+                        if ((tiene_m and (tiene_sv or tiene_ev)) or es_12h_gerente) and not es_excepcion_turno:
                             dias_completos += 1
 
                     # 2. Determinar el salario de un solo turno (promedio de lo que trabajó)
@@ -1336,7 +1340,16 @@ def calcular_nomina_web(request):
                     nombre_dia = dias_semana_esp[reg.fecha.weekday()]
                     fecha_str = reg.fecha.strftime('%d/%m/%y')
                     
-                    cantidad_turnos = 2 if es_jornada_completa else 1
+                    # --- LÓGICA DE TURNOS CORREGIDA PARA EL RECUADRO ---
+                    pue_up = (reg.puesto or "").upper()
+                    puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
+                    es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
+
+                    if es_excepcion_turno:
+                        cantidad_turnos = 1
+                    else:
+                        cantidad_turnos = 2 if es_jornada_completa else 1
+                    # --------------------------------------------------
                     
                     dias_map[nombre_dia].append({
                         'fecha_dia': fecha_str,
@@ -1346,10 +1359,10 @@ def calcular_nomina_web(request):
                         'descuento_retardo': round(desc_retardo_dia, 2),
                         'monto_bono': float(reg.bonificacion or 0),
                         'motivo_bono': reg.motivo_bonificacion,
-                        'monto_descuento': float(reg.descuento or 0),     # Pasamos el monto
+                        'monto_descuento': float(reg.descuento or 0),
                         'motivo_descuento': reg.motivo_descuento,
                         'estatus': item['estatus'],
-                        'cantidad_turnos': cantidad_turnos
+                        'cantidad_turnos': cantidad_turnos # Ahora usará el valor corregido
                     })
                 # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
                 total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
