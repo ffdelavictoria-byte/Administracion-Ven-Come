@@ -1806,8 +1806,12 @@ def vista_reportes(request):
             tiene_sv = asis.salida_vespertina and str(asis.salida_vespertina).strip() != ""
             tiene_ev = asis.entrada_vespertina and str(asis.entrada_vespertina).strip() != ""
             
-            es_jornada_doble = (tiene_m and (tiene_sv or tiene_ev)) or \
-                               any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"])
+            # EXCEPCIÓN: Si es puesto INTERMEDIO, nunca es jornada doble para el conteo de turnos
+            es_intermedio = "INTERMEDIO" in pue_up
+
+            es_jornada_doble = ((tiene_m and (tiene_sv or tiene_ev)) or \
+                               any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"])) \
+                               and not es_intermedio # <-- Agregamos esta condición
             
             cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
@@ -1857,7 +1861,7 @@ def vista_reportes(request):
             
             # RESULTADO FINAL DEL DÍA
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
-            cantidad_turnos = 2 if (asis.entrada_matutina and asis.salida_vespertina) else 1
+            cantidad_turnos = 1 if es_intermedio else (2 if (asis.entrada_matutina and asis.salida_vespertina) else 1)
 
             if es_falta:
                 pue_display = "FALTA"
