@@ -1754,68 +1754,45 @@ def calcular_nomina_web(request):
 
                     })
 
+
                 # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
-
                 total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
-
+                
+                # El total neto debe ser: (Base + Bonos) - (Manuales + Retardos + Uniforme)
                 total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
 
-
-
                 motivos_bonos_semana = [
-
                     reg.motivo_bonificacion 
-
                     for reg in asistencias 
-
                     if reg.motivo_bonificacion and reg.motivo_bonificacion.strip()
-
                 ]
-
-                
-
-                # Unimos los motivos con comas para que se vea como un solo texto
-
                 motivo_bono_texto = ", ".join(motivos_bonos_semana) if motivos_bonos_semana else ""
 
-                
-
-                # --- EN TU BUCLE DE RESULTADOS_NOMINA.APPEND ---
+                # Corregimos también los motivos de descuentos manuales para que no se pierdan
+                motivos_desc_semana = [
+                    reg.motivo_descuento 
+                    for reg in asistencias 
+                    if reg.motivo_descuento and reg.motivo_descuento.strip()
+                ]
+                motivo_desc_texto = ", ".join(motivos_desc_semana) if motivos_desc_semana else ""
 
                 resultados_nomina.append({
-
                     'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
-
                     'puesto_principal': puesto_principal,
-
                     'periodo_info': f"{sem_inicio.strftime('%d/%m')} al {sem_fin.strftime('%d/%m')}",
-
                     'dias': [dias_map[d] for d in dias_semana_esp],
-
                     'pago_base': round(pago_base_total, 2),
-
                     'retardos': total_retardos,
-
-                    # CORRECCIÓN: Usa la variable acumulada semanal, no la del último día
-
-                    'monto_bono': float(reg.bonificacion or 0),
-
-                    'motivo_bono': reg.motivo_bonificacion,
-
-                    'motivo_bonificacion': motivo_bono_texto,
-
                     'desc_retardos': round(total_desc_retardos_semanal, 2), 
-
                     'bonos': round(total_bonos, 2),
-
+                    'motivo_bonificacion': motivo_bono_texto,
+                    # IMPORTANTE: Aquí solo mandamos el acumulado manual, 
+                    # ya no referenciamos a 'reg.descuento' que causaba confusión
                     'descuentos': round(total_descuentos_manuales, 2),
-
+                    'motivo_descuento': motivo_desc_texto,
                     'uniforme': round(total_uniforme, 2),
-
                     'total_neto': round(total_neto, 2),
-
                 })
-
 
 
     lista_sucursales = [
