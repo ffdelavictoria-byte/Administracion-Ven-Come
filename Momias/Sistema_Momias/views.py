@@ -2328,7 +2328,7 @@ def vista_reportes(request):
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
-            fila['total_turnos'] += 0 if es_falta else (2 if (asis.entrada_matutina and asis.salida_vespertina) else cantidad_turnos)
+            fila['total_turnos'] += (0 if es_falta else cantidad_turnos)
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
