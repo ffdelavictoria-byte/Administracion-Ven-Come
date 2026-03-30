@@ -2250,7 +2250,9 @@ def vista_reportes(request):
 
             cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
-            # 3. CÁLCULO DEL PAGO BASE
+            # ... (dentro del for asis in asistencias_query:)
+
+            # 3. CÁLCULO DEL PAGO BASE (AJUSTADO PARA COINCIDIR CON NÓMINA)
             pago_registrado = float(asis.pago_dia or 0)
 
             if es_falta:
@@ -2262,21 +2264,52 @@ def vista_reportes(request):
                 elif pago_registrado > 0:
                     pago_base_dia = pago_registrado
                 else:
+                    # --- LÓGICA DE NÓMINA: PROMEDIO SEMANAL Y 6 DÍAS ---
                     asistencias_este_emp = [
                         a for a in asistencias_query if a.empleado_id == emp.id
                     ]
-                    dias_completos = sum(
-                        1 for a in asistencias_este_emp
-                        if a.entrada_matutina and a.salida_vespertina
-                    )
-                    pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
+                    
+                    # 3.1 Calcular Promedio de Salarios de la semana
+                    puestos_semana = [a.puesto or emp.puesto or "GENERAL" for a in asistencias_este_emp if "DESCANSO" not in (a.estatus or "").upper()]
+                    if puestos_semana:
+                        suma_salarios = sum(float(puestos_salarios.get(p, emp.sueldo_base or 0)) for p in puestos_semana)
+                        # El valor_turno promedio es la suma de los salarios diarios entre los días trabajados
+                        # Si quieres el valor de UN TURNO (medio día para jornadas dobles), dividimos según el puesto
+                        salario_dia_promedio = suma_salarios / len(puestos_semana)
+                    else:
+                        salario_dia_promedio = salario_referencia
+
+                    # 3.2 Contar días con jornada doble real (según lógica de nómina)
+                    dias_completos_nomina = 0
+                    for a in asistencias_este_emp:
+                        est_a = (a.estatus or "").strip().upper()
+                        if "DESCANSO" in est_a or "FALTA" in est_a:
+                            continue
+                            
+                        pue_a = (a.puesto or emp.puesto or "GENERAL").upper()
+                        es_exc = any(x in pue_a for x in ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"])
+                        
+                        t_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+                        t_sv = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
+                        t_ev = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
+                        
+                        # Condición de jornada doble idéntica a la nómina
+                        if ((t_m and (t_sv or t_ev)) or any(x in pue_a for x in ["12 HORAS", "GERENTE"])) and not es_exc:
+                            dias_completos_nomina += 1
+
+                    # 3.3 Asignar pago de descanso (Doble si trabajó 6 días completos)
+                    # Usamos el salario promedio calculado de sus otros días
+                    if dias_completos_nomina >= 6:
+                        pago_base_dia = salario_dia_promedio * 2
+                    else:
+                        pago_base_dia = salario_dia_promedio
 
             else:
                 pago_base_dia = (
                     pago_registrado if pago_registrado > 0
                     else (valor_turno * cantidad_turnos_dia)
                 )
-
+# ... (continúa el código de descuentos y bonos)
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
 
