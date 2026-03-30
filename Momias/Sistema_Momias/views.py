@@ -2273,29 +2273,47 @@ def vista_reportes(request):
             # 3. CÁLCULO DEL PAGO BASE
             pago_registrado = float(asis.pago_dia or 0)
 
+            # 3. CÁLCULO DEL PAGO BASE Y CONTEO DE TURNOS (CORREGIDO)
+            pago_registrado = float(asis.pago_dia or 0)
+
             if es_falta:
                 pago_base_dia = 0.0
+                cantidad_turnos = 0
 
             elif es_descanso:
                 if emp.id in ids_con_falta:
                     pago_base_dia = 0.0
+                    cantidad_turnos = 0
                 elif pago_registrado > 0:
                     pago_base_dia = pago_registrado
+                    # Si hay pago manual, asumimos 1 turno a menos que el monto indique lo contrario
+                    cantidad_turnos = 1 
                 else:
                     asistencias_este_emp = [
                         a for a in asistencias_query if a.empleado_id == emp.id
                     ]
+                    # Contamos días con jornada completa (ambos bloques)
                     dias_completos = sum(
                         1 for a in asistencias_este_emp
                         if a.entrada_matutina and a.salida_vespertina
                     )
-                    pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
+                    
+                    if dias_completos >= 6:
+                        pago_base_dia = valor_turno * 2
+                        cantidad_turnos = 2  # Refleja el beneficio de descanso doble
+                    else:
+                        pago_base_dia = valor_turno
+                        cantidad_turnos = 1
 
             else:
-                pago_base_dia = (
-                    pago_registrado if pago_registrado > 0
-                    else (valor_turno * cantidad_turnos_dia)
-                )
+                # Días normales de trabajo
+                if pago_registrado > 0:
+                    pago_base_dia = pago_registrado
+                    # Mantenemos la lógica de turnos calculada en la sección 2 para visualización
+                    cantidad_turnos = cantidad_turnos_dia 
+                else:
+                    pago_base_dia = valor_turno * cantidad_turnos_dia
+                    cantidad_turnos = cantidad_turnos_dia
 
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
@@ -2319,6 +2337,7 @@ def vista_reportes(request):
                 else (2 if (asis.entrada_matutina and asis.salida_vespertina) else 1)
             )
 
+            # 5. ETIQUETA DE VISUALIZACIÓN Y AGRUPACIÓN
             if es_falta:
                 pue_display = "FALTA"
             elif es_descanso:
@@ -2348,24 +2367,26 @@ def vista_reportes(request):
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
-            fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
+            # --- SECCIÓN DE ACUMULACIÓN (CORREGIDA) ---
+            # Ahora sumamos 'cantidad_turnos' directamente, ya que contiene 0 para faltas 
+            # y 1 o 2 para descansos según la lógica de días completos.
+            fila['total_turnos'] += cantidad_turnos
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
 
+            # Resumen por sucursal
             if suc not in resumen_sucursales_dict:
                 resumen_sucursales_dict[suc] = 0.0
-
             resumen_sucursales_dict[suc] += pago_neto_dia
 
+            # Resumen global
             resumen_global['total_pagar'] += pago_neto_dia
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
             resumen_global['total_descuentos'] += monto_descuento_total_dia
-            resumen_global['total_turnos'] += (
-                0 if es_falta or es_descanso else cantidad_turnos
-            )
+            resumen_global['total_turnos'] += cantidad_turnos
 
     resumen_sucursales = [
         {
