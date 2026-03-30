@@ -2130,65 +2130,33 @@ def vista_reportes(request):
 
     # Diccionario de salarios
     puestos_salarios = {
-        "Gerente (12 Horas)": 600.00,
-        "Chef de Línea (9 horas)": 531.57,
-        "Encargado Cocina (Matutino 6 horas)": 252.00,
-        "Encargado Cocina (Matutino 9 horas)": 378.00,
-        "Encargado Cocina (Matutino 12 horas)": 504.00,
-        "Encargado de Cocina (12 horas)": 519.00,
-        "Cocina y Barra (6 hrs)": 236.50,
-        "Cocina y Barra (9 hrs)": 354.50,
-        "Caja (6 horas)": 248.00,
-        "Caja (9 horas)": 354.50,
-        "Barra (6 horas) Entregas": 236.50,
-        "Barra (9 horas) Entregas": 354.50,
-        "Fin de Semana": 473.00,
-        "Encargado Victoria (6 Horas)": 316.00,
-        "Encargado Sucursales (6 Horas)": 262.00,
-        "Encargado Sucursales (9 Horas)": 393.00,
-        "Freidor (6 horas)": 248.00,
-        "Freidor (9 horas)": 372.00,
-        "Despacho (6 horas)": 236.50,
-        "Despacho (9 horas)": 354.75,
-        "Benny": 171.00,
-        "Aderezos": 236.50,
-        "Cocina": 248.00,
-        "Fabrica": 236.50,
-        "Perrioni": 236.50,
-        "PP": 236.50,
-        "Yommy": 236.50,
-        "Rappi": 354.75,
-        "Fabrica Crystal": 262.00,
-        "PM": 236.50,
-        "Caja Capacitacion": 236.50,
-        "Freidor Capacitacion": 236.50,
-        "Encargado Capacitacion": 248.00,
-        "Caja Matutina (6 horas)": 236.50,
-        "Caja Vespertina (6 horas)": 236.50,
-        "Caja Matutina (9 horas)": 354.50,
-        "Caja Vespertina (9 horas)": 354.50,
-        "Cocina Matutina (6 horas)": 236.50,
-        "Cocina Vespertina (6 horas)": 236.50,
-        "Cocina Matutina (9 horas)": 354.50,
-        "Cocina Vespertina (9 horas)": 354.50,
-        "Crepas Intermedio (9 horas)": 354.50,
-        "Barra y Cocina Fin De Semana (12 horas)": 473.00,
-        "Limpieza Fin De Semana (9 horas)": 408.00,
-        "Limpieza 1 Matutino (6 horas L)": 272.00,
-        "Limpieza 2 Matutino (6 horas)": 236.50,
-        "Limpieza 3 Vespertino (6 horas A)": 272.00,
-        "Limpieza 4 Vespertino (6 horas)": 236.50,
-        "Aux Produccion": 177.00,
-        "Produccion": 370.00,
-        "TURNO MATUTINO (6 horas)": 236.50,
-        "TURNO VESPERTINO (6 horas)": 236.50,
-        "TURNO MATUTINO (9 horas)": 354.50,
-        "TURNO VESPERTINO (9 horas)": 354.50,
-        "TURNO FIN DE SEMANA": 473.00,
-        "Gerente (12 horas)": 600.00,
-        "Chef de Línea (9 horas)": 531.57,
-        "Crepas": 354.50,
-        "Hamburguesas FF": 0.0,
+        "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
+        "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
+        "Encargado Cocina (Matutino 12 horas)": 504.00, "Encargado de Cocina (12 horas)": 519.00,
+        "Cocina y Barra (6 hrs)": 236.50, "Cocina y Barra (9 hrs)": 354.50,
+        "Caja (6 horas)": 248.00, "Caja (9 horas)": 354.50,
+        "Barra (6 horas) Entregas": 236.50, "Barra (9 horas) Entregas": 354.50,
+        "Fin de Semana": 473.00, "Encargado Victoria (6 Horas)": 316.00,
+        "Encargado Sucursales (6 Horas)": 262.00, "Encargado Sucursales (9 Horas)": 393.00,
+        "Freidor (6 horas)": 248.00, "Freidor (9 horas)": 372.00,
+        "Despacho (6 horas)": 236.50, "Despacho (9 horas)": 354.75,
+        "Benny": 171.00, "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50,
+        "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50, "Rappi": 354.75,
+        "Fabrica Crystal": 262.00, "PM": 236.50, "Caja Capacitacion": 236.50,
+        "Freidor Capacitacion": 236.50, "Encargado Capacitacion": 248.00,
+        "Caja Matutina (6 horas)": 236.50, "Caja Vespertina (6 horas)": 236.50,
+        "Caja Matutina (9 horas)": 354.50, "Caja Vespertina (9 horas)": 354.50,
+        "Cocina Matutina (6 horas)": 236.50, "Cocina Vespertina (6 horas)": 236.50,
+        "Cocina Matutina (9 horas)": 354.50, "Cocina Vespertina (9 horas)": 354.50,
+        "Crepas Intermedio (9 horas)": 354.50, "Barra y Cocina Fin De Semana (12 horas)": 473.00,
+        "Limpieza Fin De Semana (9 horas)": 408.00, "Limpieza 1 Matutino (6 horas L)": 272.00,
+        "Limpieza 2 Matutino (6 horas)": 236.50, "Limpieza 3 Vespertino (6 horas A)": 272.00,
+        "Limpieza 4 Vespertino (6 horas)": 236.50, "Aux Produccion": 177.00,
+        "Produccion": 370.00, "TURNO MATUTINO (6 horas)": 236.50,
+        "TURNO VESPERTINO (6 horas)": 236.50, "TURNO MATUTINO (9 horas)": 354.50,
+        "TURNO VESPERTINO (9 horas)": 354.50, "TURNO FIN DE SEMANA": 473.00,
+        "Gerente (12 horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
+        "Crepas": 354.50, "Hamburguesas FF": 0.0,
     }
 
     FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
@@ -2213,27 +2181,16 @@ def vista_reportes(request):
         if query_nombre:
             asistencias_query = asistencias_query.annotate(
                 full_name=Concat(
-                    'empleado__nombre',
-                    Value(' '),
-                    'empleado__apellido_paterno',
-                    Value(' '),
-                    'empleado__apellido_materno',
-                    output_field=CharField()
+                    'empleado__nombre', Value(' '), 'empleado__apellido_paterno',
+                    Value(' '), 'empleado__apellido_materno', output_field=CharField()
                 )
-            ).filter(
-                Q(full_name__icontains=query_nombre) |
-                Q(empleado__codigo_empleado__icontains=query_nombre)
-            )
+            ).filter(Q(full_name__icontains=query_nombre) | Q(empleado__codigo_empleado__icontains=query_nombre))
 
-        ids_con_falta = set(
-            asistencias_query.filter(estatus__icontains="FALTA")
-            .values_list('empleado_id', flat=True)
-        )
+        ids_con_falta = set(asistencias_query.filter(estatus__icontains="FALTA").values_list('empleado_id', flat=True))
 
         for asis in asistencias_query:
             emp = asis.empleado
             estatus_limpio = (asis.estatus or "").strip().upper()
-
             es_descanso = "DESCANSO" in estatus_limpio
             es_falta = "FALTA" in estatus_limpio
 
@@ -2242,9 +2199,7 @@ def vista_reportes(request):
             suc = asis.sucursal or "Victoria"
 
             # 1. DETERMINAR VALOR DEL TURNO
-            salario_referencia = float(
-                puestos_salarios.get(pue_original, emp.sueldo_base or 0)
-            )
+            salario_referencia = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
 
             if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]):
                 valor_turno = salario_referencia / 1.5
@@ -2257,44 +2212,44 @@ def vista_reportes(request):
             tiene_m = asis.entrada_matutina and str(asis.entrada_matutina).strip() != ""
             tiene_sv = asis.salida_vespertina and str(asis.salida_vespertina).strip() != ""
             tiene_ev = asis.entrada_vespertina and str(asis.entrada_vespertina).strip() != ""
-
             puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
             es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
 
-            es_jornada_doble = (
-                ((tiene_m and (tiene_sv or tiene_ev)) or
-                 any(x in pue_up for x in ["12 HORAS", "GERENTE"]))
-                and not es_excepcion_turno
-            )
+            es_jornada_doble = (((tiene_m and (tiene_sv or tiene_ev)) or 
+                                any(x in pue_up for x in ["12 HORAS", "GERENTE"])) 
+                                and not es_excepcion_turno)
 
             cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
-            # 3. CÁLCULO DEL PAGO BASE
+            # 3. CÁLCULO DEL PAGO BASE Y TURNOS DE DESCANSO
             pago_registrado = float(asis.pago_dia or 0)
+            turnos_finales_dia = 0 # Variable para acumular en el total_turnos
 
             if es_falta:
                 pago_base_dia = 0.0
+                turnos_finales_dia = 0
 
             elif es_descanso:
                 if emp.id in ids_con_falta:
                     pago_base_dia = 0.0
+                    turnos_finales_dia = 0
                 elif pago_registrado > 0:
                     pago_base_dia = pago_registrado
+                    turnos_finales_dia = 1 
                 else:
-                    asistencias_este_emp = [
-                        a for a in asistencias_query if a.empleado_id == emp.id
-                    ]
-                    dias_completos = sum(
-                        1 for a in asistencias_este_emp
-                        if a.entrada_matutina and a.salida_vespertina
-                    )
-                    pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
+                    asistencias_este_emp = [a for a in asistencias_query if a.empleado_id == emp.id]
+                    dias_completos = sum(1 for a in asistencias_este_emp if a.entrada_matutina and (a.salida_vespertina or a.entrada_vespertina))
+                    
+                    if dias_completos >= 6:
+                        pago_base_dia = valor_turno * 2
+                        turnos_finales_dia = 2 # Se multiplica el turno por 2
+                    else:
+                        pago_base_dia = valor_turno
+                        turnos_finales_dia = 1
 
             else:
-                pago_base_dia = (
-                    pago_registrado if pago_registrado > 0
-                    else (valor_turno * cantidad_turnos_dia)
-                )
+                pago_base_dia = pago_registrado if pago_registrado > 0 else (valor_turno * cantidad_turnos_dia)
+                turnos_finales_dia = cantidad_turnos_dia
 
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
@@ -2305,26 +2260,12 @@ def vista_reportes(request):
             puntos_retardo = int(float(asis.horas or 0))
             factor = FACTORES_RETARDO.get(puntos_retardo, 0)
 
-            desc_retardo_calculado = (
-                valor_turno * factor if (not es_descanso and not es_falta) else 0
-            )
+            desc_retardo_calculado = (valor_turno * factor if (not es_descanso and not es_falta) else 0)
             monto_descuento_total_dia = desc_manual + desc_retardo_calculado / 2
-
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
 
-            # 5. CONTEO DE TURNOS
-            cantidad_turnos = (
-                1 if es_excepcion_turno
-                else (2 if (asis.entrada_matutina and asis.salida_vespertina) else 1)
-            )
-
-            if es_falta:
-                pue_display = "FALTA"
-            elif es_descanso:
-                pue_display = "DESCANSO"
-            else:
-                pue_display = pue_original
-
+            # 5. AGRUPACIÓN
+            pue_display = "FALTA" if es_falta else ("DESCANSO" if es_descanso else pue_original)
             key = (emp.id, suc, pue_display)
 
             if key not in agrupados_dict:
@@ -2341,13 +2282,12 @@ def vista_reportes(request):
                 }
 
             fila = agrupados_dict[key]
-
             if asis.motivo_descuento:
                 m_txt = str(asis.motivo_descuento).strip()
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
-            fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
+            fila['total_turnos'] += turnos_finales_dia
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
@@ -2355,40 +2295,24 @@ def vista_reportes(request):
 
             if suc not in resumen_sucursales_dict:
                 resumen_sucursales_dict[suc] = 0.0
-
             resumen_sucursales_dict[suc] += pago_neto_dia
 
             resumen_global['total_pagar'] += pago_neto_dia
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
             resumen_global['total_descuentos'] += monto_descuento_total_dia
-            resumen_global['total_turnos'] += (
-                0 if es_falta or es_descanso else cantidad_turnos
-            )
+            resumen_global['total_turnos'] += turnos_finales_dia
 
-    resumen_sucursales = [
-        {
-            'nombre': suc_n,
-            'periodo': f"{f_inicio} al {f_fin}",
-            'total': round(total_n, 2)
-        }
-        for suc_n, total_n in resumen_sucursales_dict.items()
-    ]
+    resumen_sucursales = [{'nombre': suc_n, 'periodo': f"{f_inicio} al {f_fin}", 'total': round(total_n, 2)} 
+                          for suc_n, total_n in resumen_sucursales_dict.items()]
 
-    lista_agrupada = sorted(
-        agrupados_dict.values(),
-        key=lambda x: x['empleado']
-    )
+    lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
 
     context = {
         'empleados': empleados_qs,
         'agrupados': lista_agrupada,
         'resumen_sucursales': resumen_sucursales,
-        'lista_sucursales': [
-            "Momias 1", "Momias 2", "Momias 3", "Momias 4",
-            "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal",
-            "PP", "PM", "Area Seca", "Perrioni", "FastFood"
-        ],
+        'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal", "PP", "PM", "Area Seca", "Perrioni", "FastFood"],
         'fecha_inicio': f_inicio,
         'fecha_fin': f_fin,
         'query': query_nombre,
