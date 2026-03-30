@@ -2177,25 +2177,27 @@ def vista_reportes(request):
     agrupados_dict = {}
     resumen_sucursales_dict = {}
     resumen_global = {
-        'total_pagar': 0.0,
+        'total_pagar': 0,
         'total_retardos': 0,
-        'total_bonif': 0.0,
+        'total_bonif': 0,
         'total_turnos': 0,
-        'total_descuentos': 0.0
+        'total_descuentos': 0
     }
 
     if f_inicio and f_fin:
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
 
-        # --- FILTROS ---
+        # Filtros
         if sucursal_filtro and sucursal_filtro != "TODAS":
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
 
         if query_nombre:
             asistencias_query = asistencias_query.annotate(
                 full_name=Concat(
-                    'empleado__nombre', Value(' '),
-                    'empleado__apellido_paterno', Value(' '),
+                    'empleado__nombre',
+                    Value(' '),
+                    'empleado__apellido_paterno',
+                    Value(' '),
                     'empleado__apellido_materno',
                     output_field=CharField()
                 )
@@ -2204,104 +2206,106 @@ def vista_reportes(request):
                 Q(empleado__codigo_empleado__icontains=query_nombre)
             )
 
-        # --- PRE-PROCESAMIENTO LÓGICO (Sincronización con Nómina) ---
-        # Convertimos a lista para evitar múltiples consultas y pre-calculamos jornadas
-        asistencias_lista = list(asistencias_query)
-        ids_con_falta = set()
-        conteo_jornadas_dobles = {}
+        ids_con_falta = set(
+            asistencias_query.filter(estatus__icontains="FALTA")
+            .values_list('empleado_id', flat=True)
+        )
 
-        for a in asistencias_lista:
-            emp_id = a.empleado_id
-            est_up = (a.estatus or "").strip().upper()
-            pue_up = (a.puesto or a.empleado.puesto or "").upper()
-
-            if "FALTA" in est_up:
-                ids_con_falta.add(emp_id)
-
-            # Criterios para bono de descanso (excluyendo puestos de turno único)
-            es_excepcion_bono = any(x in pue_up for x in ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"])
-            es_12h_gerente = any(x in pue_up for x in ["12 HORAS", "GERENTE"])
-            tiene_m_y_v = a.entrada_matutina and (a.salida_vespertina or a.entrada_vespertina)
-
-            if (es_12h_gerente or tiene_m_y_v) and not es_excepcion_bono:
-                conteo_jornadas_dobles[emp_id] = conteo_jornadas_dobles.get(emp_id, 0) + 1
-
-        # --- BUCLE PRINCIPAL DE CÁLCULO ---
-        for asis in asistencias_lista:
+        for asis in asistencias_query:
             emp = asis.empleado
             estatus_limpio = (asis.estatus or "").strip().upper()
+
             es_descanso = "DESCANSO" in estatus_limpio
             es_falta = "FALTA" in estatus_limpio
+
             pue_original = asis.puesto or emp.puesto or "GENERAL"
             pue_up = pue_original.upper()
             suc = asis.sucursal or "Victoria"
 
-            # 1. VALOR DEL TURNO
-            salario_ref = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
-            if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]):
-                valor_turno = salario_ref / 1.5
-            elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
-                valor_turno = salario_ref / 2
-            else:
-                valor_turno = salario_ref
+            # 1. DETERMINAR VALOR DEL TURNO
+            salario_referencia = float(
+                puestos_salarios.get(pue_original, emp.sueldo_base or 0)
+            )
 
-            # 2. PAGO BASE (Lógica de Descanso Real)
+            if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]):
+                valor_turno = salario_referencia / 1.5
+            elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
+                valor_turno = salario_referencia / 2
+            else:
+                valor_turno = salario_referencia
+
+            # 2. LÓGICA DE JORNADA DOBLE
+            tiene_m = asis.entrada_matutina and str(asis.entrada_matutina).strip() != ""
+            tiene_sv = asis.salida_vespertina and str(asis.salida_vespertina).strip() != ""
+            tiene_ev = asis.entrada_vespertina and str(asis.entrada_vespertina).strip() != ""
+
+            puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
+            es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
+
+            es_jornada_doble = (
+                ((tiene_m and (tiene_sv or tiene_ev)) or
+                 any(x in pue_up for x in ["12 HORAS", "GERENTE"]))
+                and not es_excepcion_turno
+            )
+
+            cantidad_turnos_dia = 2 if es_jornada_doble else 1
+
+            # 3. CÁLCULO DEL PAGO BASE
             pago_registrado = float(asis.pago_dia or 0)
 
             if es_falta:
                 pago_base_dia = 0.0
+
             elif es_descanso:
                 if emp.id in ids_con_falta:
                     pago_base_dia = 0.0
                 elif pago_registrado > 0:
                     pago_base_dia = pago_registrado
                 else:
-                    # Pago basado en la intensidad de la semana (6+ días de 12h = Descanso Doble)
-                    dobles = conteo_jornadas_dobles.get(emp.id, 0)
-                    pago_base_dia = valor_turno * 2 if dobles >= 6 else valor_turno
+                    asistencias_este_emp = [
+                        a for a in asistencias_query if a.empleado_id == emp.id
+                    ]
+                    dias_completos = sum(
+                        1 for a in asistencias_este_emp
+                        if a.entrada_matutina and a.salida_vespertina
+                    )
+                    pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
+
             else:
-                # Pago de día trabajado normal
-                es_excepcion_pago = any(x in pue_up for x in ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"])
-                es_jornada_doble = (
-                    ((asis.entrada_matutina and (asis.salida_vespertina or asis.entrada_vespertina)) or
-                     any(x in pue_up for x in ["12 HORAS", "GERENTE"]))
-                    and not es_excepcion_pago
+                pago_base_dia = (
+                    pago_registrado if pago_registrado > 0
+                    else (valor_turno * cantidad_turnos_dia)
                 )
-                cant_turnos_dia = 2 if es_jornada_doble else 1
-                pago_base_dia = pago_registrado if pago_registrado > 0 else (valor_turno * cant_turnos_dia)
 
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
 
-            # 3. DESCUENTOS Y BONOS
+            # 4. DESCUENTOS Y BONOS
             bono_dia = float(asis.bonificacion or 0)
             desc_manual = float(asis.descuento or 0)
             puntos_retardo = int(float(asis.horas or 0))
-            
-            # El retardo solo se resta si el empleado realmente trabajó ese día
-            if not es_descanso and not es_falta:
-                desc_retardo_calculado = (valor_turno * FACTORES_RETARDO.get(puntos_retardo, 0))
+            factor = FACTORES_RETARDO.get(puntos_retardo, 0)
+
+            desc_retardo_calculado = (
+                valor_turno * factor if (not es_descanso and not es_falta) else 0
+            )
+            monto_descuento_total_dia = desc_manual + desc_retardo_calculado / 2
+
+            pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
+
+            # 5. CONTEO DE TURNOS
+            cantidad_turnos = (
+                1 if es_excepcion_turno
+                else (2 if (asis.entrada_matutina and asis.salida_vespertina) else 1)
+            )
+
+            if es_falta:
+                pue_display = "FALTA"
+            elif es_descanso:
+                pue_display = "DESCANSO"
             else:
-                desc_retardo_calculado = 0.0
+                pue_display = pue_original
 
-            monto_desc_total_dia = desc_manual + (desc_retardo_calculado / 2)
-            pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total_dia
-
-            # 4. CONTEO DE TURNOS PARA EL REPORTE
-            if es_falta or es_descanso:
-                turnos_contar = 0
-            else:
-                # Recalculamos turnos del día para el acumulado visual
-                es_excepcion_pago = any(x in pue_up for x in ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"])
-                es_jornada_doble = (
-                    ((asis.entrada_matutina and (asis.salida_vespertina or asis.entrada_vespertina)) or
-                     any(x in pue_up for x in ["12 HORAS", "GERENTE"]))
-                    and not es_excepcion_pago
-                )
-                turnos_contar = 2 if es_jornada_doble else 1
-
-            # 5. AGRUPACIÓN (Diccionario por Empleado/Sucursal/Puesto)
-            pue_display = "FALTA" if es_falta else ("DESCANSO" if es_descanso else pue_original)
             key = (emp.id, suc, pue_display)
 
             if key not in agrupados_dict:
@@ -2318,26 +2322,31 @@ def vista_reportes(request):
                 }
 
             fila = agrupados_dict[key]
+
             if asis.motivo_descuento:
                 m_txt = str(asis.motivo_descuento).strip()
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
-            fila['total_turnos'] += turnos_contar
+            fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
-            fila['monto_descuentos'] += monto_desc_total_dia
+            fila['monto_descuentos'] += monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
 
-            # 6. RESÚMENES DE SUCURSAL Y GLOBAL
-            resumen_sucursales_dict[suc] = resumen_sucursales_dict.get(suc, 0.0) + pago_neto_dia
+            if suc not in resumen_sucursales_dict:
+                resumen_sucursales_dict[suc] = 0.0
+
+            resumen_sucursales_dict[suc] += pago_neto_dia
+
             resumen_global['total_pagar'] += pago_neto_dia
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
-            resumen_global['total_descuentos'] += monto_desc_total_dia
-            resumen_global['total_turnos'] += turnos_contar
+            resumen_global['total_descuentos'] += monto_descuento_total_dia
+            resumen_global['total_turnos'] += (
+                0 if es_falta or es_descanso else cantidad_turnos
+            )
 
-    # --- FINALIZACIÓN DE DATOS ---
     resumen_sucursales = [
         {
             'nombre': suc_n,
