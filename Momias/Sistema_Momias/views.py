@@ -2117,16 +2117,12 @@ def exportar_pdf_nomina(request):
     doc.build(elements)
     return response
 
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Value, CharField
-from django.db.models.functions import Concat
-from .models import Empleado, Asistencia
+
 
 @login_required
 def vista_reportes(request):
-    # 1. Preparación de datos iniciales
     empleados_qs = Empleado.objects.filter(estatus='Activo').order_by('nombre')
+
     query_nombre = request.GET.get('q', '').strip()
     sucursal_filtro = request.GET.get('sucursal')
     f_inicio = request.GET.get('fecha_inicio')
@@ -2163,15 +2159,10 @@ def vista_reportes(request):
     }
 
     FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
-
     agrupados_dict = {}
     resumen_sucursales_dict = {}
-    resumen_global = {
-        'total_pagar': 0.0, 'total_retardos': 0, 'total_bonif': 0.0,
-        'total_turnos': 0, 'total_descuentos': 0.0
-    }
+    resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0, 'total_turnos': 0, 'total_descuentos': 0}
 
-    # 2. Procesamiento de asistencias
     if f_inicio and f_fin:
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
 
@@ -2183,7 +2174,6 @@ def vista_reportes(request):
                 full_name=Concat('empleado__nombre', Value(' '), 'empleado__apellido_paterno', Value(' '), 'empleado__apellido_materno', output_field=CharField())
             ).filter(Q(full_name__icontains=query_nombre) | Q(empleado__codigo_empleado__icontains=query_nombre))
 
-        # Identificar empleados con falta en el periodo para el cálculo de descansos
         ids_con_falta = set(asistencias_query.filter(estatus__icontains="FALTA").values_list('empleado_id', flat=True))
 
         for asis in asistencias_query:
@@ -2191,109 +2181,93 @@ def vista_reportes(request):
             estatus_limpio = (asis.estatus or "").strip().upper()
             es_descanso = "DESCANSO" in estatus_limpio
             es_falta = "FALTA" in estatus_limpio
-            
             pue_original = asis.puesto or emp.puesto or "GENERAL"
             pue_up = pue_original.upper()
             suc = asis.sucursal or "Victoria"
 
-            # --- A. Valor del Turno ---
-            salario_ref = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
+            # 1. VALOR REFERENCIA
+            salario_referencia = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
             if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]):
-                valor_turno = salario_ref / 1.5
+                valor_turno = salario_referencia / 1.5
             elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]):
-                valor_turno = salario_ref / 2
+                valor_turno = salario_referencia / 2
             else:
-                valor_turno = salario_ref
+                valor_turno = salario_referencia
 
-            # --- B. Lógica de Turnos (Doble o Sencillo) ---
-            puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
-            es_excepcion = any(x in pue_up for x in puestos_turno_unico)
+            # 2. LÓGICA DE JORNADA DOBLE
+            tiene_m = bool(asis.entrada_matutina)
+            tiene_v = bool(asis.salida_vespertina or asis.entrada_vespertina)
+            es_excepcion_turno = any(x in pue_up for x in ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"])
             
-            es_jornada_doble = False
-            if not es_excepcion:
-                if any(x in pue_up for x in ["12 HORAS", "GERENTE"]):
-                    es_jornada_doble = True
-                elif asis.entrada_matutina and (asis.salida_vespertina or asis.entrada_vespertina):
-                    es_jornada_doble = True
-            
+            es_jornada_doble = ( (tiene_m and tiene_v) or any(x in pue_up for x in ["12 HORAS", "GERENTE"]) ) and not es_excepcion_turno
             cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
-            # --- C. Cálculo de Pago ---
+            # 3. PAGO BASE
             pago_registrado = float(asis.pago_dia or 0)
             if es_falta:
                 pago_base_dia = 0.0
             elif es_descanso:
                 if emp.id in ids_con_falta:
                     pago_base_dia = 0.0
+                elif pago_registrado > 0:
+                    pago_base_dia = pago_registrado
                 else:
-                    pago_base_dia = pago_registrado if pago_registrado > 0 else valor_turno
+                    # Cálculo de 6 días trabajados
+                    asistencias_emp = asistencias_query.filter(empleado_id=emp.id)
+                    dias_trabajados = asistencias_emp.exclude(Q(estatus__icontains="FALTA") | Q(estatus__icontains="DESCANSO")).count()
+                    pago_base_dia = valor_turno * 2 if dias_trabajados >= 6 else valor_turno
             else:
                 pago_base_dia = pago_registrado if pago_registrado > 0 else (valor_turno * cantidad_turnos_dia)
 
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
 
-            # --- D. Descuentos y Bonos ---
+            # 4. DESCUENTOS Y BONOS
             bono_dia = float(asis.bonificacion or 0)
             desc_manual = float(asis.descuento or 0)
             puntos_retardo = int(float(asis.horas or 0))
-            desc_retardo = (valor_turno * FACTORES_RETARDO.get(puntos_retardo, 0)) if not (es_descanso or es_falta) else 0
-            
-            # Se divide entre 2 el descuento de retardo para que sea proporcional al turno (según tu lógica previa)
-            monto_desc_dia = desc_manual + (desc_retardo / 2)
-            pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_dia
+            desc_retardo = (valor_turno * FACTORES_RETARDO.get(puntos_retardo, 0)) if (not es_descanso and not es_falta) else 0
+            monto_descuento_total_dia = desc_manual + (desc_retardo / 2)
+            pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
 
-            # --- E. Agrupación (Llave corregida para evitar duplicados) ---
-            key = (emp.id, suc) 
+            # 5. CONTEO DE TURNOS (CORREGIDO PARA DESCANSOS)
+            # Si es falta 0, de lo contrario usamos la lógica de jornada doble
+            turnos_para_conteo = 0 if es_falta else cantidad_turnos_dia
+
+            pue_display = "FALTA" if es_falta else ("DESCANSO" if es_descanso else pue_original)
+            key = (emp.id, suc, pue_display)
 
             if key not in agrupados_dict:
                 agrupados_dict[key] = {
                     'empleado': f"{emp.nombre} {emp.apellido_paterno} {emp.apellido_materno or ''}".strip(),
-                    'sucursal': suc,
-                    'puesto': pue_original,
-                    'total_turnos': 0,
-                    'total_retardos': 0,
-                    'monto_descuentos': 0.0,
-                    'total_bonos': 0.0,
-                    'total_fila': 0.0,
-                    'motivos_descuentos': []
+                    'sucursal': suc, 'puesto': pue_display, 'total_turnos': 0,
+                    'total_retardos': 0, 'monto_descuentos': 0.0, 'total_bonos': 0.0,
+                    'total_fila': 0.0, 'motivos_descuentos': []
                 }
 
             fila = agrupados_dict[key]
-            
             if asis.motivo_descuento:
                 m_txt = str(asis.motivo_descuento).strip()
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
-            turnos_acumular = 0 if (es_falta or es_descanso) else cantidad_turnos_dia
-            
-            fila['total_turnos'] += turnos_acumular
+            fila['total_turnos'] += turnos_para_conteo
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
-            fila['monto_descuentos'] += monto_desc_dia
+            fila['monto_descuentos'] += monto_descuento_total_dia
             fila['total_fila'] += pago_neto_dia
 
-            # --- F. Resúmenes Globales ---
             resumen_sucursales_dict[suc] = resumen_sucursales_dict.get(suc, 0.0) + pago_neto_dia
             resumen_global['total_pagar'] += pago_neto_dia
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
-            resumen_global['total_descuentos'] += monto_desc_dia
-            resumen_global['total_turnos'] += turnos_acumular
-
-    # 3. Preparación del contexto final
-    resumen_sucursales = [
-        {'nombre': s, 'periodo': f"{f_inicio} al {f_fin}", 'total': round(t, 2)}
-        for s, t in resumen_sucursales_dict.items()
-    ]
-
-    lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
+            resumen_global['total_descuentos'] += monto_descuento_total_dia
+            resumen_global['total_turnos'] += turnos_para_conteo
 
     context = {
         'empleados': empleados_qs,
-        'agrupados': lista_agrupada,
-        'resumen_sucursales': resumen_sucursales,
+        'agrupados': sorted(agrupados_dict.values(), key=lambda x: x['empleado']),
+        'resumen_sucursales': [{'nombre': k, 'periodo': f"{f_inicio} al {f_fin}", 'total': round(v, 2)} for k, v in resumen_sucursales_dict.items()],
         'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal", "PP", "PM", "Area Seca", "Perrioni", "FastFood"],
         'fecha_inicio': f_inicio, 'fecha_fin': f_fin, 'query': query_nombre,
         'gran_total_pagar': round(resumen_global['total_pagar'], 2),
@@ -2302,7 +2276,6 @@ def vista_reportes(request):
         'gran_total_descuentos': round(resumen_global['total_descuentos'], 2),
         'gran_total_turnos': resumen_global['total_turnos']
     }
-
     return render(request, 'Reports.html', context)
     
 from django.contrib.auth import update_session_auth_hash # <--- IMPORTANTE: No olvides esta importación
