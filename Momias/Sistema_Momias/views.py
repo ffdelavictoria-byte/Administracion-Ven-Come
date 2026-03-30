@@ -903,13 +903,16 @@ def Asistencias_FF_view(request):
             asistencia.empleado, asistencia.fecha, asistencia.estatus, asistencia.puesto = empleado_obj, fecha_dt, estatus_jornada, puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
-            asistencia.bonificacion, asistencia.descuento = bono, desc_man
             
-            # PAGO FINAL: Monto bruto menos descuentos manuales y el castigo por retardo
-            pago_total = (monto_calc + bono) - desc_man # El castigo por retardo NO se resta aquí.
-            asistencia.pago_dia = round(max(0, pago_total), 2)
+            # Guardamos bono y descuento en sus campos, pero NO los restamos de pago_dia
+            asistencia.bonificacion = bono
+            asistencia.descuento = desc_man
             
-            # Guardamos el total de R1 acumulados en 'horas' para que la nómina pueda auditar si quiere
+            # PAGO FINAL: Ahora solo guarda el monto calculado por el tiempo/puesto (sueldo bruto base)
+            # El sistema de nómina sumará los pago_dia y luego aplicará bonos/descuentos una sola vez.
+            asistencia.pago_dia = round(max(0, monto_calc), 2)
+            
+            # Guardamos el total de puntos de retardo (R1/R2) en 'horas' para auditoría
             asistencia.horas = float(puntos_hoy)
             asistencia.observaciones = request.POST.get('observaciones', '').strip()
             asistencia.save()
