@@ -2237,35 +2237,37 @@ def vista_reportes(request):
                     pago_base_dia = pago_registrado
                     turnos_finales_dia = 1 
                 else:
-                    # Obtenemos todas las asistencias del periodo para este empleado
+                    # 1. Buscamos todas las asistencias del empleado en este periodo
                     asistencias_este_emp = [a for a in asistencias_query if a.empleado_id == emp.id]
                     
-                    # Contamos cuántos días trabajó jornada completa
-                    dias_completos = 0
+                    # 2. Contamos turnos totales para saber si hizo "semana completa"
+                    # No solo contamos filas, sino la intensidad de la jornada
+                    conteo_turnos_totales = 0
                     for a in asistencias_este_emp:
                         est_a = (a.estatus or "").upper()
                         p_a_up = (a.puesto or "").upper()
-                        
-                        # Si es falta o descanso, no cuenta para el bono
                         if "FALTA" in est_a or "DESCANSO" in est_a:
                             continue
-                            
-                        # Un día cuenta como completo si:
-                        # 1. Tiene ambos marcajes (M y V)
-                        # 2. O es un puesto que por definición es de jornada completa (12h/Gerente)
-                        tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
-                        tiene_v = (a.salida_vespertina and str(a.salida_vespertina).strip() != "") or \
-                                  (a.entrada_vespertina and str(a.entrada_vespertina).strip() != "")
                         
-                        if (tiene_m and tiene_v) or any(x in p_a_up for x in ["12 HORAS", "GERENTE"]):
-                            dias_completos += 1
+                        t_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+                        t_v = (a.salida_vespertina and str(a.salida_vespertina).strip() != "") or \
+                              (a.entrada_vespertina and str(a.entrada_vespertina).strip() != "")
+                        
+                        # Si tiene ambos marcajes o es puesto de 12h, son 2 turnos
+                        if (t_m and t_v) or any(x in p_a_up for x in ["12 HORAS", "GERENTE"]):
+                            conteo_turnos_totales += 2
+                        else:
+                            conteo_turnos_totales += 1
                     
-                    # Si trabajó 6 días o más, duplicamos el valor y el conteo de turnos
-                    if dias_completos >= 6:
-                        pago_base_dia = valor_turno * 2
-                        turnos_finales_dia = 2 
+                    # 3. Si sumó 12 turnos o más (6 días dobles), le tocan 2 turnos de descanso
+                    # Usamos salario_referencia directamente para asegurar los $524 (262 * 2)
+                    if conteo_turnos_totales >= 12:
+                        pago_base_dia = salario_referencia # Esto asegura los $524.00
+                        turnos_finales_dia = 2
                     else:
-                        pago_base_dia = valor_turno
+                        # Si no llegó a los 12 turnos, le damos lo proporcional a 1 turno
+                        # Si su puesto es de 6 horas, el valor_turno ya es 262.
+                        pago_base_dia = valor_turno 
                         turnos_finales_dia = 1
 
             else:
