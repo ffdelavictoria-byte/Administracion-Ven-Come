@@ -2230,6 +2230,21 @@ def vista_reportes(request):
             asistencias_query.filter(estatus__icontains="FALTA")
             .values_list('empleado_id', flat=True)
         )
+        
+        dias_completos_dict = {}
+        
+        for a in asistencias_query:
+            p_up = (a.puesto or "").upper()
+            # Regla: Entrada matutina + (Cualquier salida o entrada vespertina) O ser Gerente/12h
+            t_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+            t_sv = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
+            t_ev = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
+            
+            es_12h_base = any(x in p_up for x in ["12 HORAS", "GERENTE"])
+            es_exc = any(x in p_up for x in ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"])
+            
+            if ((t_m and (t_sv or t_ev)) or es_12h_base) and not es_exc:
+                dias_completos_dict[a.empleado_id] = dias_completos_dict.get(a.empleado_id, 0) + 1
 
         for asis in asistencias_query:
             emp = asis.empleado
@@ -2242,10 +2257,8 @@ def vista_reportes(request):
             pue_up = pue_original.upper()
             suc = asis.sucursal or "Victoria"
 
-            # 1. DETERMINAR VALOR DEL TURNO
-            salario_referencia = float(
-                puestos_salarios.get(pue_original, emp.sueldo_base or 0)
-            )
+            # 1. DETERMINAR VALOR DEL TURNO (Base para cálculos)
+            salario_referencia = float(puestos_salarios.get(pue_original, emp.sueldo_base or 0))
 
             if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]):
                 valor_turno = salario_referencia / 1.5
@@ -2270,47 +2283,28 @@ def vista_reportes(request):
 
             cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
-            # 3. CÁLCULO DEL PAGO BASE Y ASIGNACIÓN DE TURNOS
+            # 3. CÁLCULO DEL PAGO BASE
             pago_registrado = float(asis.pago_dia or 0)
 
             if es_falta:
                 pago_base_dia = 0.0
-                cantidad_turnos = 0 # Definido para falta
-
             elif es_descanso:
                 if emp.id in ids_con_falta:
                     pago_base_dia = 0.0
-                    cantidad_turnos = 0
                 elif pago_registrado > 0:
                     pago_base_dia = pago_registrado
-                    cantidad_turnos = 2 if pago_registrado >= (valor_turno * 1.9) else 1
                 else:
-                    asistencias_este_emp = [a for a in asistencias_query if a.empleado_id == emp.id]
-                    dias_completos = sum(
-                        1 for a in asistencias_este_emp
-                        if (a.entrada_matutina and a.salida_vespertina) or 
-                        any(x in (a.puesto or "").upper() for x in ["12 HORAS", "GERENTE"])
-                    )
-                    
-                    if dias_completos >= 6:
-                        pago_base_dia = valor_turno * 2
-                        cantidad_turnos = 2 
-                    else:
-                        pago_base_dia = valor_turno
-                        cantidad_turnos = 1
-
+                    # Si tiene 6 o más días de jornada completa en el periodo, el descanso es doble
+                    dias_completos = dias_completos_dict.get(emp.id, 0)
+                    pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
             else:
-                # --- AQUÍ ESTABA EL ERROR: Faltaba asignar cantidad_turnos ---
                 pago_base_dia = (
                     pago_registrado if pago_registrado > 0
                     else (valor_turno * cantidad_turnos_dia)
                 )
-                cantidad_turnos = cantidad_turnos_dia # <--- SOLUCIÓN: Ahora sí está definida
 
-            # Duplicar si es trabajado
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
-                cantidad_turnos *= 2
 
             # 4. DESCUENTOS Y BONOS
             bono_dia = float(asis.bonificacion or 0)
@@ -2318,13 +2312,17 @@ def vista_reportes(request):
             puntos_retardo = int(float(asis.horas or 0))
             factor = FACTORES_RETARDO.get(puntos_retardo, 0)
 
-            desc_retardo_calculado = (
-                valor_turno * factor if (not es_descanso and not es_falta) else 0
-            )
-            monto_descuento_total_dia = desc_manual + desc_retardo_calculado / 2
-
+            # Cálculo de retardo basado en el valor del turno (sin dividir /2 innecesariamente)
+            desc_retardo_calculado = (valor_turno * factor) if (not es_descanso and not es_falta) else 0
+            
+            monto_descuento_total_dia = desc_manual + desc_retardo_calculado
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
 
+            # 5. CONTEO DE TURNOS
+            cantidad_turnos = (
+                1 if es_excepcion_turno
+                else (2 if (asis.entrada_matutina and asis.salida_vespertina) else 1)
+            )
 
             if es_falta:
                 pue_display = "FALTA"
@@ -2355,7 +2353,7 @@ def vista_reportes(request):
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
-            fila['total_turnos'] += (0 if es_falta else cantidad_turnos)
+            fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
@@ -2370,7 +2368,9 @@ def vista_reportes(request):
             resumen_global['total_retardos'] += puntos_retardo
             resumen_global['total_bonif'] += bono_dia
             resumen_global['total_descuentos'] += monto_descuento_total_dia
-            resumen_global['total_turnos'] += (0 if es_falta else cantidad_turnos)
+            resumen_global['total_turnos'] += (
+                0 if es_falta or es_descanso else cantidad_turnos
+            )
 
     resumen_sucursales = [
         {
