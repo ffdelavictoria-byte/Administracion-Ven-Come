@@ -2270,12 +2270,12 @@ def vista_reportes(request):
 
             cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
-            # 3. CÁLCULO DEL PAGO BASE
+            # 3. CÁLCULO DEL PAGO BASE Y ASIGNACIÓN DE TURNOS
             pago_registrado = float(asis.pago_dia or 0)
 
             if es_falta:
                 pago_base_dia = 0.0
-                cantidad_turnos = 0
+                cantidad_turnos = 0 # Definido para falta
 
             elif es_descanso:
                 if emp.id in ids_con_falta:
@@ -2283,11 +2283,9 @@ def vista_reportes(request):
                     cantidad_turnos = 0
                 elif pago_registrado > 0:
                     pago_base_dia = pago_registrado
-                    # Si el pago manual es el doble, le damos 2 turnos
                     cantidad_turnos = 2 if pago_registrado >= (valor_turno * 1.9) else 1
                 else:
                     asistencias_este_emp = [a for a in asistencias_query if a.empleado_id == emp.id]
-                    # Un día cuenta como doble si tiene marcas M/V o si el puesto es de 12h/Gerente
                     dias_completos = sum(
                         1 for a in asistencias_este_emp
                         if (a.entrada_matutina and a.salida_vespertina) or 
@@ -2296,19 +2294,23 @@ def vista_reportes(request):
                     
                     if dias_completos >= 6:
                         pago_base_dia = valor_turno * 2
-                        cantidad_turnos = 2  # Asignamos 2 turnos al descanso
+                        cantidad_turnos = 2 
                     else:
                         pago_base_dia = valor_turno
                         cantidad_turnos = 1
 
             else:
+                # --- AQUÍ ESTABA EL ERROR: Faltaba asignar cantidad_turnos ---
                 pago_base_dia = (
                     pago_registrado if pago_registrado > 0
                     else (valor_turno * cantidad_turnos_dia)
                 )
+                cantidad_turnos = cantidad_turnos_dia # <--- SOLUCIÓN: Ahora sí está definida
 
+            # Duplicar si es trabajado
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
+                cantidad_turnos *= 2
 
             # 4. DESCUENTOS Y BONOS
             bono_dia = float(asis.bonificacion or 0)
