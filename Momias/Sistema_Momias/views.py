@@ -2261,12 +2261,14 @@ def vista_reportes(request):
             puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
             es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
 
-            es_jornada_doble = (
-                ((tiene_m and (tiene_sv or tiene_ev)) or
-                 any(x in pue_up for x in ["12 HORAS", "GERENTE"]))
-                and not es_excepcion_turno
-            )
-
+            es_jornada_doble = False
+            if not es_excepcion_turno:
+                if any(x in pue_up for x in ["12 HORAS", "GERENTE"]):
+                    es_jornada_doble = True
+                # Si tiene entrada temprano y salida tarde, es doble independientemente de los de en medio
+                elif asis.entrada_matutina and (asis.salida_vespertina or asis.entrada_vespertina):
+                    es_jornada_doble = True
+            
             cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
             # 3. CÁLCULO DEL PAGO BASE
@@ -2347,7 +2349,7 @@ def vista_reportes(request):
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
-            fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
+            fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos_dia)
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
