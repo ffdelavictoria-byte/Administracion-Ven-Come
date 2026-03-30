@@ -2237,12 +2237,33 @@ def vista_reportes(request):
                     pago_base_dia = pago_registrado
                     turnos_finales_dia = 1 
                 else:
+                    # Obtenemos todas las asistencias del periodo para este empleado
                     asistencias_este_emp = [a for a in asistencias_query if a.empleado_id == emp.id]
-                    dias_completos = sum(1 for a in asistencias_este_emp if a.entrada_matutina and (a.salida_vespertina or a.entrada_vespertina))
                     
+                    # Contamos cuántos días trabajó jornada completa
+                    dias_completos = 0
+                    for a in asistencias_este_emp:
+                        est_a = (a.estatus or "").upper()
+                        p_a_up = (a.puesto or "").upper()
+                        
+                        # Si es falta o descanso, no cuenta para el bono
+                        if "FALTA" in est_a or "DESCANSO" in est_a:
+                            continue
+                            
+                        # Un día cuenta como completo si:
+                        # 1. Tiene ambos marcajes (M y V)
+                        # 2. O es un puesto que por definición es de jornada completa (12h/Gerente)
+                        tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+                        tiene_v = (a.salida_vespertina and str(a.salida_vespertina).strip() != "") or \
+                                  (a.entrada_vespertina and str(a.entrada_vespertina).strip() != "")
+                        
+                        if (tiene_m and tiene_v) or any(x in p_a_up for x in ["12 HORAS", "GERENTE"]):
+                            dias_completos += 1
+                    
+                    # Si trabajó 6 días o más, duplicamos el valor y el conteo de turnos
                     if dias_completos >= 6:
                         pago_base_dia = valor_turno * 2
-                        turnos_finales_dia = 2 # Se multiplica el turno por 2
+                        turnos_finales_dia = 2 
                     else:
                         pago_base_dia = valor_turno
                         turnos_finales_dia = 1
