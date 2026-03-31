@@ -2185,19 +2185,41 @@ def vista_reportes(request):
     }
 
     if f_inicio and f_fin:
-        asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
+        # 1. OPTIMIZACIÓN: Usamos select_related para evitar el problema N+1 al acceder a emp.nombre
+        asistencias_query = Asistencia.objects.filter(
+            fecha__range=[f_inicio, f_fin]
+        ).select_related('empleado')
 
-        # Filtros
+        # Filtros de sucursal
         if sucursal_filtro and sucursal_filtro != "TODAS":
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
 
+        # 2. PRE-CÁLCULO: Diccionario para contar días dobles reales antes del bucle principal
+        # Esto es vital para que el "Descanso" sepa si debe cobrarse doble o sencillo
+        conteo_dias_dobles = {}
+        
+        # Filtramos una sub-consulta rápida solo para conteo (sin afectar filtros de nombre)
+        asistencias_para_conteo = asistencias_query.only(
+            'empleado_id', 'entrada_matutina', 'salida_vespertina', 'entrada_vespertina', 'puesto'
+        )
+
+        for a in asistencias_para_conteo:
+            p_up = (a.puesto or "").upper()
+            
+            # Un día cuenta como "Doble Real" si tiene marcas físicas en ambos turnos
+            # y NO es un puesto administrativo/gerencial (que ya tiene sueldo de 12h)
+            tiene_marcas_dobles = a.entrada_matutina and (a.salida_vespertina or a.entrada_vespertina)
+            es_puesto_largo = any(x in p_up for x in ["GERENTE", "12 HORAS", "12HORAS"])
+            
+            if tiene_marcas_dobles and not es_puesto_largo:
+                conteo_dias_dobles[a.empleado_id] = conteo_dias_dobles.get(a.empleado_id, 0) + 1
+
+        # 3. Filtro de nombre (se aplica después del conteo para no romper la lógica de los 6 días)
         if query_nombre:
             asistencias_query = asistencias_query.annotate(
                 full_name=Concat(
-                    'empleado__nombre',
-                    Value(' '),
-                    'empleado__apellido_paterno',
-                    Value(' '),
+                    'empleado__nombre', Value(' '),
+                    'empleado__apellido_paterno', Value(' '),
                     'empleado__apellido_materno',
                     output_field=CharField()
                 )
@@ -2256,26 +2278,22 @@ def vista_reportes(request):
             if es_falta:
                 pago_base_dia = 0.0
 
+            # --- Mejora 2: Lógica de descanso robusta ---
             elif es_descanso:
                 if emp.id in ids_con_falta:
                     pago_base_dia = 0.0
                 elif pago_registrado > 0:
                     pago_base_dia = pago_registrado
                 else:
-                    asistencias_este_emp = [
-                        a for a in asistencias_query if a.empleado_id == emp.id
-                    ]
-                    dias_completos = sum(
-                        1 for a in asistencias_este_emp
-                        if a.entrada_matutina and a.salida_vespertina
-                    )
+                    # Usamos el conteo que hicimos previamente
+                    dias_completos = conteo_dias_dobles.get(emp.id, 0)
                     pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
-
-            else:
-                pago_base_dia = (
-                    pago_registrado if pago_registrado > 0
-                    else (valor_turno * cantidad_turnos_dia)
-                )
+            
+                        else:
+                            pago_base_dia = (
+                                pago_registrado if pago_registrado > 0
+                                else (valor_turno * cantidad_turnos_dia)
+                            )
 
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
@@ -2294,10 +2312,8 @@ def vista_reportes(request):
             pago_neto_dia = (pago_base_dia + bono_dia) - monto_descuento_total_dia
 
             # 5. CONTEO DE TURNOS
-            cantidad_turnos = (
-                1 if es_excepcion_turno
-                else (2 if (asis.entrada_matutina and asis.salida_vespertina) else 1)
-            )
+            # Usa la variable es_jornada_doble que ya calculaste arriba para todo
+            cantidad_turnos = 0 if (es_falta or es_descanso) else (2 if es_jornada_doble else 1)
 
             if es_falta:
                 pue_display = "FALTA"
