@@ -2267,7 +2267,7 @@ def vista_reportes(request):
                     ]
                     dias_completos = sum(
                         1 for a in asistencias_este_emp
-                        if tiene_m and tiene_sv
+                        if a.entrada_matutina and a.salida_vespertina
                     )
                     pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
 
@@ -2296,7 +2296,7 @@ def vista_reportes(request):
             # 5. CONTEO DE TURNOS
             cantidad_turnos = (
                 1 if es_excepcion_turno
-                else (2 if (tiene_m and tiene_sv) else 1)
+                else (2 if (asis.entrada_matutina and asis.salida_vespertina) else 1)
             )
 
             if es_falta:
@@ -2328,7 +2328,7 @@ def vista_reportes(request):
                 if m_txt and m_txt not in fila['motivos_descuentos']:
                     fila['motivos_descuentos'].append(m_txt)
 
-            fila['total_turnos'] += (0 if es_falta else cantidad_turnos)
+            fila['total_turnos'] += (0 if es_falta or es_descanso else cantidad_turnos)
             fila['total_retardos'] += puntos_retardo
             fila['total_bonos'] += bono_dia
             fila['monto_descuentos'] += monto_descuento_total_dia
