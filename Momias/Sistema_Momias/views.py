@@ -2205,13 +2205,16 @@ def vista_reportes(request):
 
         for a in asistencias_para_conteo:
             p_up = (a.puesto or "").upper()
+            estatus_a = (a.estatus or "").upper()
             
-            # Un día cuenta como "Doble Real" si tiene marcas físicas en ambos turnos
-            # y NO es un puesto administrativo/gerencial (que ya tiene sueldo de 12h)
+            # Un día cuenta para el acumulado de descanso si:
+            # A) Marcó entrada matutina Y (salida vespertina o entrada vespertina)
+            # B) Es un puesto que por definición es de 12 horas o Gerencia
             tiene_marcas_dobles = a.entrada_matutina and (a.salida_vespertina or a.entrada_vespertina)
             es_puesto_largo = any(x in p_up for x in ["GERENTE", "12 HORAS", "12HORAS"])
             
-            if tiene_marcas_dobles and not es_puesto_largo:
+            # Solo contamos días trabajados (no descansos ni faltas previos)
+            if (tiene_marcas_dobles or es_puesto_largo) and "TRABAJADO" in estatus_a:
                 conteo_dias_dobles[a.empleado_id] = conteo_dias_dobles.get(a.empleado_id, 0) + 1
 
         # 3. Filtro de nombre (se aplica después del conteo para no romper la lógica de los 6 días)
@@ -2273,39 +2276,40 @@ def vista_reportes(request):
             cantidad_turnos_dia = 2 if es_jornada_doble else 1
 
             # 3. CÁLCULO DEL PAGO BASE
+            # --- 3. CÁLCULO DEL PAGO BASE Y CONTEO DE TURNOS ---
             pago_registrado = float(asis.pago_dia or 0)
+            dias_completos = conteo_dias_dobles.get(emp.id, 0)
 
             if es_falta:
                 pago_base_dia = 0.0
-
-            # --- Mejora 2: Lógica de descanso robusta ---
-            # 3. CÁLCULO DEL PAGO BASE
-            pago_registrado = float(asis.pago_dia or 0)
-
-            if es_falta:
-                pago_base_dia = 0.0
-
+                cantidad_turnos = 0
+            
             elif es_descanso:
+                # Si trabajó 6 días dobles (12 turnos), el descanso vale 2 turnos y pago doble
                 if emp.id in ids_con_falta:
                     pago_base_dia = 0.0
-                elif pago_registrado > 0:
-                    pago_base_dia = pago_registrado
+                    cantidad_turnos = 0
                 else:
-                    # Usamos el conteo que hicimos previamente en el bloque de pre-cálculo
-                    dias_completos = conteo_dias_dobles.get(emp.id, 0)
-                    pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
+                    cantidad_turnos = 2 if dias_completos >= 6 else 1
+                    
+                    if pago_registrado > 0:
+                        pago_base_dia = pago_registrado
+                    else:
+                        pago_base_dia = valor_turno * cantidad_turnos
 
             else:
-                # Este else cubre los días TRABAJADOS normales
-                pago_base_dia = (
-                    pago_registrado if pago_registrado > 0
-                    else (valor_turno * cantidad_turnos_dia)
-                )
+                # Días normales trabajados
+                cantidad_turnos = 2 if es_jornada_doble else 1
+                
+                if pago_registrado > 0:
+                    pago_base_dia = pago_registrado
+                else:
+                    # Usamos la cantidad de turnos del día para el cálculo
+                    pago_base_dia = valor_turno * cantidad_turnos
 
-            # El bono por día festivo o "TRABAJADO" se aplica al final del cálculo base
+            # El bono por día festivo o estatus especial "TRABAJADO" se aplica al final
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
-
             # 4. DESCUENTOS Y BONOS
             bono_dia = float(asis.bonificacion or 0)
             desc_manual = float(asis.descuento or 0)
