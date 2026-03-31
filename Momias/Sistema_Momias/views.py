@@ -2267,7 +2267,7 @@ def vista_reportes(request):
                     ]
                     dias_completos = sum(
                         1 for a in asistencias_este_emp
-                        if a.entrada_matutina and a.salida_vespertina
+                        if tiene_m and tiene_sv
                     )
                     pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
 
@@ -2296,7 +2296,7 @@ def vista_reportes(request):
             # 5. CONTEO DE TURNOS
             cantidad_turnos = (
                 1 if es_excepcion_turno
-                else (2 if tiene_m and tiene_sv else 1)
+                else (2 if (tiene_m and tiene_sv) else 1)
             )
 
             if es_falta:
