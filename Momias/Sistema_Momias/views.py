@@ -2296,7 +2296,7 @@ def vista_reportes(request):
             # 5. CONTEO DE TURNOS
             cantidad_turnos = (
                 1 if es_excepcion_turno
-                else (2 if (tiene_m and tiene_ev) else 1)
+                else (2 if (tiene_m and tiene_sv) else 1)
             )
 
             if es_falta:
