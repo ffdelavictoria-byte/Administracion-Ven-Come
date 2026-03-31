@@ -2266,7 +2266,7 @@ def vista_reportes(request):
                         a for a in asistencias_query if a.empleado_id == emp.id
                     ]
                     dias_completos = sum(
-                        1 for a in asistencias_este_emp
+                        2 for a in asistencias_este_emp
                         if a.entrada_matutina and a.salida_vespertina
                     )
                     pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
