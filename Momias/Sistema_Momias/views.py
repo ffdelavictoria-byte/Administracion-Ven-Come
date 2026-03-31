@@ -2279,22 +2279,30 @@ def vista_reportes(request):
                 pago_base_dia = 0.0
 
             # --- Mejora 2: Lógica de descanso robusta ---
+            # 3. CÁLCULO DEL PAGO BASE
+            pago_registrado = float(asis.pago_dia or 0)
+
+            if es_falta:
+                pago_base_dia = 0.0
+
             elif es_descanso:
                 if emp.id in ids_con_falta:
                     pago_base_dia = 0.0
                 elif pago_registrado > 0:
                     pago_base_dia = pago_registrado
                 else:
-                    # Usamos el conteo que hicimos previamente
+                    # Usamos el conteo que hicimos previamente en el bloque de pre-cálculo
                     dias_completos = conteo_dias_dobles.get(emp.id, 0)
                     pago_base_dia = valor_turno * 2 if dias_completos >= 6 else valor_turno
-            
-                        else:
-                            pago_base_dia = (
-                                pago_registrado if pago_registrado > 0
-                                else (valor_turno * cantidad_turnos_dia)
-                            )
 
+            else:
+                # Este else cubre los días TRABAJADOS normales
+                pago_base_dia = (
+                    pago_registrado if pago_registrado > 0
+                    else (valor_turno * cantidad_turnos_dia)
+                )
+
+            # El bono por día festivo o "TRABAJADO" se aplica al final del cálculo base
             if "TRABAJADO" in estatus_limpio:
                 pago_base_dia *= 2
 
