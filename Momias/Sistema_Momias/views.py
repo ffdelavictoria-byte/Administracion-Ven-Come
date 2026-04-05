@@ -2129,6 +2129,21 @@ def exportar_pdf_nomina(request):
     doc.build(elements)
     return response
 
+# --- Función Auxiliar (Asegúrate de tenerla definida o pégala antes de la vista) ---
+def procesar_dato_hibrido(dato, es_entrada=True, turno='M'):
+    if not dato or str(dato).strip() == "":
+        return None, None
+    try:
+        # Si ya es un objeto time o datetime
+        import datetime
+        if isinstance(dato, (datetime.time, datetime.datetime)):
+            return dato.hour * 60 + dato.minute, dato
+        
+        # Si es un string (ej: "08:00")
+        h, m = map(int, str(dato).split(':'))
+        return h * 60 + m, dato
+    except:
+        return None, None
 
 @login_required
 def vista_reportes(request):
@@ -2244,87 +2259,105 @@ def vista_reportes(request):
         ids_con_falta = set(asistencias_query.filter(estatus__icontains="FALTA").values_list('empleado_id', flat=True))
 
         for emp_id, lista_asis in asistencias_por_emp.items():
-            # 1. Determinar puesto más recurrente y contar días dobles
-            conteo_puestos = Counter()
-            dias_dobles_count = 0
+        # 1. Determinar puesto principal y contar días dobles (para el descanso)
+        conteo_puestos = Counter()
+        dias_dobles_count = 0
+        for a in lista_asis:
+            estatus_up = (a.estatus or "").strip().upper()
+            if "DESCANSO" not in estatus_up and "FALTA" not in estatus_up:
+                pue = a.puesto or a.empleado.puesto or "GENERAL"
+                conteo_puestos[pue] += 1
+                # Para el descanso, seguimos usando la marca de entrada matutina y salida vespertina
+                if a.entrada_matutina and a.salida_vespertina:
+                    dias_dobles_count += 1
+
+        puesto_principal = conteo_puestos.most_common(1)[0][0] if conteo_puestos else "GENERAL"
+
+        # 2. Procesar cada asistencia con lógica proporcional
+        for asis in lista_asis:
+            emp = asis.empleado
+            estatus_limpio = (asis.estatus or "").strip().upper()
+            es_descanso = "DESCANSO" in estatus_limpio
+            es_falta = "FALTA" in estatus_limpio
+            suc = asis.sucursal or "Victoria"
+
+            puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
+            salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0))
             
-            for a in lista_asis:
-                estatus_up = (a.estatus or "").strip().upper()
-                if "DESCANSO" not in estatus_up and "FALTA" not in estatus_up:
-                    pue = a.puesto or a.empleado.puesto or "GENERAL"
-                    conteo_puestos[pue] += 1
+            # --- DETERMINAR VALOR DEL TURNO (DIVISOR) ---
+            pue_up = puesto_para_fila.upper()
+            if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]): valor_turno_base = salario_ref / 1.5
+            elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): valor_turno_base = salario_ref / 2
+            else: valor_turno_base = salario_ref
+
+            turnos_a_sumar = 0.0
+
+            if es_descanso:
+                if emp.id not in ids_con_falta:
+                    turnos_a_sumar = 2.0 if dias_dobles_count >= 6 else 1.0
+            elif not es_falta:
+                # --- APLICACIÓN DE TU LÓGICA DE MINUTOS ---
+                puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
+                if any(x in pue_up for x in puestos_turno_unico):
+                    turnos_a_sumar = 1.0
+                else:
+                    t_acum = 0.0
+                    m_ent_m, _ = procesar_dato_hibrido(asis.entrada_matutina, True, 'M')
+                    m_sal_m, _ = procesar_dato_hibrido(asis.salida_matutina, False, 'M')
+                    m_ent_v, _ = procesar_dato_hibrido(asis.entrada_vespertina, True, 'V')
+                    m_sal_v, _ = procesar_dato_hibrido(asis.salida_vespertina, False, 'V')
+
+                    # Jornada corrida (M-ent a V-sal sin cortes)
+                    if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
+                        diff = m_sal_v - m_ent_m
+                        if diff < 0: diff += 1440
+                        t_acum = diff / 360.0
+                    else:
+                        # Matutino
+                        if m_ent_m and m_sal_m:
+                            t_acum += max(0, m_sal_m - m_ent_m) / 360.0
+                        elif m_ent_m or m_sal_m: t_acum += 1.0
+                        
+                        # Vespertino
+                        if m_ent_v and m_sal_v:
+                            t_acum += max(0, m_sal_v - m_ent_v) / 360.0
+                        elif m_ent_v or m_sal_v: t_acum += 1.0
                     
-                    # Verificamos si ese día dobló turno
-                    tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
-                    tiene_v = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
-                    if tiene_m and tiene_v:
-                        dias_dobles_count += 1
+                    turnos_a_sumar = round(t_acum, 2)
 
-            # El puesto principal (donde caerán los descansos)
-            puesto_principal = conteo_puestos.most_common(1)[0][0] if conteo_puestos else "GENERAL"
+            # Cálculo de dinero
+            pago_base_dia = (valor_turno_base * turnos_a_sumar)
+            if "TRABAJADO" in estatus_limpio: pago_base_dia *= 2
+            
+            bono_dia = float(asis.bonificacion or 0)
+            desc_manual = float(asis.descuento or 0)
+            puntos_retardo = int(float(asis.horas or 0))
+            desc_retardo = (valor_turno_base * FACTORES_RETARDO.get(puntos_retardo, 0)) if (not es_descanso and not es_falta) else 0
+            
+            monto_desc_total = desc_manual + (desc_retardo / 2)
+            pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
 
-            # 2. Procesar asistencias individuales
-            for asis in lista_asis:
-                emp = asis.empleado
-                estatus_limpio = (asis.estatus or "").strip().upper()
-                es_descanso = "DESCANSO" in estatus_limpio
-                es_falta = "FALTA" in estatus_limpio
-                suc = asis.sucursal or "Victoria"
+            # --- AGRUPACIÓN ---
+            key = (emp.id, suc, puesto_para_fila)
+            if key not in agrupados_dict:
+                agrupados_dict[key] = {
+                    'empleado': f"{emp.nombre} {emp.apellido_paterno}".strip(),
+                    'sucursal': suc,
+                    'puesto': puesto_para_fila,
+                    'total_turnos': 0.0,
+                    'total_retardos': 0,
+                    'monto_descuentos': 0.0,
+                    'total_bonos': 0.0,
+                    'total_fila': 0.0,
+                    'motivos_descuentos': []
+                }
 
-                # --- LÓGICA DE AGRUPACIÓN ---
-                # Si es descanso, va a la fila del puesto_principal.
-                # Si es trabajo, va a su propio puesto específico.
-                puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
-
-                # Cálculo de valor de turno basado en el puesto de esta fila
-                salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0))
-                pue_up = puesto_para_fila.upper()
-                
-                if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]): valor_turno = salario_ref / 1.5
-                elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): valor_turno = salario_ref / 2
-                else: valor_turno = salario_ref
-
-                # Turnos y Pago
-                turnos_a_sumar = 0
-                pago_base_dia = 0.0
-
-                if es_descanso:
-                    if emp.id not in ids_con_falta:
-                        turnos_a_sumar = 2 if dias_dobles_count >= 6 else 1
-                        pago_base_dia = valor_turno * turnos_a_sumar
-                elif not es_falta:
-                    tiene_m = asis.entrada_matutina and str(asis.entrada_matutina).strip() != ""
-                    tiene_v = asis.salida_vespertina and str(asis.salida_vespertina).strip() != ""
-                    turnos_a_sumar = 2 if (tiene_m and tiene_v) else 1
-                    pago_base_dia = float(asis.pago_dia) if asis.pago_dia else (valor_turno * turnos_a_sumar)
-
-                if "TRABAJADO" in estatus_limpio: pago_base_dia *= 2
-
-                # Descuentos y Bonos
-                bono_dia = float(asis.bonificacion or 0)
-                desc_manual = float(asis.descuento or 0)
-                puntos_retardo = int(float(asis.horas or 0))
-                desc_retardo = (valor_turno * FACTORES_RETARDO.get(puntos_retardo, 0)) if (not es_descanso and not es_falta) else 0
-                monto_desc_total = desc_manual + (desc_retardo / 2)
-                pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
-
-                # --- AGRUPACIÓN ---
-                key = (emp.id, suc, puesto_para_fila)
-                if key not in agrupados_dict:
-                    agrupados_dict[key] = {
-                        'empleado': f"{emp.nombre} {emp.apellido_paterno}".strip(),
-                        'sucursal': suc,
-                        'puesto': puesto_para_fila,
-                        'total_turnos': 0, 'total_retardos': 0, 'monto_descuentos': 0.0,
-                        'total_bonos': 0.0, 'total_fila': 0.0, 'motivos_descuentos': []
-                    }
-
-                fila = agrupados_dict[key]
-                fila['total_turnos'] += turnos_a_sumar
-                fila['total_retardos'] += puntos_retardo
-                fila['total_bonos'] += bono_dia
-                fila['monto_descuentos'] += monto_desc_total
-                fila['total_fila'] += pago_neto_dia
+            fila = agrupados_dict[key]
+            fila['total_turnos'] += turnos_a_sumar
+            fila['total_retardos'] += puntos_retardo
+            fila['total_bonos'] += bono_dia
+            fila['monto_descuentos'] += monto_desc_total
+            fila['total_fila'] += pago_neto_dia
                 
                 if asis.motivo_descuento:
                     m = str(asis.motivo_descuento).strip()
