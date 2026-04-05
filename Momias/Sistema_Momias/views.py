@@ -2218,9 +2218,20 @@ def vista_reportes(request):
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
 
         if query_nombre:
+            # Incluimos el apellido materno en la búsqueda para que coincida con el nombre completo
             asistencias_query = asistencias_query.annotate(
-                full_name=Concat('empleado__nombre', Value(' '), 'empleado__apellido_paterno', output_field=CharField())
-            ).filter(Q(full_name__icontains=query_nombre) | Q(empleado__codigo_empleado__icontains=query_nombre))
+                full_name=Concat(
+                    'empleado__nombre', Value(' '),
+                    'empleado__apellido_paterno', Value(' '),
+                    'empleado__apellido_materno',
+                    output_field=CharField()
+                )
+            ).filter(
+                Q(full_name__icontains=query_nombre) | 
+                Q(empleado__nombre__icontains=query_nombre) | # Búsqueda solo por nombre
+                Q(empleado__apellido_paterno__icontains=query_nombre) | # O solo por paterno
+                Q(empleado__codigo_empleado__icontains=query_nombre)
+            )
 
         # --- ERROR 2: AQUÍ DEBES CONSTRUIR EL DICCIONARIO asistencias_por_emp ---
         asistencias_por_emp = {}
