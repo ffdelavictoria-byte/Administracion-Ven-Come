@@ -179,7 +179,6 @@
                         {% if t.monto_descuento > 0 %} <span class="text-danger">● {{ t.motivo_descuento }}: -${{ t.monto_descuento|floatformat:0 }}</span><br> {% endif %}
                     {% endfor %}{% endfor %}
                 </div>
-                <div class="firma-espacio">FIRMA DE RECIBIDO</div>
             </div>
         </div>
         {% empty %}
