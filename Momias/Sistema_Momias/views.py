@@ -2144,19 +2144,16 @@ def procesar_dato_hibrido(dato, es_entrada=True, turno='M'):
         return h * 60 + m, dato
     except:
         return None, None
-
+        
 @login_required
 def vista_reportes(request):
-    # Enviamos todos los empleados activos para alimentar el "combo" (datalist)
     empleados_qs = Empleado.objects.filter(estatus='Activo').order_by('nombre')
 
-    # Captura de filtros
     query_nombre = request.GET.get('q', '').strip()
     sucursal_filtro = request.GET.get('sucursal')
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
-    # Diccionario de salarios
     puestos_salarios = {
         "Gerente (12 Horas)": 600.00,
         "Chef de Línea (9 horas)": 531.57,
@@ -2218,7 +2215,6 @@ def vista_reportes(request):
         "Crepas": 354.50,
         "Hamburguesas FF": 0.0,
     }
-
     FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
 
     agrupados_dict = {}
@@ -2228,142 +2224,115 @@ def vista_reportes(request):
     if f_inicio and f_fin:
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
 
-        # Aplicación de filtros (Sucursal y Nombre)
         if sucursal_filtro and sucursal_filtro != "TODAS":
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
 
         if query_nombre:
-            # Incluimos el apellido materno en la búsqueda para que coincida con el nombre completo
             asistencias_query = asistencias_query.annotate(
-                full_name=Concat(
-                    'empleado__nombre', Value(' '),
-                    'empleado__apellido_paterno', Value(' '),
-                    'empleado__apellido_materno',
-                    output_field=CharField()
-                )
+                full_name=Concat('empleado__nombre', Value(' '), 'empleado__apellido_paterno', Value(' '), 'empleado__apellido_materno', output_field=CharField())
             ).filter(
                 Q(full_name__icontains=query_nombre) | 
-                Q(empleado__nombre__icontains=query_nombre) | # Búsqueda solo por nombre
-                Q(empleado__apellido_paterno__icontains=query_nombre) | # O solo por paterno
+                Q(empleado__nombre__icontains=query_nombre) | 
+                Q(empleado__apellido_paterno__icontains=query_nombre) | 
                 Q(empleado__codigo_empleado__icontains=query_nombre)
             )
 
-        # --- ERROR 2: AQUÍ DEBES CONSTRUIR EL DICCIONARIO asistencias_por_emp ---
         asistencias_por_emp = {}
         for a in asistencias_query:
             if a.empleado_id not in asistencias_por_emp:
                 asistencias_por_emp[a.empleado_id] = []
             asistencias_por_emp[a.empleado_id].append(a)
-        # -----------------------------------------------------------------------
 
         ids_con_falta = set(asistencias_query.filter(estatus__icontains="FALTA").values_list('empleado_id', flat=True))
 
+        # --- CORRECCIÓN DE INDENTACIÓN AQUÍ ---
         for emp_id, lista_asis in asistencias_por_emp.items():
-        # 1. Determinar puesto principal y contar días dobles (para el descanso)
-        conteo_puestos = Counter()
-        dias_dobles_count = 0
-        for a in lista_asis:
-            estatus_up = (a.estatus or "").strip().upper()
-            if "DESCANSO" not in estatus_up and "FALTA" not in estatus_up:
-                pue = a.puesto or a.empleado.puesto or "GENERAL"
-                conteo_puestos[pue] += 1
-                # Para el descanso, seguimos usando la marca de entrada matutina y salida vespertina
-                if a.entrada_matutina and a.salida_vespertina:
-                    dias_dobles_count += 1
+            conteo_puestos = Counter()
+            dias_dobles_count = 0
+            for a in lista_asis:
+                estatus_up = (a.estatus or "").strip().upper()
+                if "DESCANSO" not in estatus_up and "FALTA" not in estatus_up:
+                    pue = a.puesto or a.empleado.puesto or "GENERAL"
+                    conteo_puestos[pue] += 1
+                    if a.entrada_matutina and a.salida_vespertina:
+                        dias_dobles_count += 1
 
-        puesto_principal = conteo_puestos.most_common(1)[0][0] if conteo_puestos else "GENERAL"
+            puesto_principal = conteo_puestos.most_common(1)[0][0] if conteo_puestos else "GENERAL"
 
-        # 2. Procesar cada asistencia con lógica proporcional
-        for asis in lista_asis:
-            emp = asis.empleado
-            estatus_limpio = (asis.estatus or "").strip().upper()
-            es_descanso = "DESCANSO" in estatus_limpio
-            es_falta = "FALTA" in estatus_limpio
-            suc = asis.sucursal or "Victoria"
+            for asis in lista_asis:
+                emp = asis.empleado
+                estatus_limpio = (asis.estatus or "").strip().upper()
+                es_descanso = "DESCANSO" in estatus_limpio
+                es_falta = "FALTA" in estatus_limpio
+                suc = asis.sucursal or "Victoria"
 
-            puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
-            salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0))
-            
-            # --- DETERMINAR VALOR DEL TURNO (DIVISOR) ---
-            pue_up = puesto_para_fila.upper()
-            if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]): valor_turno_base = salario_ref / 1.5
-            elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): valor_turno_base = salario_ref / 2
-            else: valor_turno_base = salario_ref
+                puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
+                salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0))
+                
+                pue_up = puesto_para_fila.upper()
+                if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]): valor_turno_base = salario_ref / 1.5
+                elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): valor_turno_base = salario_ref / 2
+                else: valor_turno_base = salario_ref
 
-            turnos_a_sumar = 0.0
-
-            if es_descanso:
-                if emp.id not in ids_con_falta:
-                    turnos_a_sumar = 2.0 if dias_dobles_count >= 6 else 1.0
-            elif not es_falta:
-                # --- APLICACIÓN DE TU LÓGICA DE MINUTOS ---
-                puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
-                if any(x in pue_up for x in puestos_turno_unico):
-                    turnos_a_sumar = 1.0
-                else:
-                    t_acum = 0.0
-                    m_ent_m, _ = procesar_dato_hibrido(asis.entrada_matutina, True, 'M')
-                    m_sal_m, _ = procesar_dato_hibrido(asis.salida_matutina, False, 'M')
-                    m_ent_v, _ = procesar_dato_hibrido(asis.entrada_vespertina, True, 'V')
-                    m_sal_v, _ = procesar_dato_hibrido(asis.salida_vespertina, False, 'V')
-
-                    # Jornada corrida (M-ent a V-sal sin cortes)
-                    if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
-                        diff = m_sal_v - m_ent_m
-                        if diff < 0: diff += 1440
-                        t_acum = diff / 360.0
+                turnos_a_sumar = 0.0
+                if es_descanso:
+                    if emp.id not in ids_con_falta:
+                        turnos_a_sumar = 2.0 if dias_dobles_count >= 6 else 1.0
+                elif not es_falta:
+                    # Lógica de minutos (usa la función procesar_dato_hibrido definida fuera)
+                    puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
+                    if any(x in pue_up for x in puestos_turno_unico):
+                        turnos_a_sumar = 1.0
                     else:
-                        # Matutino
-                        if m_ent_m and m_sal_m:
-                            t_acum += max(0, m_sal_m - m_ent_m) / 360.0
-                        elif m_ent_m or m_sal_m: t_acum += 1.0
-                        
-                        # Vespertino
-                        if m_ent_v and m_sal_v:
-                            t_acum += max(0, m_sal_v - m_ent_v) / 360.0
-                        elif m_ent_v or m_sal_v: t_acum += 1.0
-                    
-                    turnos_a_sumar = round(t_acum, 2)
+                        t_acum = 0.0
+                        m_ent_m, _ = procesar_dato_hibrido(asis.entrada_matutina, True, 'M')
+                        m_sal_m, _ = procesar_dato_hibrido(asis.salida_matutina, False, 'M')
+                        m_ent_v, _ = procesar_dato_hibrido(asis.entrada_vespertina, True, 'V')
+                        m_sal_v, _ = procesar_dato_hibrido(asis.salida_vespertina, False, 'V')
 
-            # Cálculo de dinero
-            pago_base_dia = (valor_turno_base * turnos_a_sumar)
-            if "TRABAJADO" in estatus_limpio: pago_base_dia *= 2
-            
-            bono_dia = float(asis.bonificacion or 0)
-            desc_manual = float(asis.descuento or 0)
-            puntos_retardo = int(float(asis.horas or 0))
-            desc_retardo = (valor_turno_base * FACTORES_RETARDO.get(puntos_retardo, 0)) if (not es_descanso and not es_falta) else 0
-            
-            monto_desc_total = desc_manual + (desc_retardo / 2)
-            pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
+                        if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
+                            diff = m_sal_v - m_ent_m
+                            if diff < 0: diff += 1440
+                            t_acum = diff / 360.0
+                        else:
+                            if m_ent_m and m_sal_m: t_acum += max(0, m_sal_m - m_ent_m) / 360.0
+                            elif m_ent_m or m_sal_m: t_acum += 1.0
+                            if m_ent_v and m_sal_v: t_acum += max(0, m_sal_v - m_ent_v) / 360.0
+                            elif m_ent_v or m_sal_v: t_acum += 1.0
+                        turnos_a_sumar = round(t_acum, 2)
 
-            # --- AGRUPACIÓN ---
-            key = (emp.id, suc, puesto_para_fila)
-            if key not in agrupados_dict:
-                agrupados_dict[key] = {
-                    'empleado': f"{emp.nombre} {emp.apellido_paterno}".strip(),
-                    'sucursal': suc,
-                    'puesto': puesto_para_fila,
-                    'total_turnos': 0.0,
-                    'total_retardos': 0,
-                    'monto_descuentos': 0.0,
-                    'total_bonos': 0.0,
-                    'total_fila': 0.0,
-                    'motivos_descuentos': []
-                }
+                pago_base_dia = (valor_turno_base * turnos_a_sumar)
+                if "TRABAJADO" in estatus_limpio: pago_base_dia *= 2
+                
+                bono_dia = float(asis.bonificacion or 0)
+                desc_manual = float(asis.descuento or 0)
+                puntos_retardo = int(float(asis.horas or 0))
+                desc_retardo = (valor_turno_base * FACTORES_RETARDO.get(puntos_retardo, 0)) if (not es_descanso and not es_falta) else 0
+                
+                monto_desc_total = desc_manual + (desc_retardo / 2)
+                pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
 
-            fila = agrupados_dict[key]
-            fila['total_turnos'] += turnos_a_sumar
-            fila['total_retardos'] += puntos_retardo
-            fila['total_bonos'] += bono_dia
-            fila['monto_descuentos'] += monto_desc_total
-            fila['total_fila'] += pago_neto_dia
+                key = (emp.id, suc, puesto_para_fila)
+                if key not in agrupados_dict:
+                    agrupados_dict[key] = {
+                        'empleado': f"{emp.nombre} {emp.apellido_paterno}".strip(),
+                        'sucursal': suc, 'puesto': puesto_para_fila, 'total_turnos': 0.0,
+                        'total_retardos': 0, 'monto_descuentos': 0.0, 'total_bonos': 0.0,
+                        'total_fila': 0.0, 'motivos_descuentos': []
+                    }
+
+                fila = agrupados_dict[key]
+                fila['total_turnos'] += turnos_a_sumar
+                fila['total_retardos'] += puntos_retardo
+                fila['total_bonos'] += bono_dia
+                fila['monto_descuentos'] += monto_desc_total
+                fila['total_fila'] += pago_neto_dia
                 
                 if asis.motivo_descuento:
                     m = str(asis.motivo_descuento).strip()
-                    if m and m not in fila['motivos_descuentos']: fila['motivos_descuentos'].append(m)
+                    if m and m not in fila['motivos_descuentos']: 
+                        fila['motivos_descuentos'].append(m)
 
-                # Totales Globales
                 resumen_global['total_pagar'] += pago_neto_dia
                 resumen_global['total_turnos'] += turnos_a_sumar
                 resumen_global['total_retardos'] += puntos_retardo
@@ -2371,40 +2340,41 @@ def vista_reportes(request):
                 resumen_global['total_descuentos'] += monto_desc_total
                 resumen_sucursales_dict[suc] = resumen_sucursales_dict.get(suc, 0) + pago_neto_dia
 
+    # --- FUERA DEL IF PRINCIPAL PARA EVITAR ERRORES DE VARIABLE NO DEFINIDA ---
     resumen_sucursales = [
-        {
-            'nombre': suc_n,
-            'periodo': f"{f_inicio} al {f_fin}",
-            'total': round(total_n, 2)
-        }
-        for suc_n, total_n in resumen_sucursales_dict.items()
+        {'nombre': s, 'periodo': f"{f_inicio} al {f_fin}", 'total': round(t, 2)}
+        for s, t in resumen_sucursales_dict.items()
     ]
 
-    lista_agrupada = sorted(
-        agrupados_dict.values(),
-        key=lambda x: x['empleado']
-    )
+    lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
 
     context = {
         'empleados': empleados_qs,
         'agrupados': lista_agrupada,
         'resumen_sucursales': resumen_sucursales,
-        'lista_sucursales': [
-            "Momias 1", "Momias 2", "Momias 3", "Momias 4",
-            "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal",
-            "PP", "PM", "Area Seca", "Perrioni", "FastFood"
-        ],
-        'fecha_inicio': f_inicio,
-        'fecha_fin': f_fin,
-        'query': query_nombre,
+        'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal", "PP", "PM", "Area Seca", "Perrioni", "FastFood"],
+        'fecha_inicio': f_inicio, 'fecha_fin': f_fin, 'query': query_nombre,
         'gran_total_pagar': round(resumen_global['total_pagar'], 2),
         'gran_total_retardos': resumen_global['total_retardos'],
         'gran_total_bonos': round(resumen_global['total_bonif'], 2),
         'gran_total_descuentos': round(resumen_global['total_descuentos'], 2),
-        'gran_total_turnos': resumen_global['total_turnos']
+        'gran_total_turnos': round(resumen_global['total_turnos'], 2)
     }
 
     return render(request, 'Reports.html', context)
+
+
+
+
+
+
+
+
+
+
+
+
+
     
 from django.contrib.auth import update_session_auth_hash # <--- IMPORTANTE: No olvides esta importación
 
