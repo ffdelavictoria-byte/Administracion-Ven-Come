@@ -2244,36 +2244,29 @@ def vista_reportes(request):
         ids_con_falta = set(asistencias_query.filter(estatus__icontains="FALTA").values_list('empleado_id', flat=True))
 
         for emp_id, lista_asis in asistencias_por_emp.items():
-            # 1. Determinar puesto más recurrente y días dobles
-            conteo_puestos = Counter()
+            # 1. Seguimos contando días dobles para saber cuánto vale el descanso
             dias_dobles_count = 0
-            
             for a in lista_asis:
-                estatus_up = (a.estatus or "").strip().upper()
-                if "DESCANSO" not in estatus_up and "FALTA" not in estatus_up:
-                    pue = a.puesto or a.empleado.puesto or "GENERAL"
-                    conteo_puestos[pue] += 1
-                    
-                    # Verificamos si ese día dobló turno
-                    tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
-                    tiene_v = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
-                    if tiene_m and tiene_v:
-                        dias_dobles_count += 1
+                tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+                tiene_v = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
+                if tiene_m and tiene_v:
+                    dias_dobles_count += 1
 
-            # El puesto que más se repitió es el "padre" de la fila
-            puesto_principal = conteo_puestos.most_common(1)[0][0] if conteo_puestos else "GENERAL"
-            
-            # 2. Procesar asistencias individuales del empleado
+            # 2. Procesar cada asistencia
             for asis in lista_asis:
                 emp = asis.empleado
                 estatus_limpio = (asis.estatus or "").strip().upper()
                 es_descanso = "DESCANSO" in estatus_limpio
                 es_falta = "FALTA" in estatus_limpio
                 suc = asis.sucursal or "Victoria"
+                
+                # --- DETERMINAR PUESTO DE ESTA FILA ---
+                # Si es descanso, usamos su puesto base. Si trabajó, el puesto del registro.
+                puesto_actual = (asis.puesto or emp.puesto or "GENERAL") if not es_descanso else (emp.puesto or "GENERAL")
 
-                # Cálculo de valor de turno basado en el puesto_principal
-                salario_ref = float(puestos_salarios.get(puesto_principal, emp.sueldo_base or 0))
-                pue_up = puesto_principal.upper()
+                # Cálculo de Salarios basado en el puesto de este registro
+                salario_ref = float(puestos_salarios.get(puesto_actual, emp.sueldo_base or 0))
+                pue_up = puesto_actual.upper()
                 
                 if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]): valor_turno = salario_ref / 1.5
                 elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): valor_turno = salario_ref / 2
@@ -2300,18 +2293,25 @@ def vista_reportes(request):
                 desc_manual = float(asis.descuento or 0)
                 puntos_retardo = int(float(asis.horas or 0))
                 desc_retardo = (valor_turno * FACTORES_RETARDO.get(puntos_retardo, 0)) if (not es_descanso and not es_falta) else 0
+                
                 monto_desc_total = desc_manual + (desc_retardo / 2)
                 pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
 
-                # AGRUPACIÓN POR PUESTO PRINCIPAL
-                key = (emp.id, suc, puesto_principal)
+                # --- AGRUPACIÓN MULTI-PUESTO ---
+                # Al incluir puesto_actual en la key, si cambia el puesto, se crea otra fila
+                key = (emp.id, suc, puesto_actual)
+                
                 if key not in agrupados_dict:
                     agrupados_dict[key] = {
                         'empleado': f"{emp.nombre} {emp.apellido_paterno}".strip(),
                         'sucursal': suc,
-                        'puesto': puesto_principal,
-                        'total_turnos': 0, 'total_retardos': 0, 'monto_descuentos': 0.0,
-                        'total_bonos': 0.0, 'total_fila': 0.0, 'motivos_descuentos': []
+                        'puesto': puesto_actual, # Mostrará el puesto específico
+                        'total_turnos': 0,
+                        'total_retardos': 0,
+                        'monto_descuentos': 0.0,
+                        'total_bonos': 0.0,
+                        'total_fila': 0.0,
+                        'motivos_descuentos': []
                     }
 
                 fila = agrupados_dict[key]
@@ -2323,9 +2323,10 @@ def vista_reportes(request):
                 
                 if asis.motivo_descuento:
                     m = str(asis.motivo_descuento).strip()
-                    if m and m not in fila['motivos_descuentos']: fila['motivos_descuentos'].append(m)
+                    if m and m not in fila['motivos_descuentos']: 
+                        fila['motivos_descuentos'].append(m)
 
-                # Totales Globales
+                # Totales Globales (sin cambios)
                 resumen_global['total_pagar'] += pago_neto_dia
                 resumen_global['total_turnos'] += turnos_a_sumar
                 resumen_global['total_retardos'] += puntos_retardo
