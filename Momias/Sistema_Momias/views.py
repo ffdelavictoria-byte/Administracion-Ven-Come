@@ -1043,146 +1043,6 @@ def calcular_nomina_web(request):
 
 
 
-    puestos_salarios = {
-
-        "Caja (6 horas)": 248.00,  "Caja (9 horas)": 354.50,
-
-        "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
-
-        "Encargado Cocina (Matutino 6 horas)": 252.00,
-
-        "Encargado Cocina (Matutino 9 horas)": 378.00,
-
-        "Encargado Cocina (Matutino 12 horas)": 519.00,
-
-        "Encargado de Cocina (12 horas)": 519.00,
-
-        "Cocina y Barra (6 hrs)": 236.50,
-
-        "Cocina y Barra (9 hrs)": 354.50,
-
-        "Barra (6 horas) Entregas": 236.50,
-
-        "Barra (9 horas) Entregas": 354.50,
-
-        "Fin de Semana": 473.00,
-
-        "Aux Produccion": 177.00,
-
-        "Produccion": 370.00,
-
-        "Encargado Victoria (6 Horas)": 316.00,
-
-        "Encargado Sucursales (6 Horas)": 262.00,
-
-        "Encargado Sucursales (9 Horas)": 393.00, 
-
-        "Freidor (6 horas)": 248.00,
-
-        "Despacho (6 horas)": 236.50,
-
-        "Aderezos": 236.50,
-
-        "Cocina": 248.00,
-
-        "Fabrica": 236.50,
-
-        "Perrioni": 236.50,
-
-        "PP": 236.50,
-
-        "Yommy": 236.50,
-
-        "PM": 236.50,
-
-        "Rappi": 354.75,
-
-        "Fabrica Crystal": 262.00,
-
-        "Hamburguesas Momias": 0.00,
-
-        "Tuppers": 0.00,
-
-        "Benny": 171.00,
-
-        "Caja Capacitacion": 236.50,
-
-        "Freidor Capacitacion": 236.50,
-
-        "Encargado Capacitacion": 248.00,
-
-        "Caja Matutina (6 horas)": 236.50, 
-
-        "Caja Vespertina (6 horas)": 236.50,
-
-        "Caja Matutina (9 horas)": 354.50,
-
-        "Caja Vespertina (9 horas)": 354.50,
-
-        "Cocina Matutina (6 horas)": 236.50,
-
-        "Cocina Vespertina (6 horas)": 236.50,
-
-        "Cocina Matutina (9 horas)": 354.50,
-
-        "Cocina Vespertina (9 horas)": 354.50,
-
-        "Crepas Intermedio (9 horas)": 354.50,
-
-        "Barra y Cocina Fin De Semana (12 horas)": 473.00,
-
-        "Limpieza Fin De Semana (9 horas)": 408.00,
-
-        "Limpieza 1 Matutino (6 horas L)": 272.00,
-
-        "Limpieza 2 Matutino (6 horas)": 236.50,
-
-        "Limpieza 3 Vespertino (6 horas A)": 272.00,
-
-        "Limpieza 4 Vespertino (6 horas)": 236.50,
-
-        "TURNO MATUTINO (6 horas)": 236.50, 
-
-        "TURNO VESPERTINO (6 horas)": 236.50,
-
-        "TURNO MATUTINO (9 horas)": 354.50,
-
-        "TURNO VESPERTINO (9 horas)": 354.50,
-
-        "TURNO FIN DE SEMANA": 473.00,
-
-        "Gerente (12 horas)": 600.00, 
-
-        "Chef de Línea (9 horas)": 531.57,
-
-        "Encargado Cocina (Matutino 6 horas)": 252.00,
-
-        "Crepas": 354.50,
-
-        "Limpieza Fin De Semana (9 horas)": 408.00,
-
-        "Limpieza 1 Matutino (6 horas L)": 272.00,
-
-        "Limpieza 2 Matutino (6 horas)": 236.50,
-
-        "Limpieza 3 Vespertino (6 horas A)": 272.00,
-
-        "Limpieza 4 Vespertino (6 horas)": 236.50,
-
-        "Fin de Semana": 473.00,
-
-        "Aux Produccion": 177.00,
-
-        "Produccion": 370.00,
-
-        "Hamburguesas FF": 0.0,
-
-        "TURNO INTERMEDIO": 354.50,
-
-    }
-
-
-
     DESCUENTO_UNIFORME_SEMANAL = 181.00
 
 
@@ -1457,9 +1317,10 @@ def calcular_nomina_web(request):
 
                     # 2. Determinar el salario de un solo turno (promedio de lo que trabajó)
 
-                    salario_un_turno_promedio = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
-
-                                               for p, c in conteo_puestos.items())
+                    # DESPUÉS (desde el objeto Puesto)
+                    # Nota: 'p' aquí es el objeto Puesto que viene de a.puesto en el Counter
+                    salario_un_turno_promedio = sum((float(p.sueldo_diario if p else 0) * (c / total_dias_trabajados)) 
+                                                   for p, c in conteo_puestos.items())
 
                     
 
@@ -1509,17 +1370,21 @@ def calcular_nomina_web(request):
 
                 for reg in asistencias:
 
+                    # DESPUÉS
                     estatus_limpio = (reg.estatus or "").upper()
-
-                    salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
-
+                    # Accedemos directamente al sueldo del objeto puesto relacionado a la asistencia
+                    if reg.puesto:
+                        salario_base_puesto = reg.puesto.sueldo_diario
+                    else:
+                        salario_base_puesto = empleado.sueldo_base or 0
+                        
                     base_calc = float(salario_base_puesto)
 
                     
 
                     # Ajuste de base_calc para cálculos de retardo según jornada
 
-                    if "(9 horas)" in (reg.puesto or ""): 
+                    if reg.puesto and "(9 horas)" in reg.puesto.nombre: 
 
                         base_calc /= 1.5
 
@@ -1767,7 +1632,7 @@ def calcular_nomina_web(request):
 
                         'fecha_dia': fecha_str,
 
-                        'puesto': reg.puesto or '---',
+                        'puesto': reg.puesto.nombre if reg.puesto else '---',
 
                         'sucursal': reg.sucursal or '---',
 
