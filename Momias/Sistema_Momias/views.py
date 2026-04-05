@@ -2208,43 +2208,32 @@ def vista_reportes(request):
 
     agrupados_dict = {}
     resumen_sucursales_dict = {}
-    resumen_global = {
-        'total_pagar': 0,
-        'total_retardos': 0,
-        'total_bonif': 0,
-        'total_turnos': 0,
-        'total_descuentos': 0
-    }
+    resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0, 'total_turnos': 0, 'total_descuentos': 0}
 
     if f_inicio and f_fin:
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
 
-        # Filtros
+        # Aplicación de filtros (Sucursal y Nombre)
         if sucursal_filtro and sucursal_filtro != "TODAS":
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
 
         if query_nombre:
             asistencias_query = asistencias_query.annotate(
-                full_name=Concat(
-                    'empleado__nombre',
-                    Value(' '),
-                    'empleado__apellido_paterno',
-                    Value(' '),
-                    'empleado__apellido_materno',
-                    output_field=CharField()
-                )
-            ).filter(
-                Q(full_name__icontains=query_nombre) |
-                Q(empleado__codigo_empleado__icontains=query_nombre)
-            )
+                full_name=Concat('empleado__nombre', Value(' '), 'empleado__apellido_paterno', output_field=CharField())
+            ).filter(Q(full_name__icontains=query_nombre) | Q(empleado__codigo_empleado__icontains=query_nombre))
 
-        ids_con_falta = set(
-            asistencias_query.filter(estatus__icontains="FALTA")
-            .values_list('empleado_id', flat=True)
-        )
+        # --- ERROR 2: AQUÍ DEBES CONSTRUIR EL DICCIONARIO asistencias_por_emp ---
+        asistencias_por_emp = {}
+        for a in asistencias_query:
+            if a.empleado_id not in asistencias_por_emp:
+                asistencias_por_emp[a.empleado_id] = []
+            asistencias_por_emp[a.empleado_id].append(a)
+        # -----------------------------------------------------------------------
+
+        ids_con_falta = set(asistencias_query.filter(estatus__icontains="FALTA").values_list('empleado_id', flat=True))
 
         for emp_id, lista_asis in asistencias_por_emp.items():
-            # 1. Determinar puesto más recurrente y días con jornada doble
+            # 1. Determinar puesto más recurrente y días dobles
             conteo_puestos = Counter()
             dias_dobles_count = 0
             
@@ -2254,15 +2243,16 @@ def vista_reportes(request):
                     pue = a.puesto or a.empleado.puesto or "GENERAL"
                     conteo_puestos[pue] += 1
                     
-                    # Lógica de jornada doble (misma que usas para el cálculo)
+                    # Verificamos si ese día dobló turno
                     tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
                     tiene_v = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
                     if tiene_m and tiene_v:
                         dias_dobles_count += 1
 
+            # El puesto que más se repitió es el "padre" de la fila
             puesto_principal = conteo_puestos.most_common(1)[0][0] if conteo_puestos else "GENERAL"
             
-            # 2. Procesar cada asistencia del empleado
+            # 2. Procesar asistencias individuales del empleado
             for asis in lista_asis:
                 emp = asis.empleado
                 estatus_limpio = (asis.estatus or "").strip().upper()
@@ -2270,7 +2260,7 @@ def vista_reportes(request):
                 es_falta = "FALTA" in estatus_limpio
                 suc = asis.sucursal or "Victoria"
 
-                # --- Cálculo de Salarios y Valores (Tu lógica original) ---
+                # Cálculo de valor de turno basado en el puesto_principal
                 salario_ref = float(puestos_salarios.get(puesto_principal, emp.sueldo_base or 0))
                 pue_up = puesto_principal.upper()
                 
@@ -2278,20 +2268,15 @@ def vista_reportes(request):
                 elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): valor_turno = salario_ref / 2
                 else: valor_turno = salario_ref
 
-                # --- Lógica de Turnos de Descanso ---
+                # Turnos y Pago
                 turnos_a_sumar = 0
                 pago_base_dia = 0.0
 
                 if es_descanso:
                     if emp.id not in ids_con_falta:
-                        # Si dobló 6 días, el descanso vale 2 turnos, si no, 1
                         turnos_a_sumar = 2 if dias_dobles_count >= 6 else 1
                         pago_base_dia = valor_turno * turnos_a_sumar
-                elif es_falta:
-                    turnos_a_sumar = 0
-                    pago_base_dia = 0.0
-                else:
-                    # Día normal trabajado
+                elif not es_falta:
                     tiene_m = asis.entrada_matutina and str(asis.entrada_matutina).strip() != ""
                     tiene_v = asis.salida_vespertina and str(asis.salida_vespertina).strip() != ""
                     turnos_a_sumar = 2 if (tiene_m and tiene_v) else 1
@@ -2304,25 +2289,18 @@ def vista_reportes(request):
                 desc_manual = float(asis.descuento or 0)
                 puntos_retardo = int(float(asis.horas or 0))
                 desc_retardo = (valor_turno * FACTORES_RETARDO.get(puntos_retardo, 0)) if (not es_descanso and not es_falta) else 0
-                
                 monto_desc_total = desc_manual + (desc_retardo / 2)
                 pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
 
-                # --- AGRUPACIÓN ---
-                # Usamos puesto_principal para que el descanso NO cree una fila nueva
+                # AGRUPACIÓN POR PUESTO PRINCIPAL
                 key = (emp.id, suc, puesto_principal)
-                
                 if key not in agrupados_dict:
                     agrupados_dict[key] = {
                         'empleado': f"{emp.nombre} {emp.apellido_paterno}".strip(),
                         'sucursal': suc,
                         'puesto': puesto_principal,
-                        'total_turnos': 0,
-                        'total_retardos': 0,
-                        'monto_descuentos': 0.0,
-                        'total_bonos': 0.0,
-                        'total_fila': 0.0,
-                        'motivos_descuentos': []
+                        'total_turnos': 0, 'total_retardos': 0, 'monto_descuentos': 0.0,
+                        'total_bonos': 0.0, 'total_fila': 0.0, 'motivos_descuentos': []
                     }
 
                 fila = agrupados_dict[key]
@@ -2342,7 +2320,6 @@ def vista_reportes(request):
                 resumen_global['total_retardos'] += puntos_retardo
                 resumen_global['total_bonif'] += bono_dia
                 resumen_global['total_descuentos'] += monto_desc_total
-                
                 resumen_sucursales_dict[suc] = resumen_sucursales_dict.get(suc, 0) + pago_neto_dia
 
     resumen_sucursales = [
