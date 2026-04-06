@@ -1382,15 +1382,19 @@ def calcular_nomina_web(request):
 
                     
 
-                    # Ajuste de base_calc para cálculos de retardo según jornada
-
-                    if reg.puesto and "(9 horas)" in reg.puesto.nombre: 
-
-                        base_calc /= 1.5
-
-                    elif "(12 Horas)" in (reg.puesto or "") or "GERENTE" in (reg.puesto or "").upper(): 
-
-                        base_calc /= 2
+                    # --- Ajuste de base_calc para cálculos de retardo según jornada ---
+                    if reg.puesto:
+                        # Extraemos el nombre una sola vez para eficiencia y legibilidad
+                        nombre_puesto = reg.puesto.nombre.upper()
+                    
+                        if "(9 HORAS)" in nombre_puesto:
+                            base_calc /= 1.5
+                        elif "(12 HORAS)" in nombre_puesto or "GERENTE" in nombre_puesto:
+                            base_calc /= 2
+                    else:
+                        # Si no hay puesto asignado, puedes definir un comportamiento por defecto
+                        # o simplemente mantener el base_calc que ya traes del empleado
+                        pass
 
 
 
