@@ -1336,17 +1336,11 @@ def calcular_nomina_web(request):
                     estatus_limpio = (reg.estatus or "").upper()
                     puesto_reg_str = (reg.puesto or "").upper()
                     
-                    # Obtener salario base para este registro específico
+                    # 1. Obtener salario base (el monto por UN turno de 6h o el sueldo_base por defecto)
                     salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
                     base_calc = float(salario_base_puesto)
-            
-                    # Ajuste de base para cálculos de retardo (proporcional a la jornada)
-                    if "(9 HORAS)" in puesto_reg_str: 
-                        base_calc /= 1.5
-                    elif "(12 HORAS)" in puesto_reg_str or "GERENTE" in puesto_reg_str: 
-                        base_calc /= 2
-            
-                    # Lógica de pago de día
+
+                    # 2. Lógica de Pago de Día con Excepción para Gerencia
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
                         retardo_dia = 0
                         if not tiene_falta_en_semana and not descanso_pagado:
@@ -1354,16 +1348,37 @@ def calcular_nomina_web(request):
                             descanso_pagado = True
                         else:
                             salario_dia = 0.0
+                    
+                    # Si el pago viene forzado manualmente desde la base de datos
                     elif float(reg.pago_dia or 0.0) > 0:
                         retardo_dia = int(reg.horas or 0)
                         salario_dia = float(reg.pago_dia)
-                    else:
-                        salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
+                    
+                    # CASO ESPECIAL: Gerentes (Jornada de 12h que equivale a 2 turnos de base_calc)
+                    elif "GERENTE" in puesto_reg_str:
+                        # Para gerentes, el salario del día es el sueldo base completo (los 600)
+                        salario_dia = base_calc 
+                        # Procesamos el retardo pero sobre la base ajustada (base_calc / 2 para que el factor sea sobre 6h)
+                        _, retardo_aut = calcular_pago_dia_final(base_calc / 2, reg)
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
-            
+
+                    else:
+                        # Lógica normal para empleados por turnos
+                        # Ajuste de base para cálculos de retardo (proporcional a la jornada)
+                        base_proporcional = base_calc
+                        if "(9 HORAS)" in puesto_reg_str: 
+                            base_proporcional = base_calc / 1.5
+                        elif "(12 HORAS)" in puesto_reg_str: 
+                            base_proporcional = base_calc / 2
+                            
+                        salario_dia, retardo_aut = calcular_pago_dia_final(base_proporcional, reg)
+                        retardo_dia = int(reg.horas) if reg.horas else retardo_aut
+
+                    # 3. Multiplicadores de estatus
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
                         salario_dia *= 2
-            
+
+                    # 4. Acumulación de retardos
                     if retardo_dia > 0: 
                         total_retardos_semanales += 1
             
