@@ -1432,7 +1432,7 @@ def calcular_nomina_web(request):
 
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
 
-                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
+                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
 
                         salario_dia *= 2
 
