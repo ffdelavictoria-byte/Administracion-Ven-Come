@@ -1513,63 +1513,53 @@ def calcular_nomina_web(request):
                     pue_up = (reg.puesto or "").upper()
                     puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
                     es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
-
+                    
                     if es_excepcion_turno:
-                        cantidad_turnos = 1
-
+                        turnos_acumulados = 1.0
                     else:
-
                         # Calculamos la proporcionalidad basada en minutos
-                        turnos_acumulados = 0
+                        turnos_acumulados = 0.0
+                        
                         # Procesamos matutino
                         m_ent_m, _ = procesar_dato_hibrido(reg.entrada_matutina, True, 'M')
                         m_sal_m, _ = procesar_dato_hibrido(reg.salida_matutina, False, 'M')
-
+                    
                         if m_ent_m and m_sal_m:
                             diff_m = m_sal_m - m_ent_m
-                            # Si trabajó más de 0 min, calculamos fracción sobre 6 horas (360 min)
                             turnos_acumulados += max(0, diff_m) / 360.0
-
                         elif m_ent_m or m_sal_m:
-                            # Si falta un dato pero hay otro, asumimos el turno completo (o podrías dejarlo en 0)
                             turnos_acumulados += 1.0
-
+                    
                         # Procesamos vespertino
                         m_ent_v, _ = procesar_dato_hibrido(reg.entrada_vespertina, True, 'V')
                         m_sal_v, _ = procesar_dato_hibrido(reg.salida_vespertina, False, 'V')
-
+                    
                         if m_ent_v and m_sal_v:
                             diff_v = m_sal_v - m_ent_v
                             turnos_acumulados += max(0, diff_v) / 360.0
-
                         elif m_ent_v or m_sal_v:
-                            # Caso especial: Si es jornada corrida (Entrada M y Salida V)
-                            # ya está cubierto por la lógica de arriba si existen los datos, 
-                            # pero si solo hay una marca, sumamos el turno.
+                            # Solo sumamos si no es una jornada corrida ya procesada
                             if not (m_ent_m and m_sal_v and not m_sal_m and not m_ent_v):
                                 turnos_acumulados += 1.0
-
-                        # Si es jornada corrida (Entrada M y Salida V sin marcas intermedias)
-
+                    
+                        # Caso jornada corrida (Entrada M y Salida V sin marcas intermedias)
                         if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
                             diff_total = m_sal_v - m_ent_m
                             if diff_total < 0: diff_total += 1440
-
                             turnos_acumulados = diff_total / 360.0
-
-                        # Formateamos para que salga T1, T2 o T0.75
-
-                        valor_num = round(turnos_acumulados, 2)
-
-                        # Si es un entero exacto (1.0, 2.0), lo dejamos sin decimales
-
-                        if valor_num % 1 == 0:
-                            cantidad_turnos = int(valor_num)
-
-                        else:
-                            cantidad_turnos = valor_num
-
-                    # --------------------------------------------------
+                    
+                    # --- NUEVA CORRECCIÓN: MULTIPLICADOR POR DÍA ESPECIAL ---
+                    # Si el estatus es Descanso Trabajado o Festivo, duplicamos el conteo de turnos
+                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
+                        turnos_acumulados *= 2
+                    
+                    # Formateamos el resultado final
+                    valor_num = round(turnos_acumulados, 2)
+                    if valor_num % 1 == 0:
+                        cantidad_turnos = int(valor_num)
+                    else:
+                        cantidad_turnos = valor_num
+# ------------------------------------------------------
                     dias_map[nombre_dia].append({
                         'fecha_dia': fecha_str,
                         'puesto': reg.puesto or '---',
