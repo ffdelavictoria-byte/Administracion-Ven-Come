@@ -1280,186 +1280,133 @@ def calcular_nomina_web(request):
             empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
 
             # ... resto de tu lógica para procesar empleados_ids
+            # ... (Funciones procesar_dato_hibrido y calcular_pago_dia_final se mantienen igual arriba)
+
             for emp_id in empleados_ids:
-
-
-
                 empleado = Empleado.objects.get(id=emp_id)
-
-
-
                 asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
-
-
-
-                
-
-
-
-                # --- LÓGICA DE DESCANSO CORREGIDA: DETECCIÓN DE 6 DÍAS DOBLES ---
-
+            
                 asistencias_trabajadas = [
-
                     a for a in asistencias 
-
                     if a.puesto and "DESCANSO" not in (a.estatus or "").upper() and "FALTA" not in (a.estatus or "").upper()
-
-
-
                 ]
-
-                # ... (dentro del bucle de empleados en la nómina)
-
+            
+                # --- INICIO LÓGICA DE DESCANSO ---
+                salario_descanso = float(empleado.sueldo_base or 0)
+                puesto_principal = "Sin Puesto"
+                
                 if asistencias_trabajadas:
                     total_dias_trabajados = len(asistencias_trabajadas)
                     conteo_puestos = Counter([a.puesto for a in asistencias_trabajadas])
                     
-                    # 1. Contar días con jornada completa (solo para puestos que sí pueden duplicar)
+                    # 1. Contar días con jornada completa (Excluyendo Gerencia del bono)
                     dias_completos = 0
                     for a in asistencias_trabajadas:
                         pue_str = (a.puesto or "").upper()
                         puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
                         es_excepcion = any(x in pue_str for x in puestos_turno_unico)
-                
-                        # Si NO es gerente, revisamos si trabajó mañana y tarde para el bono
+            
                         if "GERENTE" not in pue_str:
                             tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
                             tiene_v = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
-                            # Si tiene ambas marcas y no es turno único, cuenta para el doble
                             if tiene_m and tiene_v and not es_excepcion:
                                 dias_completos += 1
-                
-                    # 2. Salario base de un turno (promedio)
+            
+                    # 2. Salario promedio de un turno
                     salario_un_turno_promedio = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
                                                    for p, c in conteo_puestos.items())
-                    
                     puesto_frecuente = conteo_puestos.most_common(1)[0][0]
-                
-                    # 3. DETERMINACIÓN FINAL DEL PAGO DE DESCANSO
-                    # Solo duplicamos si tiene 6 días completos Y NO ES GERENTE
+            
+                    # 3. Determinación final (El Gerente NUNCA entra aquí por el 'and')
                     if dias_completos >= 6 and "GERENTE" not in puesto_frecuente.upper():
                         salario_descanso = salario_un_turno_promedio * 2
                         puesto_principal = f"{puesto_frecuente} (Doble)"
                     else:
-                        # Aquí caerá el Gerente: siempre pagará el valor normal (600)
                         salario_descanso = salario_un_turno_promedio
                         puesto_principal = puesto_frecuente
-
-
-
-                        # ----------------------------------
-
-                        tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
-
-
-
-                        tiene_sv = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
-
-
-
-                        tiene_ev = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
-
-                        es_12h_gerente = "12 HORAS" in puesto_str or "GERENTE" in puesto_str
-
-                        # Agregamos "and not es_excepcion_turno" al final de la condición
-
-
-                        if ((tiene_m and (tiene_sv or tiene_ev)) or es_12h_gerente) and not es_excepcion_turno:
-
-
-                            dias_completos += 1
-
-                    # 2. Determinar el salario de un solo turno (promedio de lo que trabajó)
-                    salario_un_turno_promedio = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
-
-
-
-                                               for p, c in conteo_puestos.items())
-
-
-                    puesto_frecuente = conteo_puestos.most_common(1)[0][0]
-
-                    # 3. Aplicar multiplicador si cumplió los 6 días dobles
-                    if dias_completos >= 6:
-
-                        salario_descanso = salario_un_turno_promedio * 2
-
-                        puesto_principal = f"{puesto_frecuente} (Doble)"
-
-
-                    else:
-
-                        salario_descanso = salario_un_turno_promedio
-
-                        puesto_principal = puesto_frecuente
-
-                else:
-
-                    salario_descanso = float(empleado.sueldo_base or 0)
-
-                    puesto_principal = "Sin Puesto"
-
-                # --- PRE-CALCULO DE RETARDOS Y LÓGICA DE PAGO ÚNICO ---
+                # --- FIN LÓGICA DE DESCANSO ---
+            
+                # --- PRE-CALCULO DE RETARDOS Y DETALLES DIARIOS ---
                 lista_detalles_asistencia = []
-
                 total_retardos_semanales = 0
-
-                descanso_pagado = False  # Bandera para pago único
-                # Verificar si el empleado tiene CUALQUIER falta en esta semana
+                descanso_pagado = False  
                 tiene_falta_en_semana = asistencias.filter(estatus__icontains="FALTA").exists()
+            
                 for reg in asistencias:
                     estatus_limpio = (reg.estatus or "").upper()
+                    puesto_reg_str = (reg.puesto or "").upper()
+                    
+                    # Obtener salario base para este registro específico
                     salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
                     base_calc = float(salario_base_puesto)
-
-                    # Ajuste de base_calc para cálculos de retardo según jornada
-
-                    if "(9 horas)" in (reg.puesto or ""): 
-
+            
+                    # Ajuste de base para cálculos de retardo (proporcional a la jornada)
+                    if "(9 HORAS)" in puesto_reg_str: 
                         base_calc /= 1.5
-
-                    elif "(12 Horas)" in (reg.puesto or "") or "GERENTE" in (reg.puesto or "").upper(): 
-
+                    elif "(12 HORAS)" in puesto_reg_str or "GERENTE" in puesto_reg_str: 
                         base_calc /= 2
-
-                    # Lógica de pago de descanso
+            
+                    # Lógica de pago de día
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
                         retardo_dia = 0
-                        # Solo paga si NO tiene faltas en la semana Y no se ha pagado otro descanso
                         if not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
-
                         else:
-
                             salario_dia = 0.0
-
                     elif float(reg.pago_dia or 0.0) > 0:
                         retardo_dia = int(reg.horas or 0)
                         salario_dia = float(reg.pago_dia)
-
                     else:
-
-                        # calcular_pago_dia_final ya maneja la lógica de entrada_m y salida_v
                         salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
-
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
-
+            
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
-
                         salario_dia *= 2
-
+            
                     if retardo_dia > 0: 
                         total_retardos_semanales += 1
-
+            
+                    # --- CÁLCULO DE CANTIDAD_TURNOS (PROPORCIONAL) ---
+                    puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
+                    es_excepcion_turno = any(x in puesto_reg_str for x in puestos_turno_unico)
+                    
+                    if es_excepcion_turno:
+                        turnos_acum = 1.0
+                    else:
+                        # Lógica hibrida para minutos/turnos
+                        m_ent_m, _ = procesar_dato_hibrido(reg.entrada_matutina, True, 'M')
+                        m_sal_m, _ = procesar_dato_hibrido(reg.salida_matutina, False, 'M')
+                        m_ent_v, _ = procesar_dato_hibrido(reg.entrada_vespertina, True, 'V')
+                        m_sal_v, _ = procesar_dato_hibrido(reg.salida_vespertina, False, 'V')
+                        
+                        # Caso jornada corrida
+                        if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
+                            diff = m_sal_v - m_ent_m
+                            if diff < 0: diff += 1440
+                            turnos_acum = diff / 360.0
+                        else:
+                            t_m = 0
+                            if m_ent_m and m_sal_m: t_m = max(0, m_sal_m - m_ent_m) / 360.0
+                            elif m_ent_m or m_sal_m: t_m = 1.0
+                            
+                            t_v = 0
+                            if m_ent_v and m_sal_v: t_v = max(0, m_sal_v - m_ent_v) / 360.0
+                            elif m_ent_v or m_sal_v: t_v = 1.0
+                            turnos_acum = t_m + t_v
+            
+                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
+                        turnos_acum *= 2
+            
                     lista_detalles_asistencia.append({
                         'reg': reg, 
                         'retardo_dia': retardo_dia, 
                         'salario_dia': salario_dia,
-                        'salario_puesto_full': base_calc, 
-                        'estatus': estatus_limpio
-
+                        'estatus': estatus_limpio,
+                        'cantidad_turnos': round(turnos_acum, 2)
                     })
+            
+                # ... (Sigue lógica de suma de totales, uniformes y resultados_nomina.append)
                 pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
                 total_desc_retardos_semanal = 0.0
                 total_retardos_acumulados = 0 
