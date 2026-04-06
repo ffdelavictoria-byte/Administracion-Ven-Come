@@ -2035,8 +2035,14 @@ def vista_reportes(request):
                 es_falta = "FALTA" in estatus_limpio
                 suc = asis.sucursal or "Victoria"
 
-                puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
-                salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0))
+                # --- CORRECCIÓN 1: PUESTO EN CASO DE FALTA ---
+                if es_falta:
+                    puesto_para_fila = "FALTA"
+                else:
+                    puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
+                
+                # Obtenemos salario base (si es FALTA, el salario es 0 para evitar pagos fantasma)
+                salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0)) if not es_falta else 0.0
                 
                 pue_up = puesto_para_fila.upper()
                 if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]): valor_turno_base = salario_ref / 1.5
@@ -2044,11 +2050,11 @@ def vista_reportes(request):
                 else: valor_turno_base = salario_ref
 
                 turnos_a_sumar = 0.0
-                if es_descanso:
+                if es_descanso and "TRABAJADO" not in estatus_limpio:
                     if emp.id not in ids_con_falta:
                         turnos_a_sumar = 2.0 if dias_dobles_count >= 6 else 1.0
                 elif not es_falta:
-                    # Lógica de minutos (usa la función procesar_dato_hibrido definida fuera)
+                    # Lógica de minutos proporcional
                     puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
                     if any(x in pue_up for x in puestos_turno_unico):
                         turnos_a_sumar = 1.0
@@ -2068,7 +2074,28 @@ def vista_reportes(request):
                             elif m_ent_m or m_sal_m: t_acum += 1.0
                             if m_ent_v and m_sal_v: t_acum += max(0, m_sal_v - m_ent_v) / 360.0
                             elif m_ent_v or m_sal_v: t_acum += 1.0
-                        turnos_a_sumar = round(t_acum, 2)
+                        turnos_a_sumar = t_acum
+
+                    # --- CORRECCIÓN 2: MULTIPLICADOR TURNOS (FESTIVO / DESCANSO TRABAJADO) ---
+                    if "TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
+                        turnos_a_sumar *= 2
+
+                # --- CORRECCIÓN 3: PAGO BASE ---
+                # Ya no multiplicamos por 2 aquí porque 'turnos_a_sumar' ya trae el doble
+                pago_base_dia = (valor_turno_base * turnos_a_sumar)
+                
+                bono_dia = float(asis.bonificacion or 0)
+                desc_manual = float(asis.descuento or 0)
+                puntos_retardo = int(float(asis.horas or 0))
+                
+                # Descuento de retardo (se calcula sobre el valor de un turno normal, no el doble)
+                desc_retardo = (valor_turno_base * FACTORES_RETARDO.get(puntos_retardo, 0)) if (not es_descanso and not es_falta) else 0
+                
+                monto_desc_total = desc_manual + (desc_retardo / 2) # Manteniendo tu lógica de desc/2
+                pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
+
+                # Redondeo de turnos para el diccionario
+                turnos_a_sumar = round(turnos_a_sumar, 2)
 
                 pago_base_dia = (valor_turno_base * turnos_a_sumar)
                 if "TRABAJADO" in estatus_limpio: pago_base_dia *= 2
