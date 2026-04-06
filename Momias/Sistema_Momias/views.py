@@ -1308,29 +1308,42 @@ def calcular_nomina_web(request):
 
                 ]
 
+                # ... (dentro del bucle de empleados en la nómina)
+
                 if asistencias_trabajadas:
-
                     total_dias_trabajados = len(asistencias_trabajadas)
-
                     conteo_puestos = Counter([a.puesto for a in asistencias_trabajadas])
-
-                    # 1. Contar cuántos días trabajó REALMENTE jornada doble
+                    
+                    # 1. Contar días con jornada completa (solo para puestos que sí pueden duplicar)
                     dias_completos = 0
-
-
-                    # 1. Contar cuántos días trabajó REALMENTE jornada doble
-                    dias_completos = 0
-
-
-
                     for a in asistencias_trabajadas:
-
-                        puesto_str = (a.puesto or "").upper()
-
-                        # --- NUEVA LÓGICA DE EXCEPCIONES ---
+                        pue_str = (a.puesto or "").upper()
                         puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
-
-                        es_excepcion_turno = any(x in puesto_str for x in puestos_turno_unico)
+                        es_excepcion = any(x in pue_str for x in puestos_turno_unico)
+                
+                        # Si NO es gerente, revisamos si trabajó mañana y tarde para el bono
+                        if "GERENTE" not in pue_str:
+                            tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+                            tiene_v = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
+                            # Si tiene ambas marcas y no es turno único, cuenta para el doble
+                            if tiene_m and tiene_v and not es_excepcion:
+                                dias_completos += 1
+                
+                    # 2. Salario base de un turno (promedio)
+                    salario_un_turno_promedio = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
+                                                   for p, c in conteo_puestos.items())
+                    
+                    puesto_frecuente = conteo_puestos.most_common(1)[0][0]
+                
+                    # 3. DETERMINACIÓN FINAL DEL PAGO DE DESCANSO
+                    # Solo duplicamos si tiene 6 días completos Y NO ES GERENTE
+                    if dias_completos >= 6 and "GERENTE" not in puesto_frecuente.upper():
+                        salario_descanso = salario_un_turno_promedio * 2
+                        puesto_principal = f"{puesto_frecuente} (Doble)"
+                    else:
+                        # Aquí caerá el Gerente: siempre pagará el valor normal (600)
+                        salario_descanso = salario_un_turno_promedio
+                        puesto_principal = puesto_frecuente
 
 
 
