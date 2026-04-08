@@ -1102,7 +1102,6 @@ def calcular_nomina_web(request):
     }
 
     DESCUENTO_UNIFORME_SEMANAL = 181.00
-
     def procesar_dato_hibrido(valor, es_entrada, bloque):
 
         if not valor: return None, 0
@@ -1114,43 +1113,27 @@ def calcular_nomina_web(request):
             try:
 
                 partes = v.split(':')
-
                 h = int(partes[0])
-
                 m = int(partes[1][:2])
-
                 min_reloj = h * 60 + m
-
                 retardo = 0
-
                 if es_entrada:
-
                     hora_base = 9 * 60 if bloque == 'M' else 15 * 60
-
                     if min_reloj > hora_base:
-
                         retardo = (min_reloj - hora_base) / 60 
-
                 return min_reloj, retardo
-
             except: pass
-
         if v.isdigit():
-
             retardo_num = int(v)
-
             if es_entrada:
-
                 hora_ficticia = (9 + retardo_num) * 60 if bloque == 'M' else (15 + retardo_num) * 60
 
             else:
-
                 hora_ficticia = (15 - retardo_num) * 60 if bloque == 'M' else (21 - retardo_num) * 60
 
             return hora_ficticia, retardo_num
 
         if "NORMAL" in v:
-
             hora_base = (9*60 if es_entrada else 15*60) if bloque == 'M' else (15*60 if es_entrada else 21*60)
 
             return hora_base, 0
@@ -1179,8 +1162,6 @@ def calcular_nomina_web(request):
 
             minutos_trabajados = diff + 1440 if diff < 0 else diff
 
-
-
         else:
 
             if m_ent_m and m_sal_m:
@@ -1207,7 +1188,6 @@ def calcular_nomina_web(request):
 
         return pago, int(retardo_acumulado)
 
-
     if fecha_inicio and fecha_fin:
 
         f_ini_dt = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
@@ -1219,253 +1199,307 @@ def calcular_nomina_web(request):
         current_start = f_ini_dt
 
         while current_start <= f_fin_dt:
+
             dias_al_domingo = 6 - current_start.weekday()
+
             current_end = min(current_start + timedelta(days=dias_al_domingo), f_fin_dt)
+
             intervalos_semanas.append((current_start, current_end))
+
             current_start = current_end + timedelta(days=1)
 
         # Obtenemos la lista de sucursales seleccionadas
+
         sucursales_seleccionadas = request.GET.getlist('sucursal')
 
-
         for sem_inicio, sem_fin in intervalos_semanas:
+
             filtros_asistencia = Q(fecha__range=[sem_inicio, sem_fin])
 
-
             # Filtro para selección múltiple de sucursales
+
             if sucursal_filtro and "TODAS" not in sucursales_seleccionadas:
 
                 filtros_asistencia &= Q(sucursal__in=sucursales_seleccionadas)
 
-
             # --- NUEVA LÓGICA DE FILTRADO POR NOMBRE COMPLETO ---
+
             asistencias_query = Asistencia.objects.filter(filtros_asistencia)
+
             if nombre_filtro:
+
                 # Creamos el campo virtual 'full_name' igual que en tu vista_reporte
+
                 asistencias_query = asistencias_query.annotate(
 
 
-
                     full_name=Concat(
+
                         'empleado__nombre', Value(' '), 
+
                         'empleado__apellido_paterno', Value(' '), 
+
                         'empleado__apellido_materno',
+
                         output_field=CharField()
 
                     )
 
-
-
                 ).filter(
-
 
                     Q(full_name__icontains=nombre_filtro) |
 
-
                     Q(empleado__nombre__icontains=nombre_filtro) |
-
 
                     Q(empleado__apellido_paterno__icontains=nombre_filtro) |
 
-
                     Q(empleado__codigo_empleado__icontains=nombre_filtro)
 
-
-
                 )
-
 
             # Obtenemos los IDs de los empleados que cumplen con los filtros
 
             empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
 
             # ... resto de tu lógica para procesar empleados_ids
-            # ... (Funciones procesar_dato_hibrido y calcular_pago_dia_final se mantienen igual arriba)
 
             for emp_id in empleados_ids:
+
                 empleado = Empleado.objects.get(id=emp_id)
+
                 asistencias = Asistencia.objects.filter(filtros_asistencia, empleado=empleado).order_by('fecha')
-            
+
+                # --- LÓGICA DE DESCANSO CORREGIDA: DETECCIÓN DE 6 DÍAS DOBLES ---
+
                 asistencias_trabajadas = [
+
                     a for a in asistencias 
+
                     if a.puesto and "DESCANSO" not in (a.estatus or "").upper() and "FALTA" not in (a.estatus or "").upper()
+
                 ]
-            
-                # --- INICIO LÓGICA DE DESCANSO ---
-                salario_descanso = float(empleado.sueldo_base or 0)
-                puesto_principal = "Sin Puesto"
-                
+
                 if asistencias_trabajadas:
+
                     total_dias_trabajados = len(asistencias_trabajadas)
+
                     conteo_puestos = Counter([a.puesto for a in asistencias_trabajadas])
-                    
-                    # 1. Contar días con jornada completa (Excluyendo Gerencia del bono)
+                    # 1. Contar cuántos días trabajó REALMENTE jornada doble
+
                     dias_completos = 0
+
+                    # 1. Contar cuántos días trabajó REALMENTE jornada doble
+
+                    dias_completos = 0
+
                     for a in asistencias_trabajadas:
-                        pue_str = (a.puesto or "").upper()
+
+                        puesto_str = (a.puesto or "").upper()
+
+                        # --- NUEVA LÓGICA DE EXCEPCIONES ---
+
                         puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
-                        es_excepcion = any(x in pue_str for x in puestos_turno_unico)
-            
-                        if "GERENTE" not in pue_str:
-                            tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
-                            tiene_v = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
-                            if tiene_m and tiene_v and not es_excepcion:
-                                dias_completos += 1
-            
-                    # 2. Salario promedio de un turno
+
+                        es_excepcion_turno = any(x in puesto_str for x in puestos_turno_unico)
+
+                        # ----------------------------------
+
+                        tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+
+                        tiene_sv = a.salida_vespertina and str(a.salida_vespertina).strip() != ""
+
+                        tiene_ev = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
+
+                        es_12h_gerente = "12 HORAS" in puesto_str or "GERENTE" in puesto_str
+
+                        # Agregamos "and not es_excepcion_turno" al final de la condición
+
+                        if ((tiene_m and (tiene_sv or tiene_ev)) or es_12h_gerente) and not es_excepcion_turno:
+
+                            dias_completos += 1
+
+                    # 2. Determinar el salario de un solo turno (promedio de lo que trabajó)
+
                     salario_un_turno_promedio = sum((puestos_salarios.get(p, 0) * (c / total_dias_trabajados)) 
-                                                   for p, c in conteo_puestos.items())
+
+                                               for p, c in conteo_puestos.items())
+
                     puesto_frecuente = conteo_puestos.most_common(1)[0][0]
-            
-                    # 3. Determinación final (El Gerente NUNCA entra aquí por el 'and')
-                    if dias_completos >= 6 and "GERENTE" not in puesto_frecuente.upper():
+
+                    # 3. Aplicar multiplicador si cumplió los 6 días dobles
+
+                    if dias_completos >= 6:
+
                         salario_descanso = salario_un_turno_promedio * 2
+
                         puesto_principal = f"{puesto_frecuente} (Doble)"
+
                     else:
+
                         salario_descanso = salario_un_turno_promedio
+
                         puesto_principal = puesto_frecuente
-                # --- FIN LÓGICA DE DESCANSO ---
-            
-                # --- PRE-CALCULO DE RETARDOS Y DETALLES DIARIOS ---
+
+                else:
+
+                    salario_descanso = float(empleado.sueldo_base or 0)
+
+                    puesto_principal = "Sin Puesto"
+
+                # --- PRE-CALCULO DE RETARDOS Y LÓGICA DE PAGO ÚNICO ---
+
                 lista_detalles_asistencia = []
+
                 total_retardos_semanales = 0
-                descanso_pagado = False  
+
+                descanso_pagado = False  # Bandera para pago único
+
+                # Verificar si el empleado tiene CUALQUIER falta en esta semana
+
                 tiene_falta_en_semana = asistencias.filter(estatus__icontains="FALTA").exists()
-            
+
                 for reg in asistencias:
+
                     estatus_limpio = (reg.estatus or "").upper()
-                    puesto_reg_str = (reg.puesto or "").upper()
-                    
-                    # 1. Obtener salario base (el monto por UN turno de 6h o el sueldo_base por defecto)
+
                     salario_base_puesto = puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
+
                     base_calc = float(salario_base_puesto)
 
-                    # 2. Lógica de Pago de Día con Excepción para Gerencia
+                    # Ajuste de base_calc para cálculos de retardo según jornada
+
+                    if "(9 horas)" in (reg.puesto or ""): 
+
+                        base_calc /= 1.5
+
+                    elif "(12 Horas)" in (reg.puesto or "") or "GERENTE" in (reg.puesto or "").upper(): 
+
+                        base_calc /= 2
+
+                    # Lógica de pago de descanso
+
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
+
                         retardo_dia = 0
+
+                        # Solo paga si NO tiene faltas en la semana Y no se ha pagado otro descanso
+
                         if not tiene_falta_en_semana and not descanso_pagado:
+
                             salario_dia = salario_descanso
+
                             descanso_pagado = True
+
                         else:
+
                             salario_dia = 0.0
-                    
-                    # Si el pago viene forzado manualmente desde la base de datos
+
                     elif float(reg.pago_dia or 0.0) > 0:
+
                         retardo_dia = int(reg.horas or 0)
+
                         salario_dia = float(reg.pago_dia)
-                    
-                    # CASO ESPECIAL: Gerentes (Jornada de 12h que equivale a 2 turnos de base_calc)
-                    elif "GERENTE" in puesto_reg_str:
-                        # Para gerentes, el salario del día es el sueldo base completo (los 600)
-                        salario_dia = base_calc 
-                        # Procesamos el retardo pero sobre la base ajustada (base_calc / 2 para que el factor sea sobre 6h)
-                        _, retardo_aut = calcular_pago_dia_final(base_calc / 2, reg)
-                        retardo_dia = int(reg.horas) if reg.horas else retardo_aut
 
                     else:
-                        # Lógica normal para empleados por turnos
-                        # Ajuste de base para cálculos de retardo (proporcional a la jornada)
-                        base_proporcional = base_calc
-                        if "(9 HORAS)" in puesto_reg_str: 
-                            base_proporcional = base_calc / 1.5
-                        elif "(12 HORAS)" in puesto_reg_str: 
-                            base_proporcional = base_calc / 2
-                            
-                        salario_dia, retardo_aut = calcular_pago_dia_final(base_proporcional, reg)
+
+                        # calcular_pago_dia_final ya maneja la lógica de entrada_m y salida_v
+
+                        salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
+
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
 
-                    # 3. Multiplicadores de estatus
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
+
                         salario_dia *= 2
 
-                    # 4. Acumulación de retardos
                     if retardo_dia > 0: 
+
                         total_retardos_semanales += 1
-            
-                    # --- CÁLCULO DE CANTIDAD_TURNOS (PROPORCIONAL) ---
-                    puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
-                    es_excepcion_turno = any(x in puesto_reg_str for x in puestos_turno_unico)
-                    
-                    if es_excepcion_turno:
-                        turnos_acum = 1.0
-                    else:
-                        # Lógica hibrida para minutos/turnos
-                        m_ent_m, _ = procesar_dato_hibrido(reg.entrada_matutina, True, 'M')
-                        m_sal_m, _ = procesar_dato_hibrido(reg.salida_matutina, False, 'M')
-                        m_ent_v, _ = procesar_dato_hibrido(reg.entrada_vespertina, True, 'V')
-                        m_sal_v, _ = procesar_dato_hibrido(reg.salida_vespertina, False, 'V')
-                        
-                        # Caso jornada corrida
-                        if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
-                            diff = m_sal_v - m_ent_m
-                            if diff < 0: diff += 1440
-                            turnos_acum = diff / 360.0
-                        else:
-                            t_m = 0
-                            if m_ent_m and m_sal_m: t_m = max(0, m_sal_m - m_ent_m) / 360.0
-                            elif m_ent_m or m_sal_m: t_m = 1.0
-                            
-                            t_v = 0
-                            if m_ent_v and m_sal_v: t_v = max(0, m_sal_v - m_ent_v) / 360.0
-                            elif m_ent_v or m_sal_v: t_v = 1.0
-                            turnos_acum = t_m + t_v
-            
-                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
-                        turnos_acum *= 2
-            
+
                     lista_detalles_asistencia.append({
+
                         'reg': reg, 
+
                         'retardo_dia': retardo_dia, 
+
                         'salario_dia': salario_dia,
-                        'estatus': estatus_limpio,
-                        'cantidad_turnos': round(turnos_acum, 2)
+
+                        'salario_puesto_full': base_calc, 
+
+                        'estatus': estatus_limpio
                     })
-            
-                # ... (Sigue lógica de suma de totales, uniformes y resultados_nomina.append)
+
                 pago_base_total = total_retardos = total_bonos = total_descuentos_manuales = 0
+
                 total_desc_retardos_semanal = 0.0
+
                 total_retardos_acumulados = 0 
+
                 aplica_uniforme_semanal = False 
+
                 dias_semana_esp = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
                 dias_map = {d: [] for d in dias_semana_esp}
+
                 # Definimos los factores por nivel de acumulado
 
+
+
                 FACTORES = {0: 0.0, 1: 0.0, 2: 0.5, 3: 0.5, 4: 1.0, 5: 1.0, 6: 1.5, 7: 1.5, 8: 2.0, 9: 2.0, 10: 2.5, 11: 2.5, 12: 3.0}
+
                 for item in lista_detalles_asistencia:
+
                     reg = item['reg']
+
                     retardo_dia = item['retardo_dia']
+
                     salario_dia = item['salario_dia'] # Valor total del día
+
                     desc_retardo_dia = 0.0
+
                     # 1. Determinamos si es jornada física completa
+
                     es_jornada_completa = (
 
                         (reg.entrada_matutina and reg.salida_vespertina and not reg.salida_matutina) or 
+
                         (reg.entrada_matutina and reg.salida_matutina and reg.entrada_vespertina and reg.salida_vespertina)
 
                     )
 
                     if retardo_dia > 0:
+
                         factor_anterior = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
+
                         total_retardos_acumulados += retardo_dia
+
                         factor_actual = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
+
                         diferencia_factor = factor_actual - factor_anterior
+
                         # 2. Aplicamos el descuento:
+
                         # Si es jornada completa, queremos 1/4 de un turno de 236.50
+
                         # 0.5 (diferencia) * 473.0 (salario total) * 0.25 = 59.125 (Esto no es 118)
+
                         # Para obtener 118.25 directamente:
 
                         if es_jornada_completa:
+
                             # 0.5 * 236.50 = 118.25
+
                             # Usamos la base de un solo turno (236.50) si es jornada completa
+
                             base_turno = float(salario_dia) / 2
+
                             desc_retardo_dia = diferencia_factor * base_turno
 
-
-
                         else:
-                            # Jornada sencilla: diferencia factor * salario total
-                            desc_retardo_dia = diferencia_factor * float(salario_dia)
 
+                            # Jornada sencilla: diferencia factor * salario total
+
+                            desc_retardo_dia = diferencia_factor * float(salario_dia)
 
                     val_bono = float(reg.bonificacion or 0.0)
 
@@ -1473,15 +1507,20 @@ def calcular_nomina_web(request):
 
                     if reg.tipo_uniforme and len(str(reg.tipo_uniforme).strip()) > 0:
 
-
                         aplica_uniforme_semanal = True
-                        
+
                     pago_base_total += salario_dia
+
                     total_retardos += retardo_dia
+
                     total_desc_retardos_semanal += desc_retardo_dia
+
                     total_bonos += val_bono
+
                     total_descuentos_manuales += val_desc
+
                     nombre_dia = dias_semana_esp[reg.fecha.weekday()]
+
                     fecha_str = reg.fecha.strftime('%d/%m/%y')
 
                     # --- LÓGICA DE TURNOS PROPORCIONALES ---
@@ -1534,74 +1573,126 @@ def calcular_nomina_web(request):
                         cantidad_turnos = int(valor_num)
                     else:
                         cantidad_turnos = valor_num
-# ------------------------------------------------------
-                    dias_map[nombre_dia].append({
-                        'fecha_dia': fecha_str,
-                        'puesto': reg.puesto or '---',
-                        'sucursal': reg.sucursal or '---',
-                        'pago_dia': round(salario_dia, 2),
-                        'descuento_retardo': round(desc_retardo_dia, 2),
-                        'monto_bono': float(reg.bonificacion or 0),
-                        'motivo_bono': reg.motivo_bonificacion,
-                        'monto_descuento': float(reg.descuento or 0),
-                        'motivo_descuento': reg.motivo_descuento,
-                        'estatus': item['estatus'],
-                        'cantidad_turnos': cantidad_turnos # Ahora usará el valor corregido
-                    })
-                # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
+                    # ------------------------------------------------------
 
+                    dias_map[nombre_dia].append({
+
+                        'fecha_dia': fecha_str,
+
+                        'puesto': reg.puesto or '---',
+
+                        'sucursal': reg.sucursal or '---',
+
+                        'pago_dia': round(salario_dia, 2),
+
+                        'descuento_retardo': round(desc_retardo_dia, 2),
+
+                        'monto_bono': float(reg.bonificacion or 0),
+
+                        'motivo_bono': reg.motivo_bonificacion,
+
+                        'monto_descuento': float(reg.descuento or 0),
+
+                        'motivo_descuento': reg.motivo_descuento,
+
+                        'estatus': item['estatus'],
+
+                        'cantidad_turnos': cantidad_turnos # Ahora usará el valor corregido
+
+                    })
+
+                # --- FUERA DEL FOR REG, DENTRO DEL FOR EMP_ID ---
                 total_uniforme = DESCUENTO_UNIFORME_SEMANAL if aplica_uniforme_semanal else 0.0
 
                 # El total neto debe ser: (Base + Bonos) - (Manuales + Retardos + Uniforme)
+
                 total_neto = (pago_base_total + total_bonos) - (total_descuentos_manuales + total_desc_retardos_semanal + total_uniforme)
+
                 motivos_bonos_semana = [
+
                     reg.motivo_bonificacion 
+
                     for reg in asistencias 
+
                     if reg.motivo_bonificacion and reg.motivo_bonificacion.strip()
 
                 ]
+
                 motivo_bono_texto = ", ".join(motivos_bonos_semana) if motivos_bonos_semana else ""
+
                 # Corregimos también los motivos de descuentos manuales para que no se pierdan
+
                 motivos_desc_semana = [
+
                     reg.motivo_descuento 
+
                     for reg in asistencias 
+
                     if reg.motivo_descuento and reg.motivo_descuento.strip()
 
                 ]
 
                 motivo_desc_texto = ", ".join(motivos_desc_semana) if motivos_desc_semana else ""
-                resultados_nomina.append({
-                    'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
-                    'puesto_principal': puesto_principal,
-                    'periodo_info': f"{sem_inicio.strftime('%d/%m')} al {sem_fin.strftime('%d/%m')}",
-                    'dias': [dias_map[d] for d in dias_semana_esp],
-                    'pago_base': round(pago_base_total, 2),
-                    'retardos': total_retardos,
-                    'desc_retardos': round(total_desc_retardos_semanal, 2), 
-                    'bonos': round(total_bonos, 2),
-                    'motivo_bonificacion': motivo_bono_texto,
-                    # IMPORTANTE: Aquí solo mandamos el acumulado manual, 
-                    # ya no referenciamos a 'reg.descuento' que causaba confusión
-                    'descuentos': round(total_descuentos_manuales, 2),
-                    'motivo_descuento': motivo_desc_texto,
-                    'uniforme': round(total_uniforme, 2),
-                    'total_neto': round(total_neto, 2),
 
+                resultados_nomina.append({
+
+                    'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
+
+                    'puesto_principal': puesto_principal,
+
+                    'periodo_info': f"{sem_inicio.strftime('%d/%m')} al {sem_fin.strftime('%d/%m')}",
+
+                    'dias': [dias_map[d] for d in dias_semana_esp],
+
+                    'pago_base': round(pago_base_total, 2),
+
+                    'retardos': total_retardos,
+
+                    'desc_retardos': round(total_desc_retardos_semanal, 2), 
+
+                    'bonos': round(total_bonos, 2),
+
+                    'motivo_bonificacion': motivo_bono_texto,
+
+                    # IMPORTANTE: Aquí solo mandamos el acumulado manual, 
+
+                    # ya no referenciamos a 'reg.descuento' que causaba confusión
+
+                    'descuentos': round(total_descuentos_manuales, 2),
+
+                    'motivo_descuento': motivo_desc_texto,
+
+                    'uniforme': round(total_uniforme, 2),
+
+                    'total_neto': round(total_neto, 2),
                 })
+
     lista_sucursales = [
+
         "Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6",
+
         "PP", "PM", "Yommy", "Perrioni", "Fabrica", "Benny", "Cocina", "Area Seca", "FastFood"
+
     ]
 
     return render(request, 'Paysheet.html', { 
+
         'nominas': resultados_nomina,
+
         'inicio': fecha_inicio,
+
         'fin': fecha_fin,
+
         'sucursal_seleccionada': sucursal_filtro, # Esto sigue funcionando
+
         'nombre_busqueda': nombre_filtro,
+
         # AGREGADOS:
+
         'todas_sucursales': lista_sucursales,
+
         'sucursales_seleccionadas': request.GET.getlist('sucursal') # Recibimos la lista de los checkboxes
+
     })
 def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=None):
     from collections import Counter
