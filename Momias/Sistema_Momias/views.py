@@ -1284,13 +1284,11 @@ def calcular_nomina_web(request):
                     total_dias_trabajados = len(asistencias_trabajadas)
 
                     conteo_puestos = Counter([a.puesto for a in asistencias_trabajadas])
-                    # 1. Contar cuántos días trabajó REALMENTE jornada doble
+                    
 
                     dias_completos = 0
 
                     # 1. Contar cuántos días trabajó REALMENTE jornada doble
-
-                    dias_completos = 0
 
                     for a in asistencias_trabajadas:
 
@@ -1324,20 +1322,31 @@ def calcular_nomina_web(request):
 
                                                for p, c in conteo_puestos.items())
 
-                    puesto_frecuente = conteo_puestos.most_common(1)[0][0]
+                    # 2. Determinar el salario del descanso según recurrencia o proporción
+                    puestos_ordenados = conteo_puestos.most_common()
+                    
+                    # Caso Especial: Empate 3 y 3 en dos puestos diferentes
+                    if len(puestos_ordenados) == 2 and puestos_ordenados[0][1] == 3 and puestos_ordenados[1][1] == 3:
+                        puesto_a, cant_a = puestos_ordenados[0]
+                        puesto_b, cant_b = puestos_ordenados[1]
+                        salario_a = puestos_salarios.get(puesto_a, 0)
+                        salario_b = puestos_salarios.get(puesto_b, 0)
+                        
+                        # Se paga la mitad de uno más la mitad del otro
+                        salario_un_turno_promedio = (float(salario_a) / 2) + (float(salario_b) / 2)
+                        puesto_frecuente = f"{puesto_a}/{puesto_b}"
+                    
+                    else:
+                        # Regla General: El puesto más recurrente
+                        puesto_frecuente = puestos_ordenados[0][0]
+                        salario_un_turno_promedio = float(puestos_salarios.get(puesto_frecuente, 0))
 
                     # 3. Aplicar multiplicador si cumplió los 6 días dobles
-
                     if dias_completos >= 6:
-
                         salario_descanso = salario_un_turno_promedio * 2
-
                         puesto_principal = f"{puesto_frecuente} (Doble)"
-
                     else:
-
                         salario_descanso = salario_un_turno_promedio
-
                         puesto_principal = puesto_frecuente
 
                 else:
