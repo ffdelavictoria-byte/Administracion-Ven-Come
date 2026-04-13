@@ -2043,83 +2043,48 @@ def vista_reportes(request):
         "Hamburguesas FF": 0.0,
     }
     agrupados_dict = {}
-
     resumen_sucursales_dict = {}
-
     resumen_global = {
-
         'total_pagar': 0, 
-
         'total_retardos': 0, 
-
         'total_bonif': 0, 
-
         'total_turnos': 0, 
-
         'total_descuentos': 0
-
     }
 
-
-
     if f_inicio and f_fin:
-
-        # 1. Filtro base de asistencias ordenadas cronológicamente
-
+        # 1. Filtro base de asistencias
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin]).order_by('fecha')
 
-
-
         # 2. Aplicación de filtros opcionales
-
         if sucursal_filtro and sucursal_filtro != "TODAS":
-
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
 
-
-
         if query_nombre:
-
             asistencias_query = asistencias_query.annotate(
-
                 full_name=Concat('empleado__nombre', Value(' '), 'empleado__apellido_paterno', Value(' '), 'empleado__apellido_materno', output_field=CharField())
-
             ).filter(
-
                 Q(full_name__icontains=query_nombre) | 
-
                 Q(empleado__nombre__icontains=query_nombre) | 
-
                 Q(empleado__apellido_paterno__icontains=query_nombre) | 
-
                 Q(empleado__codigo_empleado__icontains=query_nombre)
-
             )
 
-
-
-        # 3. Agrupación inicial por empleado
-
+        # 3. Agrupación por empleado
         asistencias_por_emp = {}
-
         for a in asistencias_query:
-
             if a.empleado_id not in asistencias_por_emp:
-
                 asistencias_por_emp[a.empleado_id] = []
-
             asistencias_por_emp[a.empleado_id].append(a)
 
-
-
         ids_con_falta = set(asistencias_query.filter(estatus__icontains="FALTA").values_list('empleado_id', flat=True))
-
 
         # 4. Procesamiento por empleado
         for emp_id, lista_asis in asistencias_por_emp.items():
             conteo_puestos = Counter()
             dias_dobles_count = 0
             
+            # Determinación de puesto principal
             for a in lista_asis:
                 estatus_up = (a.estatus or "").strip().upper()
                 if "DESCANSO" not in estatus_up and "FALTA" not in estatus_up:
@@ -2144,14 +2109,12 @@ def vista_reportes(request):
                 else:
                     puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
                 
-                # OBTENCIÓN DE SALARIO BASE REAL
-                # Aseguramos que salario_ref sea el sueldo diario (ej. 354)
+                # BASE DE SALARIO REAL (Ej. 354)
                 salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0)) if not es_falta else 0.0
                 pue_up = puesto_para_fila.upper()
                 
-                # --- CORRECCIÓN DE BASE ---
-                # Para el pago de turnos usamos la proporción (valor_turno_pago)
-                # Para los descuentos por retardo usamos el sueldo diario (salario_ref)
+                # --- LÓGICA DE VALOR DE TURNO ---
+                # valor_turno_pago: lo que se le paga por trabajar ese turno específico
                 if any(x in pue_up for x in ["INTERMEDIO", "9 HORAS", "9HRS", "CREPAS"]):
                     valor_turno_pago = salario_ref / 1.5  
                 elif any(x in pue_up for x in ["12 HORAS", "GERENTE"]):
@@ -2159,7 +2122,7 @@ def vista_reportes(request):
                 else:
                     valor_turno_pago = salario_ref
 
-                # Cálculo de turnos
+                # Cálculo de cantidad de turnos
                 turnos_a_sumar = 0.0
                 if es_descanso and "TRABAJADO" not in estatus_limpio:
                     if emp.id not in ids_con_falta:
@@ -2188,129 +2151,75 @@ def vista_reportes(request):
                 if "TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
                     turnos_a_sumar *= 2
 
-                # --- CÁLCULOS MONETARIOS ---
+                # --- CÁLCULOS MONETARIOS CORREGIDOS ---
                 pago_base_dia = (valor_turno_pago * turnos_a_sumar)
                 bono_dia = float(asis.bonificacion or 0)
                 desc_manual = float(asis.descuento or 0)
                 
-                # Descuento de retardos: usamos salario_ref (sueldo base completo)
+                # Retardos: El factor de descuento se aplica sobre el sueldo BASE completo
                 puntos_retardo = int(float(asis.horas or 0))
                 desc_retardo_monto = 0.0
                 if puntos_retardo > 0 and not es_descanso and not es_falta:
                     f_ant = FACTORES_NOMINA.get(min(contador_retardos_emp, 12), 3.0)
                     contador_retardos_emp += puntos_retardo
                     f_act = FACTORES_NOMINA.get(min(contador_retardos_emp, 12), 3.0)
-                    # Multiplicamos la diferencia de factor por el sueldo diario completo
+                    
+                    # CORRECCIÓN: Se multiplica por salario_ref (354), no por valor_turno_pago
                     desc_retardo_monto = (f_act - f_ant) * salario_ref
                 
                 monto_desc_total = desc_manual + desc_retardo_monto
                 pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
 
-                # ... (resto del guardado en diccionarios y totales globales igual)
-
-
-
                 # Guardado en el diccionario agrupado
-
                 key = (emp.id, suc, puesto_para_fila)
-
                 if key not in agrupados_dict:
-
                     agrupados_dict[key] = {
-
                         'empleado': f"{emp.nombre} {emp.apellido_paterno}".strip(),
-
                         'sucursal': suc, 'puesto': puesto_para_fila, 'total_turnos': 0.0,
-
                         'total_retardos': 0, 'monto_descuentos': 0.0, 'total_bonos': 0.0,
-
                         'total_fila': 0.0, 'motivos_descuentos': []
-
                     }
 
-
-
                 fila = agrupados_dict[key]
-
                 fila['total_turnos'] += turnos_a_sumar
-
                 fila['total_retardos'] += puntos_retardo
-
                 fila['total_bonos'] += bono_dia
-
                 fila['monto_descuentos'] += monto_desc_total
-
                 fila['total_fila'] += pago_neto_dia
-
                 
-
                 if asis.motivo_descuento:
-
                     m = str(asis.motivo_descuento).strip()
-
                     if m and m not in fila['motivos_descuentos']: 
-
                         fila['motivos_descuentos'].append(m)
 
-
-
                 # Actualización de Totales Globales
-
                 resumen_global['total_pagar'] += pago_neto_dia
-
                 resumen_global['total_turnos'] += turnos_a_sumar
-
                 resumen_global['total_retardos'] += puntos_retardo
-
                 resumen_global['total_bonif'] += bono_dia
-
                 resumen_global['total_descuentos'] += monto_desc_total
-
                 resumen_sucursales_dict[suc] = resumen_sucursales_dict.get(suc, 0) + pago_neto_dia
 
-
-
-    # Preparación de datos finales para el template
-
+    # Preparación final
     resumen_sucursales = [
-
         {'nombre': s, 'periodo': f"{f_inicio} al {f_fin}", 'total': round(t, 2)}
-
         for s, t in resumen_sucursales_dict.items()
-
     ]
-
-
 
     lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
 
-
-
     context = {
-
         'empleados': empleados_qs,
-
         'agrupados': lista_agrupada,
-
         'resumen_sucursales': resumen_sucursales,
-
         'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal", "PP", "PM", "Area Seca", "Perrioni", "FastFood"],
-
         'fecha_inicio': f_inicio, 'fecha_fin': f_fin, 'query': query_nombre,
-
         'gran_total_pagar': round(resumen_global['total_pagar'], 2),
-
         'gran_total_retardos': resumen_global['total_retardos'],
-
         'gran_total_bonos': round(resumen_global['total_bonif'], 2),
-
         'gran_total_descuentos': round(resumen_global['total_descuentos'], 2),
-
         'gran_total_turnos': round(resumen_global['total_turnos'], 2)
-
     }
-
-
 
     return render(request, 'Reports.html', context)
     
