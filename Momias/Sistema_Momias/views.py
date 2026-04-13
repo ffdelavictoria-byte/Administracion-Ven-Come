@@ -816,57 +816,12 @@ def Asistencias_FF_view(request):
             if estatus_jornada in ["Falta", "Permiso", "Vacaciones"]:
                 monto_calc = 0.0
                 
+            # --- BUSCA ESTA PARTE ---
             elif estatus_jornada == "Descanso":
-                # 1. Definir rango completo de la semana (ya lo tienes como inicio_sem y fin_sem)
-                
-                # 2. VALIDACIÓN: Buscar si existe alguna falta en la base de datos para esta semana
-                tiene_falta_en_semana = Asistencia.objects.filter(
-                    empleado=empleado_obj,
-                    fecha__range=[inicio_sem, fin_sem],
-                    estatus="Falta" # O "FALTA", asegúrate de que coincida con tu select del HTML
-                ).exists()
-    
-                if tiene_falta_en_semana:
-                    monto_calc = 0.0
-                elif "HAMBURGUESAS" in puesto_up:
-                    monto_calc = 138.00
-                else:
-                    # Lógica de Puesto Recurrente
-                    conteo_puestos = {}
-                    dias_doble_turno = 0
-                    
-                    for reg in asistencias_semana:
-                        if reg.estatus in ["Falta", "Descanso", "Permiso"]: continue
-                        
-                        p = reg.puesto
-                        conteo_puestos[p] = conteo_puestos.get(p, 0)
-                        
-                        turnos_hoy = 0
-                        if reg.entrada_matutina and reg.salida_matutina:
-                            conteo_puestos[p] += 1
-                            turnos_hoy += 1
-                        if reg.entrada_vespertina and reg.salida_vespertina:
-                            conteo_puestos[p] += 1
-                            turnos_hoy += 1
-                        
-                        if turnos_hoy == 2: dias_doble_turno += 1
-
-                    if not conteo_puestos:
-                        monto_calc = base_puesto
-                    else:
-                        puestos_ord = sorted(conteo_puestos.items(), key=lambda x: x[1], reverse=True)
-                        top_puesto = puestos_ord[0][0]
-                        
-                        # Manejo de empates
-                        if len(puestos_ord) > 1 and puestos_ord[0][1] == puestos_ord[1][1]:
-                            s1 = float(puestos_salarios_ff.get(puestos_ord[0][0], 0))
-                            s2 = float(puestos_salarios_ff.get(puestos_ord[1][0], 0))
-                            monto_base_desc = (s1 / 2) + (s2 / 2)
-                        else:
-                            monto_base_desc = float(puestos_salarios_ff.get(top_puesto, 0))
-                        
-                        # Bono doble turno (6 o más)
-                        monto_calc = monto_base_desc * 2 if dias_doble_turno >= 6 else monto_base_desc
+                # Simplemente lo dejamos en 0.0
+                # La lógica de pago (faltas, puesto recurrente, etc.) 
+                # se ejecutará en la sección de nómina.
+                monto_calc = 0.0
 
 
             # --- NUEVA CORRECCIÓN: Puestos de Monto Fijo ---
