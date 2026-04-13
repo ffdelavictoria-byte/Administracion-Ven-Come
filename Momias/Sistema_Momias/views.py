@@ -2131,7 +2131,7 @@ def vista_reportes(request):
                 pue_up = puesto_para_fila.upper()
                 
                 # CORRECCIÓN: Si es turno de 9h o 12h, el salario_ref es el pago íntegro por turno.
-                if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS", "12 HORAS", "GERENTE", "FIN DE SEMANA"]): 
+                if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS", "12 HORAS", "GERENTE", "FIN DE SEMANA", "INTERMEDIO"]): 
                     valor_turno_base = salario_ref
                 else: 
                     valor_turno_base = salario_ref
