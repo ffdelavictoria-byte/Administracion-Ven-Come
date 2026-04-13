@@ -1476,23 +1476,17 @@ def calcular_nomina_web(request):
 
                     )
 
+                    # --- BLOQUE DE RETARDOS CORREGIDO ---
                     if retardo_dia > 0:
-
                         factor_anterior = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
-
                         total_retardos_acumulados += retardo_dia
-
                         factor_actual = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
-
                         diferencia_factor = factor_actual - factor_anterior
-
-                        # 2. Aplicamos el descuento:
-
-                        # Si es jornada completa, queremos 1/4 de un turno de 236.50
-
-                        # 0.5 (diferencia) * 473.0 (salario total) * 0.25 = 59.125 (Esto no es 118)
-
-                        # Para obtener 118.25 directamente:
+                    
+                        # Eliminamos la condición 'if es_jornada_completa' que dividía otra vez.
+                        # Usamos base_calc, que ya es el valor de un turno (pago/1, pago/1.5 o pago/2)
+                        desc_retardo_dia = diferencia_factor * base_calc 
+                    # ------------------------------------
 
                         if es_jornada_completa:
 
