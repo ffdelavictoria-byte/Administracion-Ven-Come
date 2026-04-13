@@ -1440,9 +1440,15 @@ def calcular_nomina_web(request):
                         # 2. La diferencia de factor nos dice cuántos "turnos" se descuentan (0.5, 1.0, etc.)
                         diferencia_factor = factor_actual - factor_anterior
                         
-                        # 3. Multiplicamos la diferencia directamente por base_calc.
-                        # base_calc YA es el valor de un turno de 6h ajustado por puesto.
-                        desc_retardo_dia = diferencia_factor * base_calc
+                        # --- AJUSTE PARA TURNO INTERMEDIO ---
+                        # Si es un turno de 9 horas (Intermedio), el descuento base debe ser 1.5 veces el de 6h
+                        # para que el factor 0.5 equivalga a 0.75 de un turno normal (177 en lugar de 118)
+                        base_descuento = base_calc
+                        if "INTERMEDIO" in pue_up or "9 HORAS" in pue_up:
+                            base_descuento = base_calc * 1.5 
+                        
+                        # 3. Multiplicamos la diferencia por la base ajustada
+                        desc_retardo_dia = diferencia_factor * base_descuento
                     
                     # --- AQUÍ TERMINA EL BLOQUE DE RETARDOS ---
                     # (Asegúrate de haber borrado el "if es_jornada_completa" que tenías abajo)
