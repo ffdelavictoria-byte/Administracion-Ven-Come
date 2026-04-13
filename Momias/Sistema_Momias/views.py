@@ -2037,6 +2037,7 @@ def vista_reportes(request):
         "TURNO MATUTINO (9 horas)": 354.50,
         "TURNO VESPERTINO (9 horas)": 354.50,
         "TURNO FIN DE SEMANA": 473.00,
+        "TURNO INTERMEDIO": 354.50,
         "Gerente (12 horas)": 600.00,
         "Chef de Línea (9 horas)": 531.57,
         "Crepas": 354.50,
