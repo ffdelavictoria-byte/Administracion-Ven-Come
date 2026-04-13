@@ -2059,14 +2059,13 @@ def vista_reportes(request):
         "Crepas": 354.50,
         "Hamburguesas FF": 0.0,
     }
-    FACTORES_RETARDO = {1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5, 6: 3.0}
-
     agrupados_dict = {}
     resumen_sucursales_dict = {}
     resumen_global = {'total_pagar': 0, 'total_retardos': 0, 'total_bonif': 0, 'total_turnos': 0, 'total_descuentos': 0}
 
     if f_inicio and f_fin:
-        asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin])
+        # Importante: ordenamos por fecha para que el acumulador de retardos funcione cronológicamente
+        asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin]).order_by('fecha')
 
         if sucursal_filtro and sucursal_filtro != "TODAS":
             asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
@@ -2089,7 +2088,6 @@ def vista_reportes(request):
 
         ids_con_falta = set(asistencias_query.filter(estatus__icontains="FALTA").values_list('empleado_id', flat=True))
 
-        # --- CORRECCIÓN DE INDENTACIÓN AQUÍ ---
         for emp_id, lista_asis in asistencias_por_emp.items():
             conteo_puestos = Counter()
             dias_dobles_count = 0
@@ -2103,7 +2101,7 @@ def vista_reportes(request):
 
             puesto_principal = conteo_puestos.most_common(1)[0][0] if conteo_puestos else "GENERAL"
 
-            # Inicializamos el contador de retardos para este empleado en particular
+            # --- LÓGICA DE NÓMINA UNIFICADA ---
             contador_retardos_emp = 0  
             FACTORES_NOMINA = {0: 0.0, 1: 0.0, 2: 0.5, 3: 0.5, 4: 1.0, 5: 1.0, 6: 1.5, 7: 1.5, 8: 2.0, 9: 2.0, 10: 2.5, 11: 2.5, 12: 3.0}
 
@@ -2129,12 +2127,12 @@ def vista_reportes(request):
                 else: 
                     valor_turno_base = salario_ref
 
+                # Cálculo de turnos
                 turnos_a_sumar = 0.0
                 if es_descanso and "TRABAJADO" not in estatus_limpio:
                     if emp.id not in ids_con_falta:
                         turnos_a_sumar = 2.0 if dias_dobles_count >= 6 else 1.0
                 elif not es_falta:
-                    # Incluimos RAPPI en turno único para que no de 1.5
                     puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS"]
                     if any(x in pue_up for x in puestos_turno_unico):
                         turnos_a_sumar = 1.0
@@ -2163,41 +2161,22 @@ def vista_reportes(request):
                 bono_dia = float(asis.bonificacion or 0)
                 desc_manual = float(asis.descuento or 0)
                 
-                # --- NUEVA LÓGICA DE RETARDOS ACUMULATIVOS ---
+                # --- LÓGICA DE RETARDOS ACUMULATIVOS CORREGIDA ---
                 puntos_retardo = int(float(asis.horas or 0))
                 desc_retardo_monto = 0.0
 
                 if puntos_retardo > 0 and not es_descanso and not es_falta:
-                    # Factor antes del retardo de hoy
                     f_ant = FACTORES_NOMINA.get(min(contador_retardos_emp, 12), 3.0)
-                    # Sumamos el retardo al historial del empleado en este periodo
                     contador_retardos_emp += puntos_retardo
-                    # Factor después del retardo de hoy
                     f_act = FACTORES_NOMINA.get(min(contador_retardos_emp, 12), 3.0)
                     
-                    # La diferencia de factores determina cuánto se descuenta hoy
-                    # (Si es el primero, f_ant=0 y f_act=0, diferencia=0)
                     diff_f = f_act - f_ant
                     desc_retardo_monto = diff_f * valor_turno_base
                 
-                # Unificamos el descuento total (Manual + Retardo calculado)
                 monto_desc_total = desc_manual + desc_retardo_monto
                 pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
 
-                # Redondeo para el guardado en diccionario
-                turnos_final_fila = round(turnos_a_sumar, 2)
-
-                pago_base_dia = (valor_turno_base * turnos_a_sumar)
-                if "TRABAJADO" in estatus_limpio: pago_base_dia *= 2
-                
-                bono_dia = float(asis.bonificacion or 0)
-                desc_manual = float(asis.descuento or 0)
-                puntos_retardo = int(float(asis.horas or 0))
-                desc_retardo = (valor_turno_base * FACTORES_RETARDO.get(puntos_retardo, 0)) if (not es_descanso and not es_falta) else 0
-                
-                monto_desc_total = desc_manual + (desc_retardo / 2)
-                pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
-
+                # Guardado en Diccionario Agrupado
                 key = (emp.id, suc, puesto_para_fila)
                 if key not in agrupados_dict:
                     agrupados_dict[key] = {
@@ -2219,6 +2198,7 @@ def vista_reportes(request):
                     if m and m not in fila['motivos_descuentos']: 
                         fila['motivos_descuentos'].append(m)
 
+                # Totales Globales
                 resumen_global['total_pagar'] += pago_neto_dia
                 resumen_global['total_turnos'] += turnos_a_sumar
                 resumen_global['total_retardos'] += puntos_retardo
@@ -2226,7 +2206,7 @@ def vista_reportes(request):
                 resumen_global['total_descuentos'] += monto_desc_total
                 resumen_sucursales_dict[suc] = resumen_sucursales_dict.get(suc, 0) + pago_neto_dia
 
-    # --- FUERA DEL IF PRINCIPAL PARA EVITAR ERRORES DE VARIABLE NO DEFINIDA ---
+    # Preparación de contexto final
     resumen_sucursales = [
         {'nombre': s, 'periodo': f"{f_inicio} al {f_fin}", 'total': round(t, 2)}
         for s, t in resumen_sucursales_dict.items()
@@ -2248,19 +2228,6 @@ def vista_reportes(request):
     }
 
     return render(request, 'Reports.html', context)
-
-
-
-
-
-
-
-
-
-
-
-
-
     
 from django.contrib.auth import update_session_auth_hash # <--- IMPORTANTE: No olvides esta importación
 
