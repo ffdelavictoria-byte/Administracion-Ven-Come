@@ -1432,22 +1432,16 @@ def calcular_nomina_web(request):
 
                     # --- BLOQUE DE RETARDOS UNIFICADO Y CORREGIDO ---
                     if retardo_dia > 0:
-                        # 1. Obtenemos los factores de la tabla
                         factor_anterior = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         total_retardos_acumulados += retardo_dia
                         factor_actual = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         
-                        # 2. La diferencia de factor nos dice cuántos "turnos" se descuentan (0.5, 1.0, etc.)
                         diferencia_factor = factor_actual - factor_anterior
                         
-                        # --- AJUSTE PARA TURNO INTERMEDIO ---
-                        # Si es un turno de 9 horas (Intermedio), el descuento base debe ser 1.5 veces el de 6h
-                        # para que el factor 0.5 equivalga a 0.75 de un turno normal (177 en lugar de 118)
-                        base_descuento = base_calc
-                        if "INTERMEDIO" in pue_up or "9 HORAS" in pue_up:
-                            base_descuento = base_calc * 1.5 
+                        # Usamos directamente el salario base del puesto sin la división de las 6h
+                        # Esto garantiza que el factor 0.5 se aplique sobre el total ($354)
+                        base_descuento = float(salario_base_puesto) 
                         
-                        # 3. Multiplicamos la diferencia por la base ajustada
                         desc_retardo_dia = diferencia_factor * base_descuento
                     
                     # --- AQUÍ TERMINA EL BLOQUE DE RETARDOS ---
