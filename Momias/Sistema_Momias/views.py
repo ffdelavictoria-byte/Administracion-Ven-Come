@@ -2117,13 +2117,25 @@ def vista_reportes(request):
                 else:
                     puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
                 
+                # --- SECCIÓN CORREGIDA DEL CÁLCULO DE VALOR_TURNO_BASE ---
+
+                # Determinamos el salario de referencia (el monto capturado en el sistema)
                 salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0)) if not es_falta else 0.0
                 
                 pue_up = puesto_para_fila.upper()
+                
+                # Si el salario_ref YA ES lo que debe ganar por ese turno de 9 o 12 horas, 
+                # NO debes dividirlo. Solo divídelo si el salario_ref es un "Sueldo Diario" 
+                # general que deba prorratearse.
+                
                 if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS"]): 
-                    valor_turno_base = salario_ref / 1.5
+                    # Si quieres que gane el salario_ref completo ($354.50), cambia esto a:
+                    valor_turno_base = salario_ref 
+                    # valor_turno_base = salario_ref / 1.5  <-- Esta era la línea que daba $236.33
                 elif any(x in pue_up for x in ["12 HORAS", "GERENTE", "FIN DE SEMANA"]): 
-                    valor_turno_base = salario_ref / 2
+                    # Lo mismo aquí, si el gerente ya tiene asignado su pago por turno de 12h:
+                    valor_turno_base = salario_ref
+                    # valor_turno_base = salario_ref / 2    <-- Esto dividiría el sueldo a la mitad
                 else: 
                     valor_turno_base = salario_ref
 
