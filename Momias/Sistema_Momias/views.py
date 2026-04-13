@@ -1476,33 +1476,22 @@ def calcular_nomina_web(request):
 
                     )
 
-                    # --- BLOQUE DE RETARDOS CORREGIDO ---
+                    # --- BLOQUE DE RETARDOS UNIFICADO Y CORREGIDO ---
                     if retardo_dia > 0:
+                        # 1. Obtenemos los factores de la tabla
                         factor_anterior = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         total_retardos_acumulados += retardo_dia
                         factor_actual = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
+                        
+                        # 2. La diferencia de factor nos dice cuántos "turnos" se descuentan (0.5, 1.0, etc.)
                         diferencia_factor = factor_actual - factor_anterior
+                        
+                        # 3. Multiplicamos la diferencia directamente por base_calc.
+                        # base_calc YA es el valor de un turno de 6h ajustado por puesto.
+                        desc_retardo_dia = diferencia_factor * base_calc
                     
-                        # Eliminamos la condición 'if es_jornada_completa' que dividía otra vez.
-                        # Usamos base_calc, que ya es el valor de un turno (pago/1, pago/1.5 o pago/2)
-                        desc_retardo_dia = diferencia_factor * base_calc 
-                    # ------------------------------------
-
-                        if es_jornada_completa:
-
-                            # 0.5 * 236.50 = 118.25
-
-                            # Usamos la base de un solo turno (236.50) si es jornada completa
-
-                            base_turno = float(salario_dia) / 2
-
-                            desc_retardo_dia = diferencia_factor * base_turno
-
-                        else:
-
-                            # Jornada sencilla: diferencia factor * salario total
-
-                            desc_retardo_dia = diferencia_factor * float(salario_dia)
+                    # --- AQUÍ TERMINA EL BLOQUE DE RETARDOS ---
+                    # (Asegúrate de haber borrado el "if es_jornada_completa" que tenías abajo)
 
                     val_bono = float(reg.bonificacion or 0.0)
 
