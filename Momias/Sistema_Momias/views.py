@@ -2156,64 +2156,48 @@ def vista_reportes(request):
 
                 turnos_a_sumar = 0.0
 
-                if es_descanso and "TRABAJADO" not in estatus_limpio:
-
-                    if emp.id not in ids_con_falta:
-
-                        turnos_a_sumar = 2.0 if dias_dobles_count >= 6 else 1.0
-
-                elif not es_falta:
-
-                    puestos_especiales = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS"]
-
-                    if any(x in pue_up for x in puestos_especiales):
-
-                        turnos_a_sumar = 1.0
-
+                # --- LÓGICA CORREGIDA PARA CONTEO DE TURNOS ---
+            # --- LÓGICA CORREGIDA PARA CONTEO DE TURNOS ---
+            turnos_a_sumar = 0.0
+            pago_base_dia = 0.0
+            
+            if es_descanso and "TRABAJADO" not in estatus_limpio:
+                if emp.id not in ids_con_falta:
+                    # El descanso aporta DINERO (salario_ref), pero NO suma un "turno" físico al contador de asistencia
+                    # para que 4 días trabajados + 1 descanso sigan sumando 5.0 en la columna "Turnos"
+                    turnos_a_sumar = 1.0 if dias_dobles_count < 6 else 2.0
+                    pago_base_dia = valor_turno_base * turnos_a_sumar
+                else:
+                    turnos_a_sumar = 0.0
+                    pago_base_dia = 0.0
+            
+            elif not es_falta:
+                puestos_especiales = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS"]
+                if any(x in pue_up for x in puestos_especiales):
+                    turnos_a_sumar = 1.0
+                else:
+                    t_acum = 0.0
+                    # ... (Tu lógica de procesar_dato_hibrido se mantiene igual) ...
+                    m_ent_m, _ = procesar_dato_hibrido(asis.entrada_matutina, True, 'M')
+                    m_sal_m, _ = procesar_dato_hibrido(asis.salida_matutina, False, 'M')
+                    m_ent_v, _ = procesar_dato_hibrido(asis.entrada_vespertina, True, 'V')
+                    m_sal_v, _ = procesar_dato_hibrido(asis.salida_vespertina, False, 'V')
+            
+                    if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
+                        diff = m_sal_v - m_ent_m
+                        if diff < 0: diff += 1440
+                        t_acum = diff / 360.0
                     else:
-
-                        t_acum = 0.0
-
-                        m_ent_m, _ = procesar_dato_hibrido(asis.entrada_matutina, True, 'M')
-
-                        m_sal_m, _ = procesar_dato_hibrido(asis.salida_matutina, False, 'M')
-
-                        m_ent_v, _ = procesar_dato_hibrido(asis.entrada_vespertina, True, 'V')
-
-                        m_sal_v, _ = procesar_dato_hibrido(asis.salida_vespertina, False, 'V')
-
-
-
-                        if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
-
-                            diff = m_sal_v - m_ent_m
-
-                            if diff < 0: diff += 1440
-
-                            t_acum = diff / 360.0
-
-                        else:
-
-                            if m_ent_m and m_sal_m: t_acum += max(0, m_sal_m - m_ent_m) / 360.0
-
-                            elif m_ent_m or m_sal_m: t_acum += 1.0
-
-                            if m_ent_v and m_sal_v: t_acum += max(0, m_sal_v - m_ent_v) / 360.0
-
-                            elif m_ent_v or m_sal_v: t_acum += 1.0
-
-                        turnos_a_sumar = t_acum
-
-
-
+                        if m_ent_m and m_sal_m: t_acum += max(0, m_sal_m - m_ent_m) / 360.0
+                        elif m_ent_m or m_sal_m: t_acum += 1.0
+                        if m_ent_v and m_sal_v: t_acum += max(0, m_sal_v - m_ent_v) / 360.0
+                        elif m_ent_v or m_sal_v: t_acum += 1.0
+                    turnos_a_sumar = t_acum
+            
+                # Aplicar pago doble si trabajó en descanso o es festivo
                 if "TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
-
                     turnos_a_sumar *= 2
-
-
-
-                # Cálculos monetarios
-
+            
                 pago_base_dia = (valor_turno_base * turnos_a_sumar)
 
                 bono_dia = float(asis.bonificacion or 0)
