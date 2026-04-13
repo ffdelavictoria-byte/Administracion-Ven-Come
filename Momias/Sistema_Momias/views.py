@@ -2109,15 +2109,17 @@ def vista_reportes(request):
                 else:
                     puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
                 
-                # OBTENCIÓN DE SALARIO (Asegurando los $354.50)
+                # OBTENCIÓN DE SALARIO BASE PARA RETARDOS
                 salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0)) if not es_falta else 0.0
                 pue_up = puesto_para_fila.upper()
                 
-                # CORRECCIÓN: Si es turno de 9h o 12h, el salario_ref es el pago íntegro por turno.
-                if any(x in pue_up for x in ["9 HORAS", "9HRS", "CREPAS", "12 HORAS", "GERENTE", "FIN DE SEMANA", "INTERMEDIO"]): 
-                    valor_turno_base = salario_ref
-                else: 
-                    valor_turno_base = salario_ref
+                # Ajustamos la base de cálculo según la duración del turno
+                if "INTERMEDIO" in pue_up or "9 HORAS" in pue_up or "9HRS" in pue_up or "CREPAS" in pue_up:
+                    valor_turno_base = salario_ref / 1.5  # Si el turno es de 9h, la base es salario / 1.5
+                elif "12 HORAS" in pue_up or "GERENTE" in pue_up:
+                    valor_turno_base = salario_ref / 2.0  # Si el turno es de 12h, la base es salario / 2
+                else:
+                    valor_turno_base = salario_ref        # Turno normal de 6h
 
                 # Cálculo de turnos a sumar
                 turnos_a_sumar = 0.0
