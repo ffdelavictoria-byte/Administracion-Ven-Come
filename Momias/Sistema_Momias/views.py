@@ -1251,7 +1251,7 @@ def calcular_nomina_web(request):
 
                         # --- NUEVA LÓGICA DE EXCEPCIONES ---
 
-                        puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
+                        puestos_turno_unico = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS"]
 
                         es_excepcion_turno = any(x in puesto_str for x in puestos_turno_unico)
 
@@ -1472,7 +1472,7 @@ def calcular_nomina_web(request):
 
                     # --- LÓGICA DE TURNOS PROPORCIONALES ---
                     pue_up = (reg.puesto or "").upper()
-                    puestos_turno_unico = ["INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS"]
+                    puestos_turno_unico = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS"]
                     es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
                     
                     if es_excepcion_turno:
