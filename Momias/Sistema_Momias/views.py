@@ -1342,35 +1342,34 @@ def calcular_nomina_web(request):
 
                     # Lógica de pago de descanso
 
+                    # ... dentro del for reg in asistencias ...
+
+                    # 1. Detectar si es una excepción de pago fijo
+                    pue_up = (reg.puesto or "").upper()
+                    puestos_pago_fijo = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS"]
+                    es_pago_fijo = any(x in pue_up for x in puestos_pago_fijo)
+                    
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-
-                        retardo_dia = 0
-
-                        # Solo paga si NO tiene faltas en la semana Y no se ha pagado otro descanso
-
+                        # (Tu lógica de descanso se queda igual...)
                         if not tiene_falta_en_semana and not descanso_pagado:
-
                             salario_dia = salario_descanso
-
                             descanso_pagado = True
-
                         else:
-
                             salario_dia = 0.0
-
-                    elif float(reg.pago_dia or 0.0) > 0:
-
+                    
+                    # --- CORRECCIÓN AQUÍ ---
+                    elif es_pago_fijo:
                         retardo_dia = int(reg.horas or 0)
-
+                        # Si el registro ya trae un pago_dia manual, lo usamos, si no, el base_calc completo
+                        salario_dia = float(reg.pago_dia) if float(reg.pago_dia or 0) > 0 else base_calc
+                        
+                    elif float(reg.pago_dia or 0.0) > 0:
+                        retardo_dia = int(reg.horas or 0)
                         salario_dia = float(reg.pago_dia)
-
                     else:
-
-                        # calcular_pago_dia_final ya maneja la lógica de entrada_m y salida_v
-
                         salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
-
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
+                    # ------------------------
 
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
 
