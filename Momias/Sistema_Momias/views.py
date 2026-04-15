@@ -1931,7 +1931,11 @@ def vista_reportes(request):
     empleados_qs = Empleado.objects.filter(estatus='Activo').order_by('nombre')
 
     query_nombre = request.GET.get('q', '').strip()
-    sucursal_filtro = request.GET.get('sucursal')
+    
+    # --- CAMBIO: Captura de múltiples sucursales ---
+    sucursales_seleccionadas = request.GET.getlist('sucursal')
+    # -----------------------------------------------
+    
     f_inicio = request.GET.get('fecha_inicio')
     f_fin = request.GET.get('fecha_fin')
 
@@ -2008,12 +2012,12 @@ def vista_reportes(request):
     }
 
     if f_inicio and f_fin:
-        # 1. Filtro base de asistencias ordenadas cronológicamente
         asistencias_query = Asistencia.objects.filter(fecha__range=[f_inicio, f_fin]).order_by('fecha')
 
-        # 2. Aplicación de filtros opcionales
-        if sucursal_filtro and sucursal_filtro != "TODAS":
-            asistencias_query = asistencias_query.filter(sucursal=sucursal_filtro)
+        # --- CAMBIO: Lógica de filtrado múltiple ---
+        if sucursales_seleccionadas and "TODAS" not in sucursales_seleccionadas:
+            asistencias_query = asistencias_query.filter(sucursal__in=sucursales_seleccionadas)
+        # -------------------------------------------
 
         if query_nombre:
             asistencias_query = asistencias_query.annotate(
@@ -2182,6 +2186,9 @@ def vista_reportes(request):
         'fecha_inicio': f_inicio, 
         'fecha_fin': f_fin, 
         'query': query_nombre,
+        # --- CAMBIO: Mandar las seleccionadas para que el template las marque ---
+        'sucursales_seleccionadas': sucursales_seleccionadas,
+        # -----------------------------------------------------------------------
         'gran_total_pagar': round(resumen_global['total_pagar'], 2),
         'gran_total_retardos': resumen_global['total_retardos'],
         'gran_total_bonos': round(resumen_global['total_bonif'], 2),
