@@ -1642,7 +1642,8 @@ def calcular_nomina_web(request):
     })
 def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=None):
     from collections import Counter
-    from django.db.models import Q
+    from django.db.models import Q, Value, CharField
+    from django.db.models.functions import Concat, Coalesce
 
     puestos_salarios = {
         "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
@@ -1694,33 +1695,51 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
     }
 
     datos_completos = []
-
     filtros_base = Q(fecha__range=[inicio, fin])
 
+    # 1. Filtro de Sucursal (mejorado para soportar lista o string único)
     if sucursal_sel and sucursal_sel != "TODAS":
-        filtros_base &= Q(sucursal__iexact=sucursal_sel)
+        if isinstance(sucursal_sel, list):
+            filtros_base &= Q(sucursal__in=sucursal_sel)
+        else:
+            filtros_base &= Q(sucursal__iexact=sucursal_sel)
+
+    # 2. Lógica de filtrado por nombre idéntica a Reportes
+    asistencias_query = Asistencia.objects.filter(filtros_base)
 
     if nombre_busqueda:
-        filtros_base &= (
-            Q(empleado__nombre__icontains=nombre_busqueda) |
-            Q(empleado__apellido_paterno__icontains=nombre_busqueda)
+        # Anotamos el nombre completo manejando nulos con Coalesce
+        asistencias_query = asistencias_query.annotate(
+            full_name=Concat(
+                'empleado__nombre', Value(' '), 
+                Coalesce('empleado__apellido_paterno', Value('')), Value(' '), 
+                Coalesce('empleado__apellido_materno', Value('')),
+                output_field=CharField()
+            )
+        ).filter(
+            Q(full_name__icontains=nombre_busqueda) | 
+            Q(empleado__nombre__icontains=nombre_busqueda) | 
+            Q(empleado__apellido_paterno__icontains=nombre_busqueda) | 
+            Q(empleado__codigo_empleado__icontains=nombre_busqueda)
         )
 
-    empleados_ids = (
-        Asistencia.objects
-        .filter(filtros_base)
-        .values_list('empleado_id', flat=True)
-        .distinct()
-    )
+    # Obtenemos los IDs basados en el QuerySet ya filtrado
+    empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
 
+    # Optimizamos la consulta de empleados usando select_related en el bucle
     for emp_id in empleados_ids:
-        empleado = Empleado.objects.get(id=emp_id)
-
+        # Usamos select_related para evitar consultas extra por cada registro de asistencia
         asistencias = (
             Asistencia.objects
-            .filter(filtros_base, empleado=empleado)
+            .filter(filtros_base, empleado_id=emp_id)
+            .select_related('empleado')
             .order_by('fecha')
         )
+        
+        if not asistencias.exists():
+            continue
+            
+        empleado = asistencias[0].empleado # Obtenemos el objeto empleado del primer registro
 
         puestos_lista = [a.puesto for a in asistencias if a.puesto]
 
