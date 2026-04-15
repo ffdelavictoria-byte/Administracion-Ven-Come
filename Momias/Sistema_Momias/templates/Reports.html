@@ -635,23 +635,31 @@
 
 
 
-                    <td style="text-align: left; font-size: 0.85rem;">
-
-
-
-                        <span style="color: var(--puebla-red); font-weight: bold;">-${{ item.monto_descuentos|floatformat:2 }}</span><br>
-
-
-
-                        <small>{{ item.motivos_descuentos|join:", " }}</small>
-
-
-
+                    <td style="text-align: left; font-size: 0.9rem;">
+                        <span style="color: var(--puebla-red); font-weight: bold;">
+                            -${{ item.monto_descuentos|floatformat:2 }}
+                        </span>
+                        {% if item.motivos_descuentos %}
+                            <br>
+                            <small style="color: #666; font-style: italic; display: block; line-height: 1;">
+                                {{ item.motivos_descuentos|join:", " }}
+                            </small>
+                        {% endif %}
                     </td>
 
 
 
-                    <td style="color: var(--puebla-blue); font-weight: bold;">+${{ item.total_bonos|floatformat:2 }}</td>
+                    <td style="text-align: left; font-size: 0.9rem;">
+                        <span style="color: var(--puebla-blue); font-weight: bold;">
+                            +${{ item.total_bonos|floatformat:2 }}
+                        </span>
+                        {% if item.motivos_bonos %}
+                            <br>
+                            <small style="color: #666; font-style: italic; display: block; line-height: 1;">
+                                {{ item.motivos_bonos|join:", " }}
+                            </small>
+                        {% endif %}
+                    </td>
 
 
 
