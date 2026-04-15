@@ -1708,7 +1708,7 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
     asistencias_query = Asistencia.objects.filter(filtros_base)
 
     if nombre_busqueda:
-        # Anotamos el nombre completo manejando nulos con Coalesce
+        # 1. Primero anotamos el nombre completo para poder buscar en él
         asistencias_query = asistencias_query.annotate(
             full_name=Concat(
                 'empleado__nombre', Value(' '), 
@@ -1716,12 +1716,22 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
                 Coalesce('empleado__apellido_materno', Value('')),
                 output_field=CharField()
             )
-        ).filter(
-            Q(full_name__icontains=nombre_busqueda) | 
-            Q(empleado__nombre__icontains=nombre_busqueda) | 
-            Q(empleado__apellido_paterno__icontains=nombre_busqueda) | 
-            Q(empleado__codigo_empleado__icontains=nombre_busqueda)
         )
+        
+        # 2. Dividimos la búsqueda en palabras (igual que en Asistencias)
+        palabras = nombre_busqueda.split()
+        q_bus = Q()
+
+        for p in palabras:
+            # Cada palabra debe coincidir en alguno de estos campos (AND lógico entre palabras)
+            q_bus &= (
+                Q(full_name__icontains=p) | 
+                Q(empleado__nombre__icontains=p) | 
+                Q(empleado__apellido_paterno__icontains=p) | 
+                Q(empleado__codigo_empleado__icontains=p)
+            )
+        
+        asistencias_query = asistencias_query.filter(q_bus).distinct()
 
     # Obtenemos los IDs basados en el QuerySet ya filtrado
     empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
