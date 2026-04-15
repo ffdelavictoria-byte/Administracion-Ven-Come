@@ -350,6 +350,34 @@
 
         }
 
+        /* Estilos para el grupo de sucursales múltiple */
+        .sucursales-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 8px;
+            background: white;
+            padding: 10px;
+            border: 2px solid var(--comic-border);
+            border-radius: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            width: 100%;
+        }
+        
+        .sucursal-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        .sucursal-item input {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+
 
 
     </style>
@@ -428,38 +456,21 @@
 
 
 
-            <div class="filter-group">
-
-
-
-                <label>SUCURSAL:</label>
-
-
-
-                <select name="sucursal">
-
-
-
-                    <option value="">--- Todas ---</option>
-
-
-
+            <div class="filter-group" style="flex-basis: 100%; margin-top: 10px;">
+                <label>FILTRAR POR SUCURSALES (Selecciona varias):</label>
+                <div class="sucursales-grid">
+                    <label class="sucursal-item" style="color: var(--puebla-magenta); font-weight: bold;">
+                        <input type="checkbox" id="select-all-suc"> --- TODAS ---
+                    </label>
+            
                     {% for s in lista_sucursales %}
-
-
-
-                    <option value="{{ s }}" {% if request.GET.sucursal == s %}selected{% endif %}>{{ s }}</option>
-
-
-
+                    <label class="sucursal-item">
+                        <input type="checkbox" name="sucursal" value="{{ s }}" 
+                               {% if s in sucursales_seleccionadas %}checked{% endif %}>
+                        {{ s }}
+                    </label>
                     {% endfor %}
-
-
-
-                </select>
-
-
-
+                </div>
             </div>
 
 
@@ -853,6 +864,11 @@
 
 
         }
+
+        document.getElementById('select-all-suc').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="sucursal"]');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+        });
 
 
 
