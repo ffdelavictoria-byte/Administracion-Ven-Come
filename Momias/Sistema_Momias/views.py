@@ -2147,7 +2147,8 @@ def vista_reportes(request):
                         'monto_descuentos': 0.0, 
                         'total_bonos': 0.0,
                         'total_fila': 0.0, 
-                        'motivos_descuentos': []
+                        'motivos_descuentos': [],
+                        'motivos_bonos': []  # <--- NUEVO
                     }
 
                 fila = agrupados_dict[key]
@@ -2157,10 +2158,19 @@ def vista_reportes(request):
                 fila['monto_descuentos'] += monto_desc_total
                 fila['total_fila'] += pago_neto_dia
                 
+                # --- Lógica de recolección de motivos ---
+
+                # 1. Para Descuentos (ya lo tienes)
                 if asis.motivo_descuento:
-                    m = str(asis.motivo_descuento).strip()
-                    if m and m not in fila['motivos_descuentos']: 
-                        fila['motivos_descuentos'].append(m)
+                    m_desc = str(asis.motivo_descuento).strip()
+                    if m_desc and m_desc not in fila['motivos_descuentos']: 
+                        fila['motivos_descuentos'].append(m_desc)
+                
+                # 2. Para Bonificaciones (ESTE ES EL QUE FALTA AGREGAR)
+                if asis.motivo_bonificacion:
+                    m_bono = str(asis.motivo_bonificacion).strip()
+                    if m_bono and m_bono not in fila['motivos_bonos']: 
+                        fila['motivos_bonos'].append(m_bono)
 
                 # Totales Globales
                 resumen_global['total_pagar'] += pago_neto_dia
