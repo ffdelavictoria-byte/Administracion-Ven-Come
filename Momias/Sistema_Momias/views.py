@@ -1542,7 +1542,31 @@ def calcular_nomina_web(request):
                     valor_num = round(turnos_acumulados, 2)
                     cantidad_turnos = int(valor_num) if valor_num % 1 == 0 else valor_num
 
+                    # ... (dentro de tu lógica de turnos proporcionales)
+                    minutos_para_mostrar = 0
+                    if todas_las_marcas:
+                        if es_excepcion_turno:
+                            if len(todas_las_marcas) >= 2:
+                                minutos_para_mostrar = max(todas_las_marcas) - min(todas_las_marcas)
+                                if minutos_para_mostrar < 0: minutos_para_mostrar += 1440
+                            else:
+                                # Si es normal o solo una marca, asumimos las horas base del puesto
+                                minutos_para_mostrar = int(divisor_puesto)
+                        else:
+                            # Puestos de 6 horas sumando bloques
+                            m_calc = 0
+                            if m_ent_m and m_sal_m: m_calc += (m_sal_m - m_ent_m)
+                            elif m_ent_m or m_sal_m: m_calc += 180 # 3h por marca única
+                            if m_ent_v and m_sal_v: m_calc += (m_sal_v - m_ent_v)
+                            elif m_ent_v or m_sal_v: m_calc += 180
+                            minutos_para_mostrar = m_calc
+                    
+                    # Convertir minutos a formato HH:MM
+                    horas_display = f"{int(minutos_para_mostrar // 60)}h {int(minutos_para_mostrar % 60)}m"
+
                     dias_map[nombre_dia].append({
+
+                        'total_horas': horas_display, # NUEVO CAMPO
 
                         'fecha_dia': fecha_str,
 
