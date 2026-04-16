@@ -101,7 +101,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-bold small text-uppercase">Empleado:</label>
-                    <input type="text" name="nombre" class="form-control" placeholder="Nombre o Apellido..." value="{{ nombre_busqueda|default:'' }}">
+                    <input type="text" name="nombre_busqueda" class="form-control" placeholder="Nombre, Apellido o ID..." value="{{ nombre_busqueda|default:'' }}">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold small text-uppercase">Sucursales:</label>
@@ -137,15 +137,12 @@
             </div>
 
             <div class="mb-1">
-                {% for dia_list in n.dias %}
-                    {% for t in dia_list %}
-                    <span class="item-desglose">
-                        <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
-                        
-                        {% if t.estatus == "DESCANSO" %} 
+                {% for t in n.dias %}
+                    {% if t.estatus != '---' %} <span class="item-desglose">
+                        <b class="text-primary">{{ forloop.counter0|add:0 }}</b> {% if "DESCANSO" in t.estatus %} 
                             <span class="text-info fw-bold">DESC</span>
                         {% else %} 
-                            <b>{{ t.cantidad_turnos }}T</b>
+                            <span class="fw-bold">TRAB</span>
                         {% endif %}
             
                         <span class="text-success">${{ t.pago_dia|floatformat:0 }}</span>
@@ -156,7 +153,7 @@
                             </small>
                         {% endif %}
                     </span>
-                    {% endfor %}
+                    {% endif %}
                 {% endfor %}
             </div>
 
@@ -174,10 +171,14 @@
 
             <div class="d-flex justify-content-between align-items-end">
                 <div style="font-size: 0.55rem; color: #444; max-width: 65%; line-height: 1.1;">
-                    {% for dia_list in n.dias %}{% for t in dia_list %}
-                        {% if t.monto_bono > 0 %} <span class="text-success">● {{ t.motivo_bono }}: +${{ t.monto_bono|floatformat:0 }}</span><br> {% endif %}
-                        {% if t.monto_descuento > 0 %} <span class="text-danger">● {{ t.motivo_descuento }}: -${{ t.monto_descuento|floatformat:0 }}</span><br> {% endif %}
-                    {% endfor %}{% endfor %}
+                    {% for t in n.dias %}
+                        {% if t.descuento_aplicado > 0 %} 
+                            <span class="text-danger">● Desc. Manual: -${{ t.descuento_aplicado|floatformat:0 }}</span><br> 
+                        {% endif %}
+                        {% if t.descuento_retardo > 0 %} 
+                            <span class="text-danger">● Retardo: -${{ t.descuento_retardo|floatformat:0 }}</span><br> 
+                        {% endif %}
+                    {% endfor %}
                 </div>
             </div>
         </div>
