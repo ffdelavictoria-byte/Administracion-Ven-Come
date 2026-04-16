@@ -1253,7 +1253,7 @@ def calcular_nomina_web(request):
 
                         puestos_turno_unico = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "PRODUCCION"]
 
-                        es_excepcion_turno = any(x in puesto_str for x in puestos_turno_unico)
+                        es_excepcion_turno = any(x in puesto_str for x in puestos_turno_unico) or "GERENTE" in puesto_str
 
                         # ----------------------------------
 
@@ -1303,6 +1303,11 @@ def calcular_nomina_web(request):
                     else:
                         salario_descanso = salario_un_turno_promedio
                         puesto_principal = puesto_frecuente
+
+                    # --- AGREGAR ESTA CORRECCIÓN FINAL ---
+                    if "GERENTE" in puesto_principal.upper():
+                        salario_descanso = float(puestos_salarios.get(puesto_frecuente, 600.00))
+                        puesto_principal = puesto_frecuente # Quitamos el label "(Doble)" si existiera
 
                 else:
 
