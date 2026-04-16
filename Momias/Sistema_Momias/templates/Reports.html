@@ -377,6 +377,11 @@
             width: 18px;
             height: 18px;
         }
+        .col-horas {
+            color: var(--puebla-blue);
+            font-size: 0.95rem;
+            background-color: #f9f9f9 !important;
+        }
 
 
 
@@ -556,51 +561,17 @@
 
 
             <thead>
-
-
-
-                <tr>
-
-
-
-                    <th>Empleado</th>
-
-
-
-                    <th>Sucursal</th>
-
-
-
-                    <th>Puesto</th>
-
-
-
-                    <th>Turnos</th>
-
-
-
-                    <th>Retardos</th>
-
-
-
-                    <th>Descuentos</th>
-
-
-
-                    <th>Bonos</th>
-
-
-
-                    <th>Total Fila</th>
-
-
-
-                </tr>
-
-
-
-            </thead>
-
+    <tr>
+        <th>Empleado</th>
+        <th>Sucursal</th>
+        <th>Puesto</th>
+        <th>Turnos</th>
+        <th>Horas</th> <th>Retardos</th>
+        <th>Descuentos</th>
+        <th>Bonos</th>
+        <th>Total Fila</th>
+    </tr>
+</thead>
 
 
             <tbody>
@@ -628,6 +599,8 @@
 
 
                     <td style="font-weight: bold;">{{ item.total_turnos }}</td>
+
+                    <td style="color: #666; font-size: 0.9rem;">{{ item.total_horas_display }}</td>
 
 
 
