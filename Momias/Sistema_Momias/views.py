@@ -1474,56 +1474,51 @@ def calcular_nomina_web(request):
 
                     fecha_str = reg.fecha.strftime('%d/%m/%y')
 
-                    # --- LÓGICA DE TURNOS PROPORCIONALES ---
+                    # --- LÓGICA DE TURNOS PROPORCIONALES (ACTUALIZADA) ---
                     pue_up = (reg.puesto or "").upper()
                     puestos_turno_unico = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS", "PRODUCCION", "GERENTE"]
                     es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
                     
-                    if es_excepcion_turno:
-                        turnos_acumulados = 1.0
-                    else:
-                        # Calculamos la proporcionalidad basada en minutos
-                        turnos_acumulados = 0.0
-                        
-                        # Procesamos matutino
-                        m_ent_m, _ = procesar_dato_hibrido(reg.entrada_matutina, True, 'M')
-                        m_sal_m, _ = procesar_dato_hibrido(reg.salida_matutina, False, 'M')
-                    
-                        if m_ent_m and m_sal_m:
-                            diff_m = m_sal_m - m_ent_m
-                            turnos_acumulados += max(0, diff_m) / 360.0
-                        elif m_ent_m or m_sal_m:
-                            turnos_acumulados += 1.0
-                    
-                        # Procesamos vespertino
-                        m_ent_v, _ = procesar_dato_hibrido(reg.entrada_vespertina, True, 'V')
-                        m_sal_v, _ = procesar_dato_hibrido(reg.salida_vespertina, False, 'V')
-                    
-                        if m_ent_v and m_sal_v:
-                            diff_v = m_sal_v - m_ent_v
-                            turnos_acumulados += max(0, diff_v) / 360.0
-                        elif m_ent_v or m_sal_v:
-                            # Solo sumamos si no es una jornada corrida ya procesada
-                            if not (m_ent_m and m_sal_v and not m_sal_m and not m_ent_v):
-                                turnos_acumulados += 1.0
-                    
-                        # Caso jornada corrida (Entrada M y Salida V sin marcas intermedias)
+                    # 1. Obtenemos marcas de tiempo para verificar si hay actividad manual
+                    m_ent_m, _ = procesar_dato_hibrido(reg.entrada_matutina, True, 'M')
+                    m_sal_m, _ = procesar_dato_hibrido(reg.salida_matutina, False, 'M')
+                    m_ent_v, _ = procesar_dato_hibrido(reg.entrada_vespertina, True, 'V')
+                    m_sal_v, _ = procesar_dato_hibrido(reg.salida_vespertina, False, 'V')
+
+                    tiene_marcas = any([m_ent_m, m_sal_m, m_ent_v, m_sal_v])
+                    turnos_acumulados = 0.0
+
+                    # 2. Si hay marcas físicas o manuales, calculamos la proporción
+                    if tiene_marcas:
+                        # Caso jornada corrida (Entrada Matutina y Salida Vespertina directa)
                         if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
                             diff_total = m_sal_v - m_ent_m
                             if diff_total < 0: diff_total += 1440
                             turnos_acumulados = diff_total / 360.0
-                    
-                    # --- NUEVA CORRECCIÓN: MULTIPLICADOR POR DÍA ESPECIAL ---
-                    # Si el estatus es Descanso Trabajado o Festivo, duplicamos el conteo de turnos
+                        else:
+                            # Procesamos bloque matutino
+                            if m_ent_m and m_sal_m:
+                                turnos_acumulados += max(0, m_sal_m - m_ent_m) / 360.0
+                            elif m_ent_m or m_sal_m:
+                                turnos_acumulados += 1.0 # Valor por defecto para marcas simples (ej. "NORMAL")
+
+                            # Procesamos bloque vespertino
+                            if m_ent_v and m_sal_v:
+                                turnos_acumulados += max(0, m_sal_v - m_ent_v) / 360.0
+                            elif m_ent_v or m_sal_v:
+                                turnos_acumulados += 1.0
+
+                    # 3. Si NO hay marcas pero es un puesto de excepción, asignamos turno completo
+                    elif es_excepcion_turno:
+                        turnos_acumulados = 1.0
+
+                    # --- MULTIPLICADOR POR DÍA ESPECIAL ---
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
                         turnos_acumulados *= 2
                     
-                    # Formateamos el resultado final
+                    # Formateo del valor para la vista
                     valor_num = round(turnos_acumulados, 2)
-                    if valor_num % 1 == 0:
-                        cantidad_turnos = int(valor_num)
-                    else:
-                        cantidad_turnos = valor_num
+                    cantidad_turnos = int(valor_num) if valor_num % 1 == 0 else valor_num
                     # ------------------------------------------------------
 
                     dias_map[nombre_dia].append({
