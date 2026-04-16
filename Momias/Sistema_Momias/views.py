@@ -2252,6 +2252,32 @@ def vista_reportes(request):
                 monto_desc_total = desc_manual + desc_retardo_monto
                 pago_neto_dia = (pago_base_dia + bono_dia) - monto_desc_total
 
+                # 1. --- NUEVO: CÁLCULO DE MINUTOS PARA ESTA ASISTENCIA ---
+                minutos_asistencia = 0
+                m_ent_m, _ = procesar_dato_hibrido(asis.entrada_matutina, True, 'M')
+                m_sal_m, _ = procesar_dato_hibrido(asis.salida_matutina, False, 'M')
+                m_ent_v, _ = procesar_dato_hibrido(asis.entrada_vespertina, True, 'V')
+                m_sal_v, _ = procesar_dato_hibrido(asis.salida_vespertina, False, 'V')
+                
+                todas_marcas = [m for m in [m_ent_m, m_sal_m, m_ent_v, m_sal_v] if m is not None]
+
+                if todas_marcas and not es_descanso and not es_falta:
+                    pue_up = puesto_para_fila.upper()
+                    # Puestos especiales (Rango unificado)
+                    if any(x in pue_up for x in ["FIN DE SEMANA", "GERENTE", "12 HORAS", "9 HORAS", "INTERMEDIO"]):
+                        if len(todas_marcas) >= 2:
+                            diff = max(todas_marcas) - min(todas_marcas)
+                            if diff < 0: diff += 1440
+                            minutos_asistencia = diff
+                        else:
+                            minutos_asistencia = int(divisor_puesto) # Si hay 1 marca, asume jornada completa
+                    else:
+                        # Puestos estándar (Suma de bloques)
+                        if m_ent_m and m_sal_m: minutos_asistencia += (m_sal_m - m_ent_m)
+                        elif m_ent_m or m_sal_m: minutos_asistencia += 180 # 3h por marca única
+                        if m_ent_v and m_sal_v: minutos_asistencia += (m_sal_v - m_ent_v)
+                        elif m_ent_v or m_sal_v: minutos_asistencia += 180
+
                 # Guardado en el diccionario agrupado
                 key = (emp.id, suc, puesto_para_fila)
                 if key not in agrupados_dict:
@@ -2260,7 +2286,8 @@ def vista_reportes(request):
                         'sucursal': suc, 
                         'puesto': puesto_para_fila, 
                         'total_turnos': 0.0,
-                        'total_retardos': 0, 
+                        'total_retardos': 0,
+                        'minutos_totales': 0, # <--- ACUMULADOR DE MINUTOS
                         'monto_descuentos': 0.0, 
                         'total_bonos': 0.0,
                         'total_fila': 0.0, 
@@ -2270,13 +2297,13 @@ def vista_reportes(request):
 
                 fila = agrupados_dict[key]
                 fila['total_turnos'] += turnos_a_sumar
+                fila['minutos_totales'] += minutos_asistencia # <--- SUMAR MINUTOS
                 fila['total_retardos'] += puntos_retardo
                 fila['total_bonos'] += bono_dia
                 fila['monto_descuentos'] += monto_desc_total
                 fila['total_fila'] += pago_neto_dia
                 
                 # --- Lógica de recolección de motivos ---
-
                 # 1. Para Descuentos (ya lo tienes)
                 if asis.motivo_descuento:
                     m_desc = str(asis.motivo_descuento).strip()
@@ -2297,6 +2324,11 @@ def vista_reportes(request):
                 resumen_global['total_descuentos'] += monto_desc_total
                 resumen_sucursales_dict[suc] = resumen_sucursales_dict.get(suc, 0) + pago_neto_dia
 
+    # 3. --- NUEVO: CONVERTIR MINUTOS A FORMATO HH:MM ANTES DE ENVIAR AL TEMPLATE ---
+    for fila in agrupados_dict.values():
+        m = fila['minutos_totales']
+        fila['total_horas_display'] = f"{int(m // 60)}h {int(m % 60)}m"
+
     # Preparación de datos finales
     resumen_sucursales = [
         {'nombre': s, 'periodo': f"{f_inicio} al {f_fin}", 'total': round(t, 2)}
@@ -2304,6 +2336,7 @@ def vista_reportes(request):
     ]
 
     lista_agrupada = sorted(agrupados_dict.values(), key=lambda x: x['empleado'])
+    
 
     context = {
         'empleados': empleados_qs,
