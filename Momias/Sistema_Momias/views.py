@@ -1476,7 +1476,7 @@ def calcular_nomina_web(request):
 
                     # --- LÓGICA DE TURNOS PROPORCIONALES ---
                     pue_up = (reg.puesto or "").upper()
-                    puestos_turno_unico = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS", "PRODUCCION"]
+                    puestos_turno_unico = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS", "PRODUCCION", "GERENTE"]
                     es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
                     
                     if es_excepcion_turno:
@@ -2080,12 +2080,18 @@ def vista_reportes(request):
             # Determinamos puesto principal y días trabajados para descansos
             for a in lista_asis:
                 estatus_up = (a.estatus or "").strip().upper()
-                # El descanso y la falta no cuentan para determinar el puesto más frecuente
                 if "DESCANSO" not in estatus_up and "FALTA" not in estatus_up:
                     pue = a.puesto or a.empleado.puesto or "GENERAL"
                     conteo_puestos[pue] += 1
-                    # Contamos si hubo doble turno (mañana y tarde con marcas)
-                    if (a.entrada_matutina and a.salida_matutina) and (a.entrada_vespertina and a.salida_vespertina):
+                    
+                    # --- CORRECCIÓN AQUÍ ---
+                    # Definimos quién NO debe sumar para el multiplicador de descanso
+                    puesto_str = pue.upper()
+                    # El Gerente se considera "excepción" porque su sueldo base ya cubre las 12h
+                    es_excepcion_gerente = "GERENTE" in puesto_str
+                    
+                    # Solo sumamos al contador de dobles si NO es Gerente
+                    if (a.entrada_matutina and a.salida_matutina) and (a.entrada_vespertina and a.salida_vespertina) and not es_excepcion_gerente:
                         dias_dobles_count += 1
 
             puesto_principal = conteo_puestos.most_common(1)[0][0] if conteo_puestos else "GENERAL"
@@ -2115,18 +2121,23 @@ def vista_reportes(request):
                 turnos_a_sumar = 0.0
                 pago_base_dia = 0.0
 
+                # ... (más abajo, donde validas if es_descanso)
                 if es_descanso and "TRABAJADO" not in estatus_limpio:
                     if emp.id not in ids_con_falta:
-                        # Si no tiene faltas, se le paga su descanso
-                        # El descanso suma 1.0 al contador de turnos (o 2.0 si hizo doble turno toda la semana)
+                        # Lógica estándar de turnos
                         turnos_a_sumar = 1.0 if dias_dobles_count < 6 else 2.0
+                        
+                        # --- AÑADIR ESTA EXCEPCIÓN FINAL ---
+                        if "GERENTE" in pue_up:
+                            turnos_a_sumar = 1.0 # El gerente siempre suma 1.0 (sus $600 base)
+                        
                         pago_base_dia = valor_turno_base * turnos_a_sumar
                     else:
                         turnos_a_sumar = 0.0
                         pago_base_dia = 0.0
 
                 elif not es_falta:
-                    puestos_especiales = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS"]
+                    puestos_especiales = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS", "GERENTE"]
                     if any(x in pue_up for x in puestos_especiales):
                         turnos_a_sumar = 1.0
                     else:
