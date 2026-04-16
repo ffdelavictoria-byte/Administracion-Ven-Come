@@ -2157,26 +2157,54 @@ def vista_reportes(request):
                         pago_base_dia = 0.0
 
                 elif not es_falta:
-                    puestos_especiales = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS", "GERENTE"]
-                    if any(x in pue_up for x in puestos_especiales):
-                        turnos_a_sumar = 1.0
-                    else:
-                        t_acum = 0.0
-                        m_ent_m, _ = procesar_dato_hibrido(asis.entrada_matutina, True, 'M')
-                        m_sal_m, _ = procesar_dato_hibrido(asis.salida_matutina, False, 'M')
-                        m_ent_v, _ = procesar_dato_hibrido(asis.entrada_vespertina, True, 'V')
-                        m_sal_v, _ = procesar_dato_hibrido(asis.salida_vespertina, False, 'V')
+                    puestos_especiales = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS", "GERENTE", "PRODUCCION"]
+                    es_especial = any(x in pue_up for x in puestos_especiales)
+                    
+                    # --- CONFIGURACIÓN DE DIVISOR ---
+                    divisor_puesto = 360.0  # Base 6 horas
+                    if "FIN DE SEMANA" in pue_up or "GERENTE" in pue_up or "12 HORAS" in pue_up:
+                        divisor_puesto = 720.0
+                    elif "9 HORAS" in pue_up or "INTERMEDIO" in pue_up:
+                        divisor_puesto = 540.0
 
-                        if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
-                            diff = m_sal_v - m_ent_m
-                            if diff < 0: diff += 1440
-                            t_acum = diff / 360.0
+                    # Obtención de marcas
+                    m_ent_m, _ = procesar_dato_hibrido(asis.entrada_matutina, True, 'M')
+                    m_sal_m, _ = procesar_dato_hibrido(asis.salida_matutina, False, 'M')
+                    m_ent_v, _ = procesar_dato_hibrido(asis.entrada_vespertina, True, 'V')
+                    m_sal_v, _ = procesar_dato_hibrido(asis.salida_vespertina, False, 'V')
+                    
+                    todas_marcas = [m for m in [m_ent_m, m_sal_m, m_ent_v, m_sal_v] if m is not None]
+
+                    if todas_marcas:
+                        if es_especial:
+                            # Lógica de RANGO UNIFICADO (Evita el "2" en jornadas de 12h)
+                            if len(todas_marcas) >= 2:
+                                diff = max(todas_marcas) - min(todas_marcas)
+                                if diff < 0: diff += 1440
+                                turnos_a_sumar = diff / divisor_puesto
+                            else:
+                                turnos_a_sumar = 1.0  # Una sola marca se toma como turno completo
                         else:
-                            if m_ent_m and m_sal_m: t_acum += max(0, m_sal_m - m_ent_m) / 360.0
-                            elif m_ent_m or m_sal_m: t_acum += 1.0
-                            if m_ent_v and m_sal_v: t_acum += max(0, m_sal_v - m_ent_v) / 360.0
-                            elif m_ent_v or m_sal_v: t_acum += 1.0
-                        turnos_a_sumar = t_acum
+                            # Lógica estándar para turnos de 6h (sumar bloques independientes)
+                            t_acum = 0.0
+                            if m_ent_m and m_sal_m: 
+                                t_acum += (m_sal_m - m_ent_m) / 360.0
+                            elif m_ent_m or m_sal_m: 
+                                t_acum += 1.0 # O 0.5 según prefieras para marcas únicas
+                            
+                            if m_ent_v and m_sal_v: 
+                                t_acum += (m_sal_v - m_ent_v) / 360.0
+                            elif m_ent_v or m_sal_v: 
+                                t_acum += 1.0
+                            turnos_a_sumar = t_acum
+                    else:
+                        # Si es especial pero no tiene marcas, se le da su turno base (ej. "NORMAL")
+                        turnos_a_sumar = 1.0 if es_especial else 0.0
+
+                    # --- LIMITAR A MÁXIMO 1 TURNO SI NO ES DÍA ESPECIAL ---
+                    # Esto evita que un error de dedo (ej. salir a las 11pm) pague de más
+                    if es_especial and "TRABAJADO" not in estatus_limpio and "FESTIVO" not in estatus_limpio:
+                        turnos_a_sumar = min(turnos_a_sumar, 1.0)
 
                     # Doble pago por laborar en día de descanso o festivo
                     if "TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
