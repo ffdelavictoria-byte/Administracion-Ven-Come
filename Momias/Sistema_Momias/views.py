@@ -1474,52 +1474,73 @@ def calcular_nomina_web(request):
 
                     fecha_str = reg.fecha.strftime('%d/%m/%y')
 
-                    # --- LÓGICA DE TURNOS PROPORCIONALES (ACTUALIZADA) ---
+                    # --- LÓGICA DE TURNOS PROPORCIONALES (CORREGIDA PARA PUESTOS ÚNICOS) ---
                     pue_up = (reg.puesto or "").upper()
                     puestos_turno_unico = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS", "PRODUCCION", "GERENTE"]
                     es_excepcion_turno = any(x in pue_up for x in puestos_turno_unico)
                     
-                    # 1. Obtenemos marcas de tiempo para verificar si hay actividad manual
+                    # 1. Obtenemos marcas de tiempo
                     m_ent_m, _ = procesar_dato_hibrido(reg.entrada_matutina, True, 'M')
                     m_sal_m, _ = procesar_dato_hibrido(reg.salida_matutina, False, 'M')
                     m_ent_v, _ = procesar_dato_hibrido(reg.entrada_vespertina, True, 'V')
                     m_sal_v, _ = procesar_dato_hibrido(reg.salida_vespertina, False, 'V')
-
-                    tiene_marcas = any([m_ent_m, m_sal_m, m_ent_v, m_sal_v])
+                    
+                    # Recolectamos todas las marcas válidas para calcular el rango total del día
+                    todas_las_marcas = [m for m in [m_ent_m, m_sal_m, m_ent_v, m_sal_v] if m is not None]
                     turnos_acumulados = 0.0
-
-                    # 2. Si hay marcas físicas o manuales, calculamos la proporción
-                    if tiene_marcas:
-                        # Caso jornada corrida (Entrada Matutina y Salida Vespertina directa)
-                        if m_ent_m and m_sal_v and not m_sal_m and not m_ent_v:
-                            diff_total = m_sal_v - m_ent_m
-                            if diff_total < 0: diff_total += 1440
-                            turnos_acumulados = diff_total / 360.0
+                    
+                    # 2. Definimos el divisor de horas según el puesto (El "1.0")
+                    # Por defecto son 6 horas (360 min)
+                    divisor_puesto = 360.0 
+                    
+                    if "FIN DE SEMANA" in pue_up or "GERENTE" in pue_up or "12 HORAS" in pue_up:
+                        divisor_puesto = 720.0  # Su 100% son 12 horas
+                    elif "9 HORAS" in pue_up or "INTERMEDIO" in pue_up:
+                        divisor_puesto = 540.0  # Su 100% son 9 horas
+                    
+                    # 3. Cálculo de la proporción
+                    if todas_las_marcas:
+                        # Si es un puesto de turno único, no sumamos bloques, medimos el TIEMPO TOTAL transcurrido
+                        if es_excepcion_turno:
+                            if len(todas_las_marcas) >= 2:
+                                # Diferencia entre la salida más tarde y la entrada más temprana
+                                minutos_totales = max(todas_las_marcas) - min(todas_las_marcas)
+                                if minutos_totales < 0: minutos_totales += 1440
+                                
+                                # Esto forzará que 9:30am a 9:30pm (720 min) / 720 = 1.0
+                                # Y que 9:30am a 3:30pm (360 min) / 720 = 0.5
+                                turnos_acumulados = minutos_totales / divisor_puesto
+                            else:
+                                # Si solo hay una marca (ej. "NORMAL" o solo entrada), contamos el turno completo
+                                turnos_acumulados = 1.0
                         else:
-                            # Procesamos bloque matutino
+                            # Lógica para puestos normales (6 horas) que sí pueden sumar bloques separados
+                            # Mantenemos tu lógica anterior o usamos el proporcional simple
                             if m_ent_m and m_sal_m:
-                                turnos_acumulados += max(0, m_sal_m - m_ent_m) / 360.0
+                                turnos_acumulados += (m_sal_m - m_ent_m) / 360.0
                             elif m_ent_m or m_sal_m:
-                                turnos_acumulados += 1.0 # Valor por defecto para marcas simples (ej. "NORMAL")
-
-                            # Procesamos bloque vespertino
+                                turnos_acumulados += 0.5 # Media jornada si solo hay una marca en matutino
+                                
                             if m_ent_v and m_sal_v:
-                                turnos_acumulados += max(0, m_sal_v - m_ent_v) / 360.0
+                                turnos_acumulados += (m_sal_v - m_ent_v) / 360.0
                             elif m_ent_v or m_sal_v:
-                                turnos_acumulados += 1.0
-
-                    # 3. Si NO hay marcas pero es un puesto de excepción, asignamos turno completo
+                                turnos_acumulados += 0.5
+                    
                     elif es_excepcion_turno:
+                        # Si no hay marcas pero tiene el puesto, le damos 1 por defecto (si el estatus es correcto)
                         turnos_acumulados = 1.0
-
+                    
                     # --- MULTIPLICADOR POR DÍA ESPECIAL ---
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
                         turnos_acumulados *= 2
                     
-                    # Formateo del valor para la vista
+                    # Limitar a máximo 1 turno si no es descanso trabajado/festivo en excepciones
+                    if es_excepcion_turno and not ("DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio):
+                        turnos_acumulados = min(turnos_acumulados, 1.0)
+                    
+                    # Formateo final
                     valor_num = round(turnos_acumulados, 2)
                     cantidad_turnos = int(valor_num) if valor_num % 1 == 0 else valor_num
-                    # ------------------------------------------------------
 
                     dias_map[nombre_dia].append({
 
