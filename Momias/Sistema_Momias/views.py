@@ -2101,6 +2101,10 @@ def vista_reportes(request):
             for asis in lista_asis:
                 emp = asis.empleado
                 estatus_limpio = (asis.estatus or "").strip().upper()
+                # --- NUEVO FILTRO: Ignorar Permisos ---
+                if "PERMISO" in estatus_limpio:
+                    continue  # Salta a la siguiente asistencia sin procesar nada
+                # --------------------------------------
                 es_descanso = "DESCANSO" in estatus_limpio
                 es_falta = "FALTA" in estatus_limpio
                 suc = asis.sucursal or "Victoria"
