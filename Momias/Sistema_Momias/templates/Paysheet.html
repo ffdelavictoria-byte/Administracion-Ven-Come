@@ -1,198 +1,393 @@
 {% load static %}
+
 <!DOCTYPE html>
+
 <html lang="es">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Nómina Detallada Compacta - Momias de la Victoria</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
 
+
+
 <style>
+
     :root { --comic-border: 2px solid #000; --comic-shadow: 4px 4px 0px #000; }
+
     body { background-color: #f0f0f0; font-family: 'Open Sans', sans-serif; padding: 20px; }
+
     h2 { font-family: 'Bangers', cursive; letter-spacing: 2px; color: #2c3e50; text-shadow: 2px 2px 0px #fff; }
+
     
+
     .comic-container { max-width: 1400px; margin: 0 auto; background: white; padding: 30px; border: var(--comic-border); box-shadow: 10px 10px 0px rgba(0,0,0,0.1); }
+
     .card-comic { border: var(--comic-border); box-shadow: var(--comic-shadow); background-color: #fff9c4 !important; margin-bottom: 25px; }
+
     .form-control, .form-select { border: var(--comic-border); border-radius: 0; }
+
     .btn-comic { font-family: 'Bangers', cursive; font-size: 1.2rem; letter-spacing: 1px; border: var(--comic-border) !important; border-radius: 0; transition: 0.1s; text-transform: uppercase; }
+
     .btn-edit { background-color: #4CAF50; color: white; }
+
     .btn-comic:hover { transform: translate(-2px, -2px); box-shadow: var(--comic-shadow); color: white; }
 
+
+
     .tira-compacta {
+
         border: 1px solid #000;
+
         padding: 8px;
+
         margin-bottom: 12px;
+
         background-color: white;
+
         page-break-inside: avoid;
+
         font-size: 0.7rem;
+
     }
+
+
 
     .header-nomina {
+
         display: flex;
+
         justify-content: space-between;
+
         align-items: center;
+
         border-bottom: 1.5px solid #000;
+
         margin-bottom: 4px;
+
         padding-bottom: 2px;
+
     }
+
+
 
     .item-desglose {
+
         display: inline-block;
+
         margin-right: 4px;
+
         padding: 1px 3px;
+
         border: 1px solid #ddd;
+
         background: #fdfdfd;
+
         font-size: 0.65rem;
+
         border-radius: 2px;
+
     }
+
+
 
     .total-neto-box {
+
         background: #000;
+
         color: #fff;
+
         padding: 4px 8px;
+
         font-weight: bold;
+
         font-size: 1rem;
+
         text-align: right;
+
         min-width: 110px;
+
     }
+
+
 
     .firma-espacio {
+
         border-top: 1px solid #000;
+
         width: 150px;
+
         text-align: center;
+
         font-size: 0.55rem;
+
         margin-top: 8px;
+
         font-weight: bold;
+
     }
+
+
 
     @media print {
+
         .no-print { display: none !important; }
+
         .comic-container { border: none; box-shadow: none; width: 100%; max-width: 100%; padding: 0; }
+
         body { background: white; padding: 0; }
+
         #contenedor-nominas {
+
             column-count: 2;
+
             column-gap: 15px;
+
         }
+
         @page { size: landscape; margin: 0.6cm; }
+
     }
+
 </style>
+
 </head>
 
+
+
 <body>
+
 <div class="comic-container">
+
     <header class="d-flex justify-content-between align-items-center mb-4 no-print">
+
         <h2 class="m-0"> Sistema de Nómina - Control Global</h2>
+
         <a href="{% url 'main' %}" class="btn btn-outline-dark btn-sm fw-bold"><i class="fas fa-arrow-left"></i> REGRESAR</a>
+
     </header>
 
+
+
     <div class="card card-comic no-print mb-4">
+
         <div class="card-body">
+
             <form method="GET" class="row g-3 align-items-end">
+
                 <div class="col-md-2">
+
                     <label class="form-label fw-bold small text-uppercase">Inicio:</label>
+
                     <input type="date" name="inicio" class="form-control" value="{{ inicio }}" required>
+
                 </div>
+
                 <div class="col-md-2">
+
                     <label class="form-label fw-bold small text-uppercase">Fin:</label>
+
                     <input type="date" name="fin" class="form-control" value="{{ fin }}" required>
+
                 </div>
+
                 <div class="col-md-2">
+
                     <label class="form-label fw-bold small text-uppercase">Empleado:</label>
-                    <input type="text" name="nombre_busqueda" class="form-control" placeholder="Nombre, Apellido o ID..." value="{{ nombre_busqueda|default:'' }}">
+
+                    <input type="text" name="nombre" class="form-control" placeholder="Nombre o Apellido..." value="{{ nombre_busqueda|default:'' }}">
+
                 </div>
+
                 <div class="col-md-3">
+
                     <label class="form-label fw-bold small text-uppercase">Sucursales:</label>
+
                     <div class="border p-2 bg-white" style="height: 80px; overflow-y: scroll; font-size: 0.8rem;">
+
                         <div class="form-check">
+
                             <input class="form-check-input" type="checkbox" id="check_todas" onclick="toggleAll(this)">
+
                             <label class="form-check-label fw-bold text-primary" for="check_todas">TODAS</label>
+
                         </div>
+
                         {% for s in todas_sucursales %}
+
                         <div class="form-check">
+
                             <input class="form-check-input" type="checkbox" name="sucursal" value="{{ s }}" {% if s in sucursales_seleccionadas %}checked{% endif %}>
+
                             <label class="form-check-label">{{ s }}</label>
+
                         </div>
+
                         {% endfor %}
+
                     </div>
+
                 </div>
+
                 <div class="col-md-3 d-flex gap-2">
+
                     <button type="submit" class="btn btn-comic btn-edit flex-grow-1"><i class="fas fa-calculator"></i> CALCULAR</button>
+
                     <button type="button" onclick="window.print();" class="btn-comic" style="background: #546e7a; color: white; padding: 0 15px;"><i class="fas fa-print"></i></button>
+
                 </div>
+
             </form>
+
         </div>
+
     </div>
+
+
 
     <div id="contenedor-nominas">
+
         {% for n in nominas %}
+
         <div class="tira-compacta">
+
             <div class="header-nomina">
+
                 <span class="fw-bold text-uppercase" style="font-size: 0.85rem;">{{ n.nombre }}</span>
+
                 <span class="fw-bold text-muted" style="font-size: 0.65rem;">
+
                     {{ n.puesto_principal }}{% if n.puestos_adicionales %}/{{ n.puestos_adicionales }}{% endif %}
+
                 </span>
+
             </div>
+
+
 
             <div class="mb-1">
-                {% for t in n.dias %}
-                    {% if t.estatus != '---' %} <span class="item-desglose">
-                        <b class="text-primary">{{ forloop.counter0|add:0 }}</b> {% if "DESCANSO" in t.estatus %} 
+
+                {% for dia_list in n.dias %}
+
+                    {% for t in dia_list %}
+
+                    <span class="item-desglose">
+
+                        <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
+
+                        
+
+                        {% if t.estatus == "DESCANSO" %} 
+
                             <span class="text-info fw-bold">DESC</span>
+
                         {% else %} 
-                            <span class="fw-bold">TRAB</span>
+
+                            <b>{{ t.cantidad_turnos }}T</b>
+
                         {% endif %}
+
             
+
                         <span class="text-success">${{ t.pago_dia|floatformat:0 }}</span>
+
             
+
                         {% if t.puesto %}
+
                             <small class="text-muted" style="font-size: 0.55rem;">
+
                                 [{{ t.puesto|slice:":4" }}]
+
                             </small>
+
                         {% endif %}
+
                     </span>
-                    {% endif %}
+
+                    {% endfor %}
+
                 {% endfor %}
+
             </div>
+
+
 
             <div class="d-flex border-top border-bottom py-1 my-1 justify-content-between align-items-center">
+
                 <div style="font-size: 0.65rem; line-height: 1.4;">
+
                     <span>Base: <b>${{ n.pago_base|floatformat:2 }}</b></span> |
+
                     <span>Retardos: <b class="text-danger">{{ n.retardos }}</b></span> |
+
                     <span>Bonos: <b class="text-success">+${{ n.bonos|floatformat:2 }}</b></span> |
+
                     <span>Desc: <b class="text-danger">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</b></span>
+
                 </div>
+
                 <div class="total-neto-box">
+
                     NETO: ${{ n.total_neto|floatformat:2 }}
+
                 </div>
+
             </div>
+
+
 
             <div class="d-flex justify-content-between align-items-end">
+
                 <div style="font-size: 0.55rem; color: #444; max-width: 65%; line-height: 1.1;">
-                    {% for t in n.dias %}
-                        {% if t.descuento_aplicado > 0 %} 
-                            <span class="text-danger">● Desc. Manual: -${{ t.descuento_aplicado|floatformat:0 }}</span><br> 
-                        {% endif %}
-                        {% if t.descuento_retardo > 0 %} 
-                            <span class="text-danger">● Retardo: -${{ t.descuento_retardo|floatformat:0 }}</span><br> 
-                        {% endif %}
-                    {% endfor %}
+
+                    {% for dia_list in n.dias %}{% for t in dia_list %}
+
+                        {% if t.monto_bono > 0 %} <span class="text-success">● {{ t.motivo_bono }}: +${{ t.monto_bono|floatformat:0 }}</span><br> {% endif %}
+
+                        {% if t.monto_descuento > 0 %} <span class="text-danger">● {{ t.motivo_descuento }}: -${{ t.monto_descuento|floatformat:0 }}</span><br> {% endif %}
+
+                    {% endfor %}{% endfor %}
+
                 </div>
+
             </div>
+
         </div>
+
         {% empty %}
+
             <div class="alert alert-info text-center">No hay datos para el periodo.</div>
+
         {% endfor %}
+
     </div>
+
 </div>
 
+
+
 <script>
+
     function toggleAll(source) {
+
         let checkboxes = document.getElementsByName('sucursal');
+
         for(let cb of checkboxes) { cb.checked = source.checked; }
+
     }
+
 </script>
+
 </body>
+
 </html>
