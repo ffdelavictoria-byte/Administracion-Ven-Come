@@ -203,18 +203,19 @@
 
                 <div class="col-md-2">
     <label class="form-label fw-bold small text-uppercase">Empleado:</label>
-    <input type="text" name="nombre" class="form-control" 
-           placeholder="Escribe para buscar..." 
-           value="{{ nombre_busqueda|default:'' }}" 
-           list="lista-empleados" 
+    <input type="text" 
+           name="q" 
+           class="form-control" 
+           placeholder="Nombre o apellido..." 
+           value="{{ query|default:'' }}" 
+           list="empleados_list" 
            autocomplete="off">
     
-    <datalist id="lista-empleados">
-    {% for n in nominas %}
-        {# Usamos search_name si lo envías, o simplemente el nombre del resultado #}
-        <option value="{{ n.nombre }}">
-    {% endfor %}
-</datalist>
+    <datalist id="empleados_list">
+        {% for e in empleados %}
+            <option value="{{ e.nombre }} {{ e.apellido_paterno }} {{ e.apellido_materno }}">
+        {% endfor %}
+    </datalist>
 </div>
 
                 <div class="col-md-3">
