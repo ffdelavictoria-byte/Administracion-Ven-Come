@@ -160,8 +160,9 @@
     }
     /* Esto asegura que el datalist no se vea extraño en algunos navegadores */
     input::-webkit-calendar-picker-indicator {
-        display: none !important;
-    }
+    display: block !important; /* Cámbialo a block */
+    opacity: 0.5;
+}    
     
     #empleado_busqueda:focus {
         background-color: #fffde7; /* Un amarillo muy ligero al escribir */
@@ -214,12 +215,14 @@
                 <div class="col-md-2">
     <label class="form-label fw-bold small text-uppercase">Empleado:</label>
     <input type="text" 
-           name="q" 
-           class="form-control" 
-           placeholder="Nombre o código..." 
-           value="{{ query|default:'' }}" 
-           list="empleados_list" 
-           autocomplete="off">
+       name="q" 
+       class="form-control" 
+       placeholder="Nombre o código..." 
+       value="{{ query|default:'' }}" 
+       list="empleados_list" 
+       autocomplete="off"
+       onfocus="this.value=''" 
+       onmouseover="this.focus()">
     
     <datalist id="empleados_list">
         {% for e in empleados %}
