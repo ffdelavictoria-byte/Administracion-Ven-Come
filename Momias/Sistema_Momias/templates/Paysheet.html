@@ -203,12 +203,19 @@
                 </div>
 
                 <div class="col-md-2">
-
-                    <label class="form-label fw-bold small text-uppercase">Empleado:</label>
-
-                    <input type="text" name="nombre" class="form-control" placeholder="Nombre o Apellido..." value="{{ nombre_busqueda|default:'' }}">
-
-                </div>
+    <label class="form-label fw-bold small text-uppercase">Empleado:</label>
+    <input type="text" name="nombre" class="form-control" 
+           placeholder="Escribe para buscar..." 
+           value="{{ nombre_busqueda|default:'' }}" 
+           list="lista-empleados" 
+           autocomplete="off">
+    
+    <datalist id="lista-empleados">
+        {% for n in nominas %}
+            <option value="{{ n.nombre }}">
+        {% endfor %}
+    </datalist>
+</div>
 
                 <div class="col-md-3">
 
