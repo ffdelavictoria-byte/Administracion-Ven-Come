@@ -1183,6 +1183,7 @@ def calcular_nomina_web(request):
         
             # 4. Aplicar Filtro de Nombre si existe
             if nombre_filtro:
+                # Creamos una anotación para poder buscar por nombre completo (Nombre + Apellidos)
                 asistencias_query = asistencias_query.annotate(
                     full_name=Concat(
                         'empleado__nombre', Value(' '), 
@@ -1199,14 +1200,8 @@ def calcular_nomina_web(request):
         
             # 5. Obtener los IDs únicos de empleados que tuvieron asistencia bajo esos filtros
             empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
-            
-            # ... continúa tu bucle de for emp_id in empleados_ids:
-            # Obtenemos los IDs de los empleados que cumplen con los filtros
-
-            empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
 
             # ... resto de tu lógica para procesar empleados_ids
-
             for emp_id in empleados_ids:
 
                 empleado = Empleado.objects.get(id=emp_id)
