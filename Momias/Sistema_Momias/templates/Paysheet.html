@@ -158,6 +158,16 @@
         @page { size: landscape; margin: 0.6cm; }
 
     }
+    /* Esto asegura que el datalist no se vea extraño en algunos navegadores */
+    input::-webkit-calendar-picker-indicator {
+        display: none !important;
+    }
+    
+    #empleado_busqueda:focus {
+        background-color: #fffde7; /* Un amarillo muy ligero al escribir */
+        border-color: #ffc107;
+        box-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
+    }
 
 </style>
 
@@ -206,7 +216,7 @@
     <input type="text" 
            name="q" 
            class="form-control" 
-           placeholder="Nombre o apellido..." 
+           placeholder="Nombre o código..." 
            value="{{ query|default:'' }}" 
            list="empleados_list" 
            autocomplete="off">
@@ -214,6 +224,8 @@
     <datalist id="empleados_list">
         {% for e in empleados %}
             <option value="{{ e.nombre }} {{ e.apellido_paterno }} {{ e.apellido_materno }}">
+                Código: {{ e.codigo_empleado }} | {{ e.sucursal }}
+            </option>
         {% endfor %}
     </datalist>
 </div>
