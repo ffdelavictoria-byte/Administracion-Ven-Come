@@ -1670,243 +1670,482 @@ def calcular_nomina_web(request):
 
     })
 def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=None):
+
     from collections import Counter
+
     from django.db.models import Q, Value, CharField
+
     from django.db.models.functions import Concat, Coalesce
 
+
+
     puestos_salarios = {
+
         "Gerente (12 Horas)": 600.00, "Chef de Línea (9 horas)": 531.57,
+
         "Encargado Cocina (Matutino 6 horas)": 252.00, "Encargado Cocina (Matutino 9 horas)": 378.00,
+
         "Encargado Cocina (Matutino 12 horas)": 504.00, "Encargado de Cocina (12 horas)": 519.00,
+
         "Cocina y Barra (6 hrs)": 236.50, "Cocina y Barra (9 hrs)": 354.50,
+
         "Caja (6 horas)": 248.00, "Caja (9 horas)": 354.50,
+
         "Barra (6 horas) Entregas": 236.50, "Barra (9 horas) Entregas": 354.50,
+
         "Fin de Semana": 473.00, "Encargado Victoria (6 Horas)": 316.00,
+
         "Encargado Sucursales (6 Horas)": 262.00,
+
         "Encargado Sucursales (9 Horas)": 393.00, "Freidor (6 horas)": 248.00,
+
         "Freidor (9 horas)": 372.00, "Despacho (6 horas)": 236.50,
+
         "Despacho (9 horas)": 354.75, "Benny": 171.00,
+
         "Aderezos": 236.50, "Cocina": 248.00, "Fabrica": 236.50,
+
         "Perrioni": 236.50, "PP": 236.50, "Yommy": 236.50,
+
         "Rappi": 354.75, "Fabrica Crystal": 262.00,
+
         "Hamburguesas Momias": 0.00, "Tuppers": 0.00,
+
         "PM": 236.50, "Caja Capacitacion": 236.50,
+
         "Freidor Capacitacion": 236.50,
+
         "Encargado Capacitacion": 248.00,
+
         "Caja Matutina (6 horas)": 236.50,
+
         "Caja Vespertina (6 horas)": 236.50,
+
         "Caja Matutina (9 horas)": 354.50,
+
         "Caja Vespertina (9 horas)": 354.50,
+
         "Cocina Matutina (6 horas)": 236.50,
+
         "Cocina Vespertina (6 horas)": 236.50,
+
         "Cocina Matutina (9 horas)": 354.50,
+
         "Cocina Vespertina (9 horas)": 354.50,
+
         "Crepas Intermedio (9 horas)": 354.50,
+
         "Barra y Cocina Fin De Semana (12 horas)": 473.00,
+
         "Limpieza Fin De Semana (9 horas)": 408.00,
+
         "Limpieza 1 Matutino (6 horas L)": 272.00,
+
         "Limpieza 2 Matutino (6 horas)": 236.50,
+
         "Limpieza 3 Vespertino (6 horas A)": 272.00,
+
         "Limpieza 4 Vespertino (6 horas)": 236.50,
+
         "Aux Produccion": 177.00,
+
         "Produccion": 370.00,
+
         "TURNO MATUTINO (6 horas)": 236.50,
+
         "TURNO VESPERTINO (6 horas)": 236.50,
+
         "TURNO MATUTINO (9 horas)": 354.50,
+
         "TURNO VESPERTINO (9 horas)": 354.50,
+
         "TURNO FIN DE SEMANA": 473.00,
+
         "TURNO INTERMEDIO": 354.50,
+
         "Gerente (12 horas)": 600.00,
+
         "Chef de Línea (9 horas)": 531.57,
+
         "Encargado Cocina (Matutino 6 horas)": 252.00,
+
         "Crepas": 354.50,
+
         "Hamburguesas FF": 0.0,
+
     }
 
+
+
     datos_completos = []
+
     filtros_base = Q(fecha__range=[inicio, fin])
 
-    # 1. MEJORA: Filtro de Sucursal (soporta la lista de checkboxes del HTML)
-    # Si viene como lista ['Suc1', 'Suc2'] o como string 'Suc1'
-    if sucursal_sel:
+
+
+    # 1. Filtro de Sucursal (mejorado para soportar lista o string único)
+
+    if sucursal_sel and sucursal_sel != "TODAS":
+
         if isinstance(sucursal_sel, list):
-            if "TODAS" not in sucursal_sel:
-                filtros_base &= Q(sucursal__in=sucursal_sel)
-        elif sucursal_sel != "TODAS":
+
+            filtros_base &= Q(sucursal__in=sucursal_sel)
+
+        else:
+
             filtros_base &= Q(sucursal__iexact=sucursal_sel)
+
+
+
+    # 2. Lógica de filtrado por nombre idéntica a Reportes
 
     asistencias_query = Asistencia.objects.filter(filtros_base)
 
-    # 2. MEJORA: Lógica de búsqueda robusta
-    if nombre_busqueda and nombre_busqueda.strip():
-        nombre_busqueda = nombre_busqueda.strip()
-        
-        # Anotamos el nombre completo manejando NULOS en apellidos con Coalesce
+
+
+    if nombre_busqueda:
+
+        # 1. Primero anotamos el nombre completo para poder buscar en él
+
         asistencias_query = asistencias_query.annotate(
+
             full_name=Concat(
+
                 'empleado__nombre', Value(' '), 
+
                 Coalesce('empleado__apellido_paterno', Value('')), Value(' '), 
+
                 Coalesce('empleado__apellido_materno', Value('')),
+
                 output_field=CharField()
+
             )
+
         )
+
         
+
+        # 2. Dividimos la búsqueda en palabras (igual que en Asistencias)
+
         palabras = nombre_busqueda.split()
+
         q_bus = Q()
+
+
+
         for p in palabras:
-            # Cada palabra debe estar en el nombre completo O en el código
+
+            # Cada palabra debe coincidir en alguno de estos campos (AND lógico entre palabras)
+
             q_bus &= (
+
                 Q(full_name__icontains=p) | 
+
+                Q(empleado__nombre__icontains=p) | 
+
+                Q(empleado__apellido_paterno__icontains=p) | 
+
                 Q(empleado__codigo_empleado__icontains=p)
+
             )
+
         
+
         asistencias_query = asistencias_query.filter(q_bus).distinct()
 
-    # 3. MEJORA: Obtener empleados de forma eficiente
-    # Esto evita que el bucle sea lento si hay muchos registros
+
+
+    # Obtenemos los IDs basados en el QuerySet ya filtrado
+
     empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
 
+
+
+    # Optimizamos la consulta de empleados usando select_related en el bucle
+
     for emp_id in empleados_ids:
-        # Traemos las asistencias del empleado en ese rango
+
+        # Usamos select_related para evitar consultas extra por cada registro de asistencia
+
         asistencias = (
+
             Asistencia.objects
+
             .filter(filtros_base, empleado_id=emp_id)
+
             .select_related('empleado')
+
             .order_by('fecha')
+
         )
+
         
+
         if not asistencias.exists():
+
             continue
+
             
-        empleado = asistencias[0].empleado
+
+        empleado = asistencias[0].empleado # Obtenemos el objeto empleado del primer registro
+
+
 
         puestos_lista = [a.puesto for a in asistencias if a.puesto]
 
+
+
         puesto_principal = (
+
             Counter(puestos_lista).most_common(1)[0][0]
+
             if puestos_lista else "Sin Puesto"
+
         )
 
+
+
         # --- LÓGICA DE APOYO: CONTEO DE DÍAS DOBLES EN LA SEMANA ---
+
         dias_completos_semana = 0
+
         for a in asistencias:
+
             p_str = (a.puesto or "").upper()
+
             est = (a.estatus or "").upper()
+
             
+
             # Saltamos descansos y faltas para el conteo de días trabajados
+
             if "DESCANSO" in est or "FALTA" in est:
+
                 continue
+
             
+
             # Verificación robusta de celdas con datos
+
             tiene_m = a.entrada_matutina and str(a.entrada_matutina).strip() != ""
+
             tiene_v = a.entrada_vespertina and str(a.entrada_vespertina).strip() != ""
+
             
+
             # Se considera día doble si tiene ambos bloques o es puesto de 12h/Gerente
+
             if (tiene_m and tiene_v) or "12 HORAS" in p_str or "GERENTE" in p_str:
+
                 dias_completos_semana += 1
 
+
+
         pago_base_acumulado = 0
+
         total_retardos = 0
+
         total_bonos = 0
+
         total_descuentos_manuales = 0
+
         total_descuento_retardos_acumulado = 0
 
+
+
         dias_semana_esp = [
+
             "Lunes", "Martes", "Miércoles",
+
             "Jueves", "Viernes", "Sábado", "Domingo"
+
         ]
 
+
+
         dias_map = {
+
             d: {
+
                 'horas': 0,
+
                 'estatus': '---',
+
                 'sucursal': '',
+
                 'puesto': '',
+
                 'pago_dia': 0,
+
                 'descuento_aplicado': 0,
+
                 'descuento_retardo': 0
+
             }
+
             for d in dias_semana_esp
+
         }
+
         for reg in asistencias:
+
             sueldo_base_puesto_dia = float(
+
                 puestos_salarios.get(reg.puesto, empleado.sueldo_base or 0)
+
             )
 
+
+
             if reg.pago_dia and float(reg.pago_dia) > 0:
+
                 salario_dia_calculado = float(reg.pago_dia)
+
             elif reg.entrada_matutina and reg.salida_vespertina:
+
                 salario_dia_calculado = sueldo_base_puesto_dia * 2
+
             else:
+
                 salario_dia_calculado = sueldo_base_puesto_dia
+
+
 
             estatus_limpio = reg.estatus.upper() if reg.estatus else ""
 
+
+
             if any(x in estatus_limpio for x in ["ACTIVO", "NORMAL"]):
+
                 pago_final_dia = salario_dia_calculado
+
             elif "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO TRABAJADO" in estatus_limpio:
+
                 pago_final_dia = salario_dia_calculado * 2
+
             elif "DESCANSO" in estatus_limpio:
+
                 # El descanso se paga según el puesto que más hizo en la semana
+
                 sueldo_puesto_top = float(puestos_salarios.get(puesto_principal, empleado.sueldo_base or 0))
+
                 
+
                 if dias_completos_semana >= 6:
+
                     pago_final_dia = sueldo_puesto_top * 2
+
                 else:
+
                     pago_final_dia = sueldo_puesto_top
+
+
 
             horas_retardo = int(reg.horas or 0)
 
+
+
             desc_retardo_dia = (
+
                 (sueldo_base_puesto_dia / 6) * horas_retardo
+
                 if "DESCANSO" not in estatus_limpio else 0
+
             )
+
+
 
             desc_manual_dia = float(reg.descuento or 0)
 
+
+
             sueldo_neto_diario = pago_final_dia - desc_manual_dia - desc_retardo_dia
 
+
+
             pago_base_acumulado += pago_final_dia
+
             total_retardos += horas_retardo
+
             total_bonos += float(reg.bonificacion or 0)
+
             total_descuentos_manuales += desc_manual_dia
+
             total_descuento_retardos_acumulado += desc_retardo_dia
+
+
 
             nombre_dia = dias_semana_esp[reg.fecha.weekday()]
 
+
+
             dias_map[nombre_dia] = {
+
                 'horas': horas_retardo,
+
                 'estatus': estatus_limpio,
+
                 'sucursal': reg.sucursal,
+
                 'puesto': reg.puesto,
+
                 'pago_dia': round(sueldo_neto_diario, 2),
+
                 'descuento_aplicado': round(desc_manual_dia, 2),
+
                 'descuento_retardo': round(desc_retardo_dia, 2)
+
             }
+
+
 
         cuota_uniforme = float(getattr(empleado, 'cuota_uniforme', 0) or 0)
 
+
+
         total_neto = (
+
             (pago_base_acumulado + total_bonos) -
+
             (total_descuentos_manuales + total_descuento_retardos_acumulado + cuota_uniforme)
+
         )
 
+
+
         datos_completos.append({
-            'nombre': f"{empleado.nombre} {empleado.apellido_paterno or ''}".strip(),
+
+            'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
+
             'puesto_principal': puesto_principal,
+
             'periodo_info': f"{inicio} al {fin}",
+
             'dias': [dias_map[d] for d in dias_semana_esp],
+
             'pago_base': round(pago_base_acumulado, 2),
+
             'retardos': total_retardos,
+
             'desc_retardos': round(total_descuento_retardos_acumulado, 2),
+
             'bonos': round(total_bonos, 2),
+
             'descuentos': round(total_descuentos_manuales, 2),
+
             'uniforme': round(cuota_uniforme, 2),
+
             'total_neto': round(total_neto, 2)
+
         })
 
-    return sorted(datos_completos, key=lambda x: x['nombre'].lower())
 
+
+    datos_completos = sorted(datos_completos, key=lambda x: x['nombre'].lower())
+
+
+
+    return datos_completos
 
 def exportar_excel_nomina(request):
     inicio = request.GET.get('inicio')
