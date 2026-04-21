@@ -1167,51 +1167,40 @@ def calcular_nomina_web(request):
 
         sucursales_seleccionadas = request.GET.getlist('sucursal')
 
+        # ... (dentro de calcular_nomina_web, después de obtener intervalos_semanas)
+
         for sem_inicio, sem_fin in intervalos_semanas:
-
+            # 1. Filtro base por fechas
             filtros_asistencia = Q(fecha__range=[sem_inicio, sem_fin])
-
-            # Filtro para selección múltiple de sucursales
-
-            if sucursal_filtro and "TODAS" not in sucursales_seleccionadas:
-
+        
+            # 2. Filtro de Sucursales (Múltiple)
+            sucursales_seleccionadas = request.GET.getlist('sucursal')
+            if sucursales_seleccionadas and "TODAS" not in sucursales_seleccionadas:
                 filtros_asistencia &= Q(sucursal__in=sucursales_seleccionadas)
-
-            # --- NUEVA LÓGICA DE FILTRADO POR NOMBRE COMPLETO ---
-
+        
+            # 3. Inicializar el QuerySet
             asistencias_query = Asistencia.objects.filter(filtros_asistencia)
-
+        
+            # 4. Aplicar Filtro de Nombre si existe
             if nombre_filtro:
-
-                # Creamos el campo virtual 'full_name' igual que en tu vista_reporte
-
                 asistencias_query = asistencias_query.annotate(
-
-
                     full_name=Concat(
-
                         'empleado__nombre', Value(' '), 
-
                         'empleado__apellido_paterno', Value(' '), 
-
                         'empleado__apellido_materno',
-
                         output_field=CharField()
-
                     )
-
                 ).filter(
-
                     Q(full_name__icontains=nombre_filtro) |
-
                     Q(empleado__nombre__icontains=nombre_filtro) |
-
                     Q(empleado__apellido_paterno__icontains=nombre_filtro) |
-
                     Q(empleado__codigo_empleado__icontains=nombre_filtro)
-
                 )
-
+        
+            # 5. Obtener los IDs únicos de empleados que tuvieron asistencia bajo esos filtros
+            empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
+            
+            # ... continúa tu bucle de for emp_id in empleados_ids:
             # Obtenemos los IDs de los empleados que cumplen con los filtros
 
             empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
