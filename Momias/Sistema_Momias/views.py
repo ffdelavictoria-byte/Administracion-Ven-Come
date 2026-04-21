@@ -1726,18 +1726,22 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
     datos_completos = []
     filtros_base = Q(fecha__range=[inicio, fin])
 
-    # 1. Filtro de Sucursal (mejorado para soportar lista o string único)
-    if sucursal_sel and sucursal_sel != "TODAS":
+    # 1. MEJORA: Filtro de Sucursal (soporta la lista de checkboxes del HTML)
+    # Si viene como lista ['Suc1', 'Suc2'] o como string 'Suc1'
+    if sucursal_sel:
         if isinstance(sucursal_sel, list):
-            filtros_base &= Q(sucursal__in=sucursal_sel)
-        else:
+            if "TODAS" not in sucursal_sel:
+                filtros_base &= Q(sucursal__in=sucursal_sel)
+        elif sucursal_sel != "TODAS":
             filtros_base &= Q(sucursal__iexact=sucursal_sel)
 
-    # 2. Lógica de filtrado por nombre idéntica a Reportes
     asistencias_query = Asistencia.objects.filter(filtros_base)
 
-    if nombre_busqueda:
-        # 1. Primero anotamos el nombre completo para poder buscar en él
+    # 2. MEJORA: Lógica de búsqueda robusta
+    if nombre_busqueda and nombre_busqueda.strip():
+        nombre_busqueda = nombre_busqueda.strip()
+        
+        # Anotamos el nombre completo manejando NULOS en apellidos con Coalesce
         asistencias_query = asistencias_query.annotate(
             full_name=Concat(
                 'empleado__nombre', Value(' '), 
@@ -1747,27 +1751,23 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             )
         )
         
-        # 2. Dividimos la búsqueda en palabras (igual que en Asistencias)
         palabras = nombre_busqueda.split()
         q_bus = Q()
-
         for p in palabras:
-            # Cada palabra debe coincidir en alguno de estos campos (AND lógico entre palabras)
+            # Cada palabra debe estar en el nombre completo O en el código
             q_bus &= (
                 Q(full_name__icontains=p) | 
-                Q(empleado__nombre__icontains=p) | 
-                Q(empleado__apellido_paterno__icontains=p) | 
                 Q(empleado__codigo_empleado__icontains=p)
             )
         
         asistencias_query = asistencias_query.filter(q_bus).distinct()
 
-    # Obtenemos los IDs basados en el QuerySet ya filtrado
+    # 3. MEJORA: Obtener empleados de forma eficiente
+    # Esto evita que el bucle sea lento si hay muchos registros
     empleados_ids = asistencias_query.values_list('empleado_id', flat=True).distinct()
 
-    # Optimizamos la consulta de empleados usando select_related en el bucle
     for emp_id in empleados_ids:
-        # Usamos select_related para evitar consultas extra por cada registro de asistencia
+        # Traemos las asistencias del empleado en ese rango
         asistencias = (
             Asistencia.objects
             .filter(filtros_base, empleado_id=emp_id)
@@ -1778,7 +1778,7 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         if not asistencias.exists():
             continue
             
-        empleado = asistencias[0].empleado # Obtenemos el objeto empleado del primer registro
+        empleado = asistencias[0].empleado
 
         puestos_lista = [a.puesto for a in asistencias if a.puesto]
 
@@ -1892,7 +1892,7 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
         )
 
         datos_completos.append({
-            'nombre': f"{empleado.nombre} {empleado.apellido_paterno}",
+            'nombre': f"{empleado.nombre} {empleado.apellido_paterno or ''}".strip(),
             'puesto_principal': puesto_principal,
             'periodo_info': f"{inicio} al {fin}",
             'dias': [dias_map[d] for d in dias_semana_esp],
@@ -1905,9 +1905,8 @@ def obtener_datos_nomina_total(inicio, fin, nombre_busqueda=None, sucursal_sel=N
             'total_neto': round(total_neto, 2)
         })
 
-    datos_completos = sorted(datos_completos, key=lambda x: x['nombre'].lower())
+    return sorted(datos_completos, key=lambda x: x['nombre'].lower())
 
-    return datos_completos
 
 def exportar_excel_nomina(request):
     inicio = request.GET.get('inicio')
