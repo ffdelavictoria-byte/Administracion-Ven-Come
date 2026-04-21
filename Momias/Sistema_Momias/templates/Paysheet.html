@@ -210,10 +210,11 @@
            autocomplete="off">
     
     <datalist id="lista-empleados">
-        {% for n in nominas %}
-            <option value="{{ n.nombre }}">
-        {% endfor %}
-    </datalist>
+    {% for n in nominas %}
+        {# Usamos search_name si lo envías, o simplemente el nombre del resultado #}
+        <option value="{{ n.nombre }}">
+    {% endfor %}
+</datalist>
 </div>
 
                 <div class="col-md-3">
