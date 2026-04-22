@@ -1361,7 +1361,7 @@ def calcular_nomina_web(request):
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
                     # ------------------------
 
-                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
+                    if "TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
 
                         salario_dia *= 2
 
@@ -1516,7 +1516,7 @@ def calcular_nomina_web(request):
                         turnos_acumulados = 1.0
                     
                     # --- MULTIPLICADOR POR DÍA ESPECIAL ---
-                    if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
+                    if "TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
                         turnos_acumulados *= 2
                     
                     # Limitar a máximo 1 turno si no es descanso trabajado/festivo en excepciones
