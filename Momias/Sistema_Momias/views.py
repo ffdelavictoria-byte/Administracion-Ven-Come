@@ -723,11 +723,11 @@ def Asistencias_FF_view(request):
 
             asistencia = get_object_or_404(Asistencia, id=asistencia_id)
 
-            if asistencia.fecha < limite_bloqueo:
-                messages.error(request, "El periodo de edición para este registro ha vencido.")
-            else:
-                asistencia.delete()
-                messages.success(request, "Registro eliminado.")
+            #if asistencia.fecha < limite_bloqueo:
+                #messages.error(request, "El periodo de edición para este registro ha vencido.")
+            #else:
+            asistencia.delete()
+            messages.success(request, "Registro eliminado.")
 
             return redirect('asistenciasff')
 
@@ -739,9 +739,9 @@ def Asistencias_FF_view(request):
             fecha_captura = request.POST.get('fecha')
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
 
-            if fecha_dt < limite_bloqueo:
-                messages.error(request, "Periodo cerrado.")
-                return redirect('asistenciasff')
+            #if fecha_dt < limite_bloqueo:
+                #messages.error(request, "Periodo cerrado.")
+                #return redirect('asistenciasff')
 
             puesto_sel = (request.POST.get('puesto') or "").strip()
             puesto_up = puesto_sel.upper()
