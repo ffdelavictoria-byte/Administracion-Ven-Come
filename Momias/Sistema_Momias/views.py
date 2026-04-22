@@ -2351,49 +2351,86 @@ def vista_reportes(request):
             conteo_puestos = Counter()
             dias_dobles_count = 0
             
-            # Determinamos puesto principal y días trabajados para descansos
+            # 1. Determinamos puestos trabajados
             for a in lista_asis:
                 estatus_up = (a.estatus or "").strip().upper()
                 if "DESCANSO" not in estatus_up and "FALTA" not in estatus_up:
                     pue = a.puesto or a.empleado.puesto or "GENERAL"
                     conteo_puestos[pue] += 1
                     
-                    # --- CORRECCIÓN AQUÍ ---
-                    # Definimos quién NO debe sumar para el multiplicador de descanso
                     puesto_str = pue.upper()
-                    # El Gerente se considera "excepción" porque su sueldo base ya cubre las 12h
                     es_excepcion_gerente = "GERENTE" in puesto_str
-                    
-                    # Solo sumamos al contador de dobles si NO es Gerente
                     if (a.entrada_matutina and a.salida_matutina) and (a.entrada_vespertina and a.salida_vespertina) and not es_excepcion_gerente:
                         dias_dobles_count += 1
 
-            puesto_principal = conteo_puestos.most_common(1)[0][0] if conteo_puestos else "GENERAL"
+            # --- NUEVA LÓGICA DE DUALIDAD ---
+            puestos_ordenados = conteo_puestos.most_common(2)
+            es_dual = False
+            puesto_a, puesto_b = None, None
+
+            if len(puestos_ordenados) == 2 and puestos_ordenados[0][1] == 3 and puestos_ordenados[1][1] == 3:
+                es_dual = True
+                puesto_a = puestos_ordenados[0][0]
+                puesto_b = puestos_ordenados[1][0]
+                puesto_principal = f"{puesto_a}/{puesto_b}" # Referencia visual
+            else:
+                puesto_principal = puestos_ordenados[0][0] if puestos_ordenados else "GENERAL"
+            # --------------------------------
+
             contador_retardos_emp = 0  
             FACTORES_NOMINA = {0: 0.0, 1: 0.0, 2: 0.5, 3: 0.5, 4: 1.0, 5: 1.0, 6: 1.5, 7: 1.5, 8: 2.0, 9: 2.0, 10: 2.5, 11: 2.5, 12: 3.0}
 
             for asis in lista_asis:
                 emp = asis.empleado
                 estatus_limpio = (asis.estatus or "").strip().upper()
-                # --- NUEVO FILTRO: Ignorar Permisos ---
-                if "PERMISO" in estatus_limpio:
-                    continue  # Salta a la siguiente asistencia sin procesar nada
-                # --------------------------------------
+                if "PERMISO" in estatus_limpio: continue
+                
                 es_descanso = "DESCANSO" in estatus_limpio
                 es_falta = "FALTA" in estatus_limpio
                 suc = asis.sucursal or "Victoria"
 
-                # Definir qué puesto mostrar en la fila
+                # Si es descanso y es DUAL, procesamos dos "mini-filas" virtuales
+                if es_descanso and es_dual and emp.id not in ids_con_falta:
+                    # El multiplicador (por si es doble pago de descanso)
+                    mult = 1.0 if dias_dobles_count < 6 else 2.0
+                    
+                    # Dividimos el descanso entre los dos puestos
+                    for p_dual in [puesto_a, puesto_b]:
+                        salario_dual = float(puestos_salarios.get(p_dual, emp.sueldo_base or 0))
+                        # Si es gerente en esa dualidad, forzamos que el descanso no sea doble
+                        turnos_dual = 0.5 * (1.0 if "GERENTE" in p_dual.upper() else mult)
+                        
+                        key_dual = (emp.id, suc, p_dual)
+                        if key_dual not in agrupados_dict:
+                            agrupados_dict[key_dual] = {
+                                'empleado': f"{emp.nombre} {emp.apellido_paterno}".strip(),
+                                'sucursal': suc, 'puesto': p_dual, 'total_turnos': 0.0,
+                                'total_retardos': 0, 'minutos_totales': 0, 'monto_descuentos': 0.0,
+                                'total_bonos': 0.0, 'total_fila': 0.0, 'motivos_descuentos': [], 'motivos_bonos': []
+                            }
+                        
+                        fila_d = agrupados_dict[key_dual]
+                        fila_d['total_turnos'] += turnos_dual
+                        fila_d['total_fila'] += (salario_dual * turnos_dual)
+                        
+                        # Totales globales
+                        resumen_global['total_turnos'] += turnos_dual
+                        resumen_global['total_pagar'] += (salario_dual * turnos_dual)
+                    
+                    continue # Saltamos el proceso normal para este registro de descanso
+
+                # --- PROCESO NORMAL PARA DÍAS TRABAJADOS O DESCANSOS NO DUALES ---
                 if es_falta:
                     puesto_para_fila = "FALTA"
                 else:
-                    # El descanso se agrupa con el puesto principal de la semana
                     puesto_para_fila = puesto_principal if es_descanso else (asis.puesto or emp.puesto or "GENERAL")
-                
-                # Obtención de Salario Base
+
+                # (Aquí sigue tu lógica de salario_ref, valor_turno_base, etc...)
                 salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0)) if not es_falta else 0.0
                 pue_up = puesto_para_fila.upper()
                 valor_turno_base = salario_ref
+
+                # ... (resto de tu lógica de turnos_a_sumar, pago_base_dia, retardos, etc.)
 
                 # --- LÓGICA DE CONTEO DE TURNOS Y PAGO ---
                 turnos_a_sumar = 0.0
