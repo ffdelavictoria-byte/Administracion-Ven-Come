@@ -2565,7 +2565,7 @@ def vista_reportes(request):
         'empleados': empleados_qs,
         'agrupados': lista_agrupada,
         'resumen_sucursales': resumen_sucursales,
-        'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal", "PP", "PM", "Area Seca", "Perrioni", "FastFood","Yommy"],
+        'lista_sucursales': ["Momias 1", "Momias 2", "Momias 3", "Momias 4", "Momias 5", "Momias 6", "Fabrica", "Fabrica Crystal", "PP", "PM", "Area Seca", "Perrioni", "FastFood","Yommy","Cocina"],
         'fecha_inicio': f_inicio, 
         'fecha_fin': f_fin, 
         'query': query_nombre,
