@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+
 from .models import Perfil  # <--- ESTA ES VITAL
 from .models import ConfigSueldo # Añade esto a tus imports
 from datetime import datetime, date, timedelta
