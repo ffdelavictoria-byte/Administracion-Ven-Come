@@ -331,7 +331,6 @@
                     <td>${{ registro.pago_dia }}</td>
                     <td style="display: flex; gap: 5px; justify-content: center;">
                         <td style="display: flex; gap: 5px; justify-content: center;">
-    {% if registro.fecha >= limite_bloqueo %}
         <button type="button" class="btn-comic btn-edit" 
             data-id="{{ registro.id }}"
             data-emp="{{ registro.empleado.id }}"
@@ -351,11 +350,6 @@
         
         <button type="button" class="btn-comic btn-delete" 
             onclick="eliminarRegistro('{{ registro.id }}', '{{ registro.empleado.nombre }}')">BORRAR</button>
-    {% else %}
-        <span style="background: #666; color: white; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem; font-family: 'Bangers', cursive;">
-            🔒 CERRADO
-        </span>
-    {% endif %}
 </td>
                 </tr>
                 {% endfor %}
