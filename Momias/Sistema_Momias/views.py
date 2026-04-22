@@ -2404,7 +2404,7 @@ def vista_reportes(request):
                         pago_base_dia = 0.0
 
                 elif not es_falta:
-                    puestos_especiales = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS", "GERENTE", "PRODUCCION"]
+                    puestos_especiales = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS", "GERENTE", "PRODUCCION","BENNY"]
                     es_especial = any(x in pue_up for x in puestos_especiales)
                     
                     # --- CONFIGURACIÓN DE DIVISOR ---
@@ -2422,6 +2422,7 @@ def vista_reportes(request):
                     
                     todas_marcas = [m for m in [m_ent_m, m_sal_m, m_ent_v, m_sal_v] if m is not None]
 
+                    # --- LÓGICA DE CONTEO DE TURNOS Y PAGO CORREGIDA ---
                     if todas_marcas:
                         if es_especial:
                             # Lógica de RANGO UNIFICADO (Evita el "2" en jornadas de 12h)
@@ -2429,27 +2430,40 @@ def vista_reportes(request):
                                 diff = max(todas_marcas) - min(todas_marcas)
                                 if diff < 0: diff += 1440
                                 turnos_a_sumar = diff / divisor_puesto
+                                minutos_asistencia = diff # Actualiza minutos para el display
                             else:
                                 turnos_a_sumar = 1.0  # Una sola marca se toma como turno completo
+                                minutos_asistencia = int(divisor_puesto)
                         else:
                             # Lógica estándar para turnos de 6h (sumar bloques independientes)
                             t_acum = 0.0
+                            minutos_bloques = 0
                             if m_ent_m and m_sal_m: 
                                 t_acum += (m_sal_m - m_ent_m) / 360.0
+                                minutos_bloques += (m_sal_m - m_ent_m)
                             elif m_ent_m or m_sal_m: 
-                                t_acum += 1.0 # O 0.5 según prefieras para marcas únicas
+                                t_acum += 1.0 
+                                minutos_bloques += 180 # 3h por marca única
                             
                             if m_ent_v and m_sal_v: 
                                 t_acum += (m_sal_v - m_ent_v) / 360.0
+                                minutos_bloques += (m_sal_v - m_ent_v)
                             elif m_ent_v or m_sal_v: 
                                 t_acum += 1.0
+                                minutos_bloques += 180
+                            
                             turnos_a_sumar = t_acum
+                            minutos_asistencia = minutos_bloques
                     else:
-                        # Si es especial pero no tiene marcas, se le da su turno base (ej. "NORMAL")
-                        turnos_a_sumar = 1.0 if es_especial else 0.0
+                        # --- CASO ESPECIAL: Benny o puestos sin marcas manuales ---
+                        if es_especial:
+                            turnos_a_sumar = 1.0
+                            minutos_asistencia = int(divisor_puesto)
+                        else:
+                            turnos_a_sumar = 0.0
+                            minutos_asistencia = 0
 
                     # --- LIMITAR A MÁXIMO 1 TURNO SI NO ES DÍA ESPECIAL ---
-                    # Esto evita que un error de dedo (ej. salir a las 11pm) pague de más
                     if es_especial and "TRABAJADO" not in estatus_limpio and "FESTIVO" not in estatus_limpio:
                         turnos_a_sumar = min(turnos_a_sumar, 1.0)
 
