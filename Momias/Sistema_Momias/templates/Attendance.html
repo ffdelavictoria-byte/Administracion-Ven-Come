@@ -674,7 +674,6 @@
                     <td>{{ registro.puesto|default:"--" }}</td>
                     <td>{{ registro.estatus_jornada }}</td>
                     <td style="display: flex; gap: 5px; justify-content: center;">
-    {% if registro.fecha >= limite_bloqueo %}
         <button type="button" class="btn-comic btn-edit" 
             data-id="{{ registro.id }}"
             data-emp="{{ registro.empleado.id }}"
@@ -706,11 +705,6 @@
                 ELIMINAR
             </button>
         </form>
-    {% else %}
-        <span class="badge" style="background: #666; color: white; padding: 5px 10px; border-radius: 5px;">
-            🔒 Bloqueado
-        </span>
-    {% endif %}
 </td>
                 </tr>
                 {% empty %}
