@@ -1236,7 +1236,7 @@ def calcular_nomina_web(request):
 
                         # --- NUEVA LÓGICA DE EXCEPCIONES ---
 
-                        puestos_turno_unico = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "PRODUCCION"]
+                        puestos_turno_unico = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "PRODUCCION","Benny"]
 
                         es_excepcion_turno = any(x in puesto_str for x in puestos_turno_unico) or "GERENTE" in puesto_str
 
@@ -1336,7 +1336,7 @@ def calcular_nomina_web(request):
 
                     # 1. Detectar si es una excepción de pago fijo
                     pue_up = (reg.puesto or "").upper()
-                    puestos_pago_fijo = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS"]
+                    puestos_pago_fijo = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS","Benny"]
                     es_pago_fijo = any(x in pue_up for x in puestos_pago_fijo)
                     
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
