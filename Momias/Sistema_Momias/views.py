@@ -1265,16 +1265,25 @@ def calcular_nomina_web(request):
                     # 2. Determinar el salario del descanso según recurrencia o proporción
                     puestos_ordenados = conteo_puestos.most_common()
                     
-                    # Caso Especial: Empate 3 y 3 en dos puestos diferentes
+                    es_dual = False
+                    datos_duales = {}
+                    
                     if len(puestos_ordenados) == 2 and puestos_ordenados[0][1] == 3 and puestos_ordenados[1][1] == 3:
                         puesto_a, cant_a = puestos_ordenados[0]
                         puesto_b, cant_b = puestos_ordenados[1]
-                        salario_a = puestos_salarios.get(puesto_a, 0)
-                        salario_b = puestos_salarios.get(puesto_b, 0)
+                        salario_a = float(puestos_salarios.get(puesto_a, 0))
+                        salario_b = float(puestos_salarios.get(puesto_b, 0))
                         
-                        # Se paga la mitad de uno más la mitad del otro
-                        salario_un_turno_promedio = (float(salario_a) / 2) + (float(salario_b) / 2)
+                        salario_un_turno_promedio = (salario_a / 2) + (salario_b / 2)
                         puesto_frecuente = f"{puesto_a}/{puesto_b}"
+                        
+                        # Guardamos los datos para el desglose de turnos
+                        es_dual = True
+                        datos_duales = {
+                            'puesto_a': puesto_a,
+                            'puesto_b': puesto_b,
+                            'valor_turno': 0.5
+                        }
                     
                     else:
                         # Regla General: El puesto más recurrente
