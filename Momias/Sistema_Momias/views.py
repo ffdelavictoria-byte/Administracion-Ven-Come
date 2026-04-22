@@ -432,9 +432,9 @@ def Asistencias_view(request):
             empleado_obj = Empleado.objects.get(id=empleado_id)
 
             # --- APLICACIÓN DEL BLOQUEO ---
-            if fecha_dt < limite_bloqueo:
-                messages.error(request, "⚠️ Error: No puedes modificar registros anteriores al cierre del lunes.")
-                return redirect('asistencias')
+            #if fecha_dt < limite_bloqueo:
+                #messages.error(request, "⚠️ Error: No puedes modificar registros anteriores al cierre del lunes.")
+                #return redirect('asistencias')
 
             
             # --- LÓGICA DE CÁLCULO DE MONTO ---
