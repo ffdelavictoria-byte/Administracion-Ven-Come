@@ -404,9 +404,9 @@ def Asistencias_view(request):
         asistencia = get_object_or_404(Asistencia, id=asistencia_id)
         
         # NUEVA VALIDACIÓN LUNES 11:59 PM
-        if asistencia.fecha < limite_bloqueo:
-            messages.error(request, "🔒 Registro cerrado. El plazo venció el lunes a las 11:59 PM.")
-            return redirect('asistencias')
+        #if asistencia.fecha < limite_bloqueo:
+            #messages.error(request, "🔒 Registro cerrado. El plazo venció el lunes a las 11:59 PM.")
+            #return redirect('asistencias')
             
         asistencia.delete()
         messages.success(request, "Registro eliminado correctamente.")
