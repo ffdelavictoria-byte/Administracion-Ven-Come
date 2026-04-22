@@ -1420,16 +1420,17 @@ def calcular_nomina_web(request):
 
                     )
 
-                    # --- BLOQUE DE RETARDOS UNIFICADO Y CORREGIDO ---
+                    # --- BLOQUE DE RETARDOS UNIFICADO ---
                     if retardo_dia > 0:
+                        # Obtenemos el factor de la tabla FACTORES (0.5, 1.0, 1.5, etc.)
                         factor_anterior = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         total_retardos_acumulados += retardo_dia
                         factor_actual = FACTORES.get(min(total_retardos_acumulados, 12), 3.0)
                         
                         diferencia_factor = factor_actual - factor_anterior
                         
-                        # Usamos directamente el salario base del puesto sin la división de las 6h
-                        # Esto garantiza que el factor 0.5 se aplique sobre el total ($354)
+                        # IMPORTANTE: base_descuento debe ser el salario de una jornada completa del empleado
+                        # Si un Gerente gana 600, el descuento de 0.5 debe ser 300.
                         base_descuento = float(salario_base_puesto) 
                         
                         desc_retardo_dia = diferencia_factor * base_descuento
