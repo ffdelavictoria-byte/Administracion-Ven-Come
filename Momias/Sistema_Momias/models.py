@@ -64,6 +64,7 @@ class Asistencia(models.Model):
     puesto = models.CharField(max_length=100, blank=True, null=True)
     estatus = models.CharField(max_length=50, blank=True, null=True)
     cantidad_cargas = models.FloatField(default=0.0, null=True, blank=True)
+    cantidad_cargas_momias = models.FloatField(default=0.0, null=True, blank=True)
     # --- BLOQUE DE HORARIOS (MATUTINO Y VESPERTINO) ---
     # Nota: Usamos CharField porque tu lógica de "puntos/retardos" 
     # envía valores como "9:00 AM (R1)" desde el select.
