@@ -830,7 +830,7 @@ def Asistencias_FF_view(request):
             elif any(x in puesto_up for x in ["PRODUCCION", "AUX PRODUCCION"]):
                 monto_calc = base_puesto # Se toma directo de la DB sin validar horas
 
-            elif "HAMBURGUESAS" in puesto_up:
+            elif "HAMBURGUESAS FF" in puesto_up:
                 # Pago por producción (Cargas)
                 c_ff = float(request.POST.get('cantidad_cargas') or 0)
                 c_mom = float(request.POST.get('cantidad_cargas_momias') or 0)
@@ -2448,7 +2448,7 @@ def vista_reportes(request):
                     turnos_a_sumar = cargas_ff + cargas_mom
                     
                     # El pago ya viene calculado de la DB o lo recalculas aquí:
-                    if "HAMBURGUESAS" in pue_up:
+                    if "HAMBURGUESAS FF" in pue_up:
                         pago_base_dia = (cargas_ff * 62.00) + (cargas_mom * 51.50)
                     else:
                         # Lógica para Tuppers u otros si aplica
