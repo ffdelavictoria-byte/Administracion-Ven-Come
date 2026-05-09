@@ -860,11 +860,13 @@ def Asistencias_FF_view(request):
             asistencia.empleado, asistencia.fecha, asistencia.estatus, asistencia.puesto = empleado_obj, fecha_dt, estatus_jornada, puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
+            sistencia.cantidad_cargas = float(request.POST.get('cantidad_cargas') or 0)
+            asistencia.cantidad_cargas_momias = float(request.POST.get('cantidad_cargas_momias') or 0)
             
             # Guardamos bono y descuento en sus campos, pero NO los restamos de pago_dia
             asistencia.bonificacion = bono
             asistencia.descuento = desc_man
-            
+
             # PAGO FINAL: Ahora solo guarda el monto calculado por el tiempo/puesto (sueldo bruto base)
             # El sistema de nómina sumará los pago_dia y luego aplicará bonos/descuentos una sola vez.
             asistencia.pago_dia = round(max(0, monto_calc), 2)
@@ -2439,13 +2441,18 @@ def vista_reportes(request):
                 pago_base_dia = 0.0
 
                 if es_destajo and not es_descanso and not es_falta:
-                    # Obtenemos la cantidad guardada en la base de datos (ya no del POST)
-                    cargas = float(asis.cantidad_cargas or 0)
-                    turnos_a_sumar = cargas  # Se visualiza la cantidad de cargas en la columna de turnos
+                    # Sumamos ambos tipos de cargas para el total de la columna 'Turnos'
+                    cargas_ff = float(asis.cantidad_cargas or 0)
+                    cargas_mom = float(asis.cantidad_cargas_momias or 0)
                     
-                    # Definimos el precio por carga según el puesto
-                    precio_carga = 46.50 if "TUPPERS" in pue_up else 0.0 
-                    pago_base_dia = cargas * precio_carga
+                    turnos_a_sumar = cargas_ff + cargas_mom
+                    
+                    # El pago ya viene calculado de la DB o lo recalculas aquí:
+                    if "HAMBURGUESAS" in pue_up:
+                        pago_base_dia = (cargas_ff * 62.00) + (cargas_mom * 51.50)
+                    else:
+                        # Lógica para Tuppers u otros si aplica
+                        pago_base_dia = turnos_a_sumar * 46.50
 
                 elif es_descanso and "TRABAJADO" not in estatus_limpio:
                     if emp.id not in ids_con_falta:
