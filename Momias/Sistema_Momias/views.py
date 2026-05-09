@@ -2434,27 +2434,25 @@ def vista_reportes(request):
 
                 # ... (resto de tu lógica de turnos_a_sumar, pago_base_dia, retardos, etc.)
 
-                # --- LÓGICA DE CONTEO DE TURNOS Y PAGO ---
+                # --- LÓGICA DE CONTEO DE TURNOS Y PAGO (CORREGIDA PARA REPORTES) ---
                 turnos_a_sumar = 0.0
                 pago_base_dia = 0.0
-                if es_destajo and not es_descanso and not es_falta:
-                    # EXTRAEMOS LA CANTIDAD DE CARGAS (Asegúrate que el modelo tenga este campo)
-                    # Si el campo se llama distinto en tu modelo, cámbialo aquí
-                    cargas = float(request.POST.get('cantidad_cargas') or 0)
-                    turnos_a_sumar = cantidad  # En la columna 'turnos' del reporte saldrá la cantidad
-                    
-                    # Definimos el precio por carga
-                    precio_carga = 46.50 if "TUPPERS" in pue_up else 0.0 # Ajusta el de hamburguesas si es necesario
-                    pago_base_dia = cantidad * precio_carga
 
-                # ... (más abajo, donde validas if es_descanso)
+                if es_destajo and not es_descanso and not es_falta:
+                    # Obtenemos la cantidad guardada en la base de datos (ya no del POST)
+                    cargas = float(asis.cantidad_cargas or 0)
+                    turnos_a_sumar = cargas  # Se visualiza la cantidad de cargas en la columna de turnos
+                    
+                    # Definimos el precio por carga según el puesto
+                    precio_carga = 46.50 if "TUPPERS" in pue_up else 0.0 
+                    pago_base_dia = cargas * precio_carga
+
                 elif es_descanso and "TRABAJADO" not in estatus_limpio:
                     if emp.id not in ids_con_falta:
-                        # 1. CASO ESPECIAL: Tuppers y Hamburguesas (Destajo)
+                        # 1. CASO ESPECIAL: Tuppers y Hamburguesas (Descanso de Destajo)
                         if "TUPPERS" in pue_up or "HAMBURGUESAS FF" in pue_up:
                             turnos_a_sumar = 1.0  # Se registra como 1 unidad de descanso
-                            # Usamos el monto fijo definido para el descanso de destajo
-                            # Si es Hamburguesas FF y no tiene monto fijo, puedes usar valor_turno_base
+                            # Pago fijo por descanso para personal de destajo
                             pago_base_dia = 138.00 if "TUPPERS" in pue_up else valor_turno_base
                         
                         # 2. CASO GERENTE
