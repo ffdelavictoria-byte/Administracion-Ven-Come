@@ -2439,7 +2439,7 @@ def vista_reportes(request):
                 if es_destajo and not es_descanso and not es_falta:
                     # EXTRAEMOS LA CANTIDAD DE CARGAS (Asegúrate que el modelo tenga este campo)
                     # Si el campo se llama distinto en tu modelo, cámbialo aquí
-                    cantidad = float(asis.cantidad_cargas or 0)
+                    cargas = float(request.POST.get('cantidad_cargas') or 0)
                     turnos_a_sumar = cantidad  # En la columna 'turnos' del reporte saldrá la cantidad
                     
                     # Definimos el precio por carga
