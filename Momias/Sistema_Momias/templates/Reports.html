@@ -600,14 +600,16 @@
 
                     <!-- Busca esta celda en tu <tbody> -->
                     <td style="font-weight: bold;">
-                        {{ item.total_turnos }}
+                        {{ item.total_turnos|floatformat:0 }} <!-- Usamos 0 decimales para cargas -->
                         <br>
                         <small style="font-size: 0.7rem; color: var(--puebla-magenta); display: block; margin-top: 2px;">
-                            {% if "TUPPERS" in item.puesto.upper or "HAMBURGUESAS FF" in item.puesto.upper %}
-                                CARGAS
-                            {% else %}
-                                TURNOS
-                            {% endif %}
+                            {% with puesto_upper=item.puesto.upper %}
+                                {% if "TUPPERS" in puesto_upper or "HAMBURGUESAS FF" in puesto_upper %}
+                                    CARGAS
+                                {% else %}
+                                    TURNOS
+                                {% endif %}
+                            {% endwith %}
                         </small>
                     </td>
 
