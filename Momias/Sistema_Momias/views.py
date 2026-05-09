@@ -2428,6 +2428,7 @@ def vista_reportes(request):
                 # (Aquí sigue tu lógica de salario_ref, valor_turno_base, etc...)
                 salario_ref = float(puestos_salarios.get(puesto_para_fila, emp.sueldo_base or 0)) if not es_falta else 0.0
                 pue_up = puesto_para_fila.upper()
+                es_destajo = "TUPPERS" in pue_up or "HAMBURGUESAS FF" in pue_up
                 valor_turno_base = salario_ref
 
                 # ... (resto de tu lógica de turnos_a_sumar, pago_base_dia, retardos, etc.)
@@ -2435,19 +2436,37 @@ def vista_reportes(request):
                 # --- LÓGICA DE CONTEO DE TURNOS Y PAGO ---
                 turnos_a_sumar = 0.0
                 pago_base_dia = 0.0
+                if es_destajo and not es_descanso and not es_falta:
+                    # EXTRAEMOS LA CANTIDAD DE CARGAS (Asegúrate que el modelo tenga este campo)
+                    # Si el campo se llama distinto en tu modelo, cámbialo aquí
+                    cantidad = float(asis.cantidad_cargas or 0)
+                    turnos_a_sumar = cantidad  # En la columna 'turnos' del reporte saldrá la cantidad
+                    
+                    # Definimos el precio por carga
+                    precio_carga = 46.50 if "TUPPERS" in pue_up else 0.0 # Ajusta el de hamburguesas si es necesario
+                    pago_base_dia = cantidad * precio_carga
 
                 # ... (más abajo, donde validas if es_descanso)
-                if es_descanso and "TRABAJADO" not in estatus_limpio:
+                elif es_descanso and "TRABAJADO" not in estatus_limpio:
                     if emp.id not in ids_con_falta:
-                        # Lógica estándar de turnos
-                        turnos_a_sumar = 1.0 if dias_dobles_count < 6 else 2.0
+                        # 1. CASO ESPECIAL: Tuppers y Hamburguesas (Destajo)
+                        if "TUPPERS" in pue_up or "HAMBURGUESAS FF" in pue_up:
+                            turnos_a_sumar = 1.0  # Se registra como 1 unidad de descanso
+                            # Usamos el monto fijo definido para el descanso de destajo
+                            # Si es Hamburguesas FF y no tiene monto fijo, puedes usar valor_turno_base
+                            pago_base_dia = 138.00 if "TUPPERS" in pue_up else valor_turno_base
                         
-                        # --- AÑADIR ESTA EXCEPCIÓN FINAL ---
-                        if "GERENTE" in pue_up:
-                            turnos_a_sumar = 1.0 # El gerente siempre suma 1.0 (sus $600 base)
-                        
-                        pago_base_dia = valor_turno_base * turnos_a_sumar
+                        # 2. CASO GERENTE
+                        elif "GERENTE" in pue_up:
+                            turnos_a_sumar = 1.0
+                            pago_base_dia = valor_turno_base * turnos_a_sumar
+                            
+                        # 3. LÓGICA ESTÁNDAR (Puestos por tiempo)
+                        else:
+                            turnos_a_sumar = 1.0 if dias_dobles_count < 6 else 2.0
+                            pago_base_dia = valor_turno_base * turnos_a_sumar
                     else:
+                        # Si tiene falta en la semana, no se paga el descanso
                         turnos_a_sumar = 0.0
                         pago_base_dia = 0.0
 
