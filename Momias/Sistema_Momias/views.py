@@ -977,7 +977,6 @@ def Borrar_Usuario_View(request, usuario_id):
 def actualizar_pago_manual(request):
     if request.method == "POST":
         try:
-            # 1. Obtención del ID con validación extendida
             aid = request.POST.get('id') or request.POST.get('asistencia_id')
             
             if not aid or str(aid).strip() in ["None", "", "undefined"]:
@@ -985,38 +984,49 @@ def actualizar_pago_manual(request):
                 
             asistencia = get_object_or_404(Asistencia, id=aid)
             
-            # 2. Captura de valores del POST
             nuevo_turno = request.POST.get('turnos')
             nueva_hora = request.POST.get('horas')
             nuevo_monto = request.POST.get('monto')
 
-            # 3. Actualización Condicional con Limpieza de Datos
-            # Actualizamos Turnos
-            if nuevo_turno is not None and str(nuevo_turno).strip() != "":
-                try:
-                    asistencia.cantidad_turnos = float(nuevo_turno)
-                except ValueError:
-                    return JsonResponse({'status': 'error', 'message': 'Formato de turno inválido'}, status=400)
-            
-            # Actualizamos Horas (Se guarda en el campo 'horas' según tu lógica de retardos)
-            if nueva_hora is not None and str(nueva_hora).strip() != "":
+            # --- CAMBIO IMPORTANTE: Manejo de Monto (pago_dia) ---
+            # Si el usuario borra el monto en el modal, debemos ponerlo en 0 o None 
+            # para que el sistema vuelva a calcularlo automáticamente.
+            if nuevo_monto is not None:
+                valor_monto = str(nuevo_monto).strip()
+                if valor_monto == "":
+                    asistencia.pago_dia = 0.0  # O None, según tu modelo
+                else:
+                    try:
+                        asistencia.pago_dia = float(valor_monto)
+                    except ValueError:
+                        return JsonResponse({'status': 'error', 'message': 'Monto inválido'}, status=400)
+
+            # --- Manejo de Turnos ---
+            if nuevo_turno is not None:
+                valor_turno = str(nuevo_turno).strip()
+                if valor_turno != "":
+                    try:
+                        asistencia.cantidad_turnos = float(valor_turno)
+                    except ValueError:
+                        pass # O manejar error
+
+            # --- Manejo de Horas (Retardos) ---
+            if nueva_hora is not None:
                 asistencia.horas = nueva_hora 
-                
-            # Actualizamos el Monto (pago_dia)
-            # Este es el valor que el calculador de nómina priorizará para descansos o días fijos
-            if nuevo_monto is not None and str(nuevo_monto).strip() != "":
-                try:
-                    asistencia.pago_dia = float(nuevo_monto)
-                except ValueError:
-                    return JsonResponse({'status': 'error', 'message': 'Formato de monto inválido'}, status=400)
+
+            # GUARDADO FORZADO
+            # Especificamos los campos para asegurarnos de que Django no ignore nada
+            asistencia.save(update_fields=['pago_dia', 'cantidad_turnos', 'horas'])
             
-            asistencia.save()
-            return JsonResponse({'status': 'ok', 'message': 'Registro actualizado correctamente'})
+            return JsonResponse({
+                'status': 'ok', 
+                'message': 'Pago de descanso/día actualizado',
+                'nuevo_monto': asistencia.pago_dia
+            })
             
         except Exception as e:
-            # El error aparecerá en los logs de DigitalOcean
-            print(f"Error crítico en actualizar_pago_manual: {str(e)}") 
-            return JsonResponse({'status': 'error', 'message': f"Error interno: {str(e)}"}, status=500)
+            print(f"Error en actualizar_pago_manual: {str(e)}") 
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
     return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
 
