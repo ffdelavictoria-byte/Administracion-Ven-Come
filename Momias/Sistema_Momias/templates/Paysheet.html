@@ -368,6 +368,7 @@
 
 
 <body>
+    {% csrf_token %} <div class="comic-container">
 
 
 
@@ -707,7 +708,9 @@
     const diaId = contenedor.getAttribute('data-dia-id');
     const inputs = contenedor.querySelectorAll('.edit-input');
     
-    // Preparar objeto de datos
+    // 1. Obtener el token de forma segura del input que agregamos en el paso 1
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
     let datosParaEnviar = new URLSearchParams();
     datosParaEnviar.append('id', diaId);
     
@@ -716,16 +719,14 @@
         const fieldName = span.getAttribute('data-field');
         const valor = input.value || "0";
         datosParaEnviar.append(fieldName, valor);
-        
-        // Actualizar la vista visualmente antes de la respuesta del servidor
         span.innerText = valor;
     });
 
-    // Petición al servidor
+    // 2. Ejecutar la petición
     fetch("{% url 'actualizar_dia_nomina' %}", {
         method: "POST",
         headers: {
-            "X-CSRFToken": "{{ csrf_token }}",
+            "X-CSRFToken": csrftoken, // Usamos la variable constante
             "Content-Type": "application/x-www-form-urlencoded",
         },
         body: datosParaEnviar
@@ -736,8 +737,8 @@
     })
     .then(data => {
         if(data.status === 'ok') {
-            console.log("¡Cambio guardado!");
-            // Feedback visual: un pequeño destello verde
+            // Éxito: Destello verde
+            contenedor.style.transition = "background 0.5s";
             contenedor.style.backgroundColor = "#e8f5e9";
             setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 500);
         } else {
@@ -746,10 +747,9 @@
     })
     .catch(error => {
         console.error("Error:", error);
-        alert("Error de comunicación. Revisa tu conexión.");
+        alert("Error de comunicación con el servidor de Momias.");
     });
 
-    // Regresar al estado normal (iconos)
     btn.style.display = 'none';
     const icon = contenedor.querySelector('.btn-inline-edit');
     if (icon) icon.style.display = 'inline-block';
