@@ -727,7 +727,7 @@
         span.innerText = valor;
     });
 
-    fetch("{% url 'actualizar_pago_manual' %}", { // <--- REVISA ESTE NOMBRE
+    fetch("{% url 'actualizar_dia_nomina' %}", { // <--- REVISA ESTE NOMBRE
         method: "POST",
         headers: {
             "X-CSRFToken": csrftoken
