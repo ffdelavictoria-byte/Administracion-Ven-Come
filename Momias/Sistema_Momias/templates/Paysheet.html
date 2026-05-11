@@ -368,9 +368,8 @@
 
 
 <body>
-    {% csrf_token %} <div class="comic-container">
 
-
+{% csrf_token %}
 
 <div class="comic-container">
 
@@ -707,14 +706,7 @@
     const contenedor = btn.closest('.item-desglose');
     const diaId = contenedor.getAttribute('data-dia-id');
     const inputs = contenedor.querySelectorAll('.edit-input');
-    
-    // Captura el token directamente del input oculto de Django
-    const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
-    if (!tokenInput) {
-        alert("Falta el token de seguridad en el HTML");
-        return;
-    }
-    const csrftoken = tokenInput.value;
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
     let datosParaEnviar = new URLSearchParams();
     datosParaEnviar.append('id', diaId);
@@ -722,15 +714,13 @@
     inputs.forEach(input => {
         const span = input.parentElement;
         const fieldName = span.getAttribute('data-field');
-        datosParaEnviar.append(fieldName, input.value || "0");
-        span.innerText = input.value;
+        // Validamos que siempre vaya un número, aunque sea "0"
+        const valor = (input.value !== "") ? input.value : "0";
+        datosParaEnviar.append(fieldName, valor);
+        span.innerText = valor;
     });
 
-    // Cambiamos a la URL exacta que definiste en urls.py
-    // El slash final es VITAL
-    const urlDestino = "/nomina/actualizar/"; 
-
-    fetch(urlDestino, {
+    fetch("{% url 'actualizar_pago_manual' %}", { // Revisa que el nombre coincida con urls.py
         method: "POST",
         headers: {
             "X-CSRFToken": csrftoken,
@@ -739,8 +729,6 @@
         body: datosParaEnviar
     })
     .then(response => {
-        if (response.status === 403) throw new Error("Acceso denegado (CSRF)");
-        if (response.status === 404) throw new Error("Ruta no encontrada");
         if (!response.ok) throw new Error("Error " + response.status);
         return response.json();
     })
@@ -749,17 +737,15 @@
             contenedor.style.backgroundColor = "#e8f5e9";
             setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 500);
         } else {
-            alert("Servidor dice: " + data.message);
+            alert("Error: " + data.message);
         }
     })
     .catch(error => {
-        console.error("Error detallado:", error);
-        alert("Error: " + error.message);
+        alert("Error de comunicación. Revisa los logs de DigitalOcean.");
     });
 
     btn.style.display = 'none';
-    const icon = contenedor.querySelector('.btn-inline-edit');
-    if (icon) icon.style.display = 'inline-block';
+    contenedor.querySelector('.btn-inline-edit').style.display = 'inline-block';
 }
 
 
