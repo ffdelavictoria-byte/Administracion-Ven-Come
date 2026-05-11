@@ -978,17 +978,34 @@ def actualizar_pago_manual(request):
     if request.method == "POST":
         try:
             aid = request.POST.get('id')
+            if not aid:
+                return JsonResponse({'status': 'error', 'message': 'ID no proporcionado'}, status=400)
+                
             asistencia = get_object_or_404(Asistencia, id=aid)
             
-            # Actualizamos los campos (si vienen en el POST)
-            asistencia.cantidad_turnos = request.POST.get('turnos', asistencia.cantidad_turnos)
-            asistencia.total_horas = request.POST.get('horas', asistencia.total_horas)
-            asistencia.pago_dia = request.POST.get('monto', asistencia.pago_dia)
+            # Capturamos los valores del POST
+            nuevo_turno = request.POST.get('turnos')
+            nueva_hora = request.POST.get('horas')
+            nuevo_monto = request.POST.get('monto')
+
+            # Solo actualizamos si el valor NO es None y NO es una cadena vacía
+            if nuevo_turno is not None and nuevo_turno != "":
+                asistencia.cantidad_turnos = nuevo_turno
+            
+            if nueva_hora is not None and nueva_hora != "":
+                asistencia.total_horas = nueva_hora
+                
+            if nuevo_monto is not None and nuevo_monto != "":
+                asistencia.pago_dia = nuevo_monto
             
             asistencia.save()
             return JsonResponse({'status': 'ok'})
+            
         except Exception as e:
+            # Imprime el error en la terminal de DigitalOcean para que puedas verlo
+            print(f"Error en nomina: {e}") 
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+            
     return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
 
 @login_required
