@@ -568,12 +568,16 @@
                 <span class="item-desglose" 
                       data-dia-id="{{ t.id|default:'' }}" 
                       data-empleado-id="{{ n.empleado_id }}" 
-                      data-fecha-raw="{{ t.fecha_dia_iso }}"> <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
+                      data-fecha-raw="{{ t.fecha_dia_iso }}">
+                    
+                    <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
                     
                     {% if t.estatus == "DESCANSO" %} 
                         <span class="text-info fw-bold">DESC</span>
                         <span class="editable-value" data-field="turnos" style="display:none">0</span>
                         <span class="editable-value" data-field="horas" style="display:none">0</span>
+                        
+                        <span class="text-success">$<span class="editable-value" data-field="monto">{{ t.pago_dia|floatformat:0 }}</span></span>
                     {% else %} 
                         <b class="vista-turno">
                             <span class="editable-value" data-field="turnos">{{ t.cantidad_turnos }}</span>T
@@ -581,9 +585,8 @@
                         <b class="vista-hora" style="display: none; color: #673ab7;">
                             <span class="editable-value" data-field="horas">{{ t.total_horas }}</span>
                         </b>
+                        <span class="text-success">$<span class="editable-value" data-field="monto">{{ t.pago_dia|floatformat:0 }}</span></span>
                     {% endif %}
-                    
-                    <span class="text-success">$<span class="editable-value" data-field="monto">{{ t.pago_dia|floatformat:0 }}</span></span>
                     
                     <i class="fas fa-pencil-alt btn-inline-edit no-print" onclick="habilitarEdicion(this)"></i>
                     <button type="button" class="guardar-cambio no-print" onclick="guardarFila(this)">OK</button>
@@ -599,24 +602,12 @@
         <div class="d-flex border-top border-bottom py-1 my-1 justify-content-between align-items-center">
             <div style="font-size: 0.65rem; line-height: 1.4;">
                 <span>Base: <b>${{ n.pago_base|floatformat:2 }}</b></span> |
-                <span>Retardos: <b class="text-danger">{{ n.retardos }}</b></span> |
+                <span>Ret: <b class="text-danger">{{ n.retardos }}</b></span> |
                 <span>Bonos: <b class="text-success">+${{ n.bonos|floatformat:2 }}</b></span> |
                 <span>Desc: <b class="text-danger">-${{ n.desc_retardos|add:n.descuentos|add:n.uniforme|floatformat:2 }}</b></span>
             </div>
-            <div class="total-neto-box">
+            <div class="total-neto-box" style="font-weight: bold; background: #eee; padding: 2px 5px; border-radius: 3px;">
                 NETO: ${{ n.total_neto|floatformat:2 }}
-            </div>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-end">
-            <div style="font-size: 0.55rem; color: #444; max-width: 65%; line-height: 1.1;">
-                {% for dia_list in n.dias %}{% for t in dia_list %}
-                    {% if t.monto_bono > 0 %} <span class="text-success">● {{ t.motivo_bono }}: +${{ t.monto_bono|floatformat:0 }}</span><br> {% endif %}
-                    {% if t.monto_descuento > 0 %} <span class="text-danger">● {{ t.motivo_descuento }}: -${{ t.monto_descuento|floatformat:0 }}</span><br> {% endif %}
-                {% endfor %}{% endfor %}
-            </div>
-            <div class="firma-espacio no-print" style="margin-left: auto; border-top: 1px solid #000; width: 120px; font-size: 0.5rem; text-align: center;">
-                Firma de conformidad
             </div>
         </div>
     </div>
