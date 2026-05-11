@@ -679,75 +679,67 @@
 
     }
     function habilitarEdicion(icon) {
-    const contenedor = icon.closest('.item-desglose');
-    const valoresEditables = contenedor.querySelectorAll('.editable-value');
-    const botonGuardar = contenedor.querySelector('.guardar-cambio');
+        const contenedor = icon.closest('.item-desglose');
+        const valoresEditables = contenedor.querySelectorAll('.editable-value');
+        const botonGuardar = contenedor.querySelector('.guardar-cambio');
 
-    valoresEditables.forEach(span => {
-        const valorActual = span.innerText.trim();
-        const fieldName = span.getAttribute('data-field');
-        
-        const input = document.createElement('input');
-        input.type = 'number'; // Cambiado a number para facilitar edición en móvil/tablet
-        input.value = valorActual;
-        
-        // Ajuste de ancho dinámico: más ancho para el monto, más corto para turnos
-        input.className = 'edit-input';
-        input.style.width = (fieldName === 'monto') ? '55px' : '35px';
-        
-        span.innerHTML = '';
-        span.appendChild(input);
-    });
+        valoresEditables.forEach(span => {
+            const valorActual = span.innerText.trim();
+            const fieldName = span.getAttribute('data-field');
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = valorActual;
+            input.className = 'edit-input';
+            input.style.width = (fieldName === 'monto') ? '55px' : '35px';
+            span.innerHTML = '';
+            span.appendChild(input);
+        });
 
-    icon.style.display = 'none';
-    botonGuardar.style.display = 'inline-block';
-}
+        icon.style.display = 'none';
+        botonGuardar.style.display = 'inline-block';
+    }
+
     function guardarFila(btn) {
-    const contenedor = btn.closest('.item-desglose');
-    const diaId = contenedor.getAttribute('data-dia-id');
-    const inputs = contenedor.querySelectorAll('.edit-input');
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const contenedor = btn.closest('.item-desglose');
+        const diaId = contenedor.getAttribute('data-dia-id');
+        const inputs = contenedor.querySelectorAll('.edit-input');
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    let datosParaEnviar = new URLSearchParams();
-    datosParaEnviar.append('id', diaId);
-    
-    inputs.forEach(input => {
-        const span = input.parentElement;
-        const fieldName = span.getAttribute('data-field');
-        // Validamos que siempre vaya un número, aunque sea "0"
-        const valor = (input.value !== "") ? input.value : "0";
-        datosParaEnviar.append(fieldName, valor);
-        span.innerText = valor;
-    });
+        let datosParaEnviar = new URLSearchParams();
+        datosParaEnviar.append('id', diaId);
+        
+        inputs.forEach(input => {
+            const span = input.parentElement;
+            const fieldName = span.getAttribute('data-field');
+            const valor = (input.value !== "") ? input.value : "0";
+            datosParaEnviar.append(fieldName, valor);
+            span.innerText = valor;
+        });
 
-    fetch("{% url 'actualizar_pago_manual' %}", { // Revisa que el nombre coincida con urls.py
-        method: "POST",
-        headers: {
-            "X-CSRFToken": csrftoken,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: datosParaEnviar
-    })
-    .then(response => {
-        if (!response.ok) throw new Error("Error " + response.status);
-        return response.json();
-    })
-    .then(data => {
-        if(data.status === 'ok') {
-            contenedor.style.backgroundColor = "#e8f5e9";
-            setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 500);
-        } else {
-            alert("Error: " + data.message);
-        }
-    })
-    .catch(error => {
-        alert("Error de comunicación. Revisa los logs de DigitalOcean.");
-    });
+        // NOTA: Si esto da error 500 al cargar, verifica que 'actualizar_pago_manual' 
+        // sea el NAME exacto en tu urls.py
+        fetch("{% url 'actualizar_pago_manual' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrftoken,
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: datosParaEnviar
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'ok') {
+                contenedor.style.backgroundColor = "#e8f5e9";
+                setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 500);
+            } else {
+                alert("Error: " + data.message);
+            }
+        })
+        .catch(error => alert("Error de red o de servidor. Revisa logs."));
 
-    btn.style.display = 'none';
-    contenedor.querySelector('.btn-inline-edit').style.display = 'inline-block';
-}
-
+        btn.style.display = 'none';
+        contenedor.querySelector('.btn-inline-edit').style.display = 'inline-block';
+    }
 
 </script>
 
