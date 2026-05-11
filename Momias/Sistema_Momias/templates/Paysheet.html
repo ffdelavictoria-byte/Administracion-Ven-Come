@@ -621,7 +621,7 @@
 
     <i class="fas fa-pencil-alt btn-inline-edit no-print" onclick="habilitarEdicion(this)" style="cursor:pointer; margin-left:4px;"></i>
     <button class="guardar-cambio no-print" onclick="guardarFila(this)" style="display:none;">OK</button>
-</span>
+</span> </span>
 
 
 
@@ -852,6 +852,36 @@
     icon.style.display = 'none';
     botonGuardar.style.display = 'inline-block';
 }
+    function guardarFila(btn) {
+    const contenedor = btn.closest('.item-desglose');
+    const inputs = contenedor.querySelectorAll('.edit-input');
+    
+    inputs.forEach(input => {
+        const span = input.parentElement;
+        const nuevoValor = input.value;
+        
+        // Validamos que si está vacío ponga 0 para no romper visualmente
+        span.innerText = nuevoValor === "" ? "0" : nuevoValor; 
+    });
+
+    // Intercambiamos botones: ocultamos OK y mostramos Lápiz
+    btn.style.display = 'none';
+    const icon = contenedor.querySelector('.btn-inline-edit');
+    if (icon) icon.style.display = 'inline-block';
+
+    // Tip: Aquí podrías llamar a una función para recalcular el "TOTAL NETO" 
+    // de la tarjeta si quieres que el cambio sea instantáneo en el cliente.
+    console.log("Cambios guardados visualmente en el ID:", contenedor.dataset.diaId);
+}
+
+// Opcional: Permitir guardar al presionar "Enter" dentro de un input
+document.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter' && e.target.classList.contains('edit-input')) {
+        const contenedor = e.target.closest('.item-desglose');
+        const btnOk = contenedor.querySelector('.guardar-cambio');
+        if (btnOk) btnOk.click();
+    }
+});
 
 
 
