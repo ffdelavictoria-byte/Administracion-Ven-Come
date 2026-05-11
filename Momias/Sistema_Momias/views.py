@@ -973,17 +973,21 @@ def Borrar_Usuario_View(request, usuario_id):
     return redirect('lista_usuarios')
 
 
-# views.py
 @login_required
 def actualizar_pago_manual(request):
     if request.method == "POST":
         asistencia_id = request.POST.get('id')
         nuevo_pago = request.POST.get('pago')
         
-        asistencia = Asistencia.objects.get(id=asistencia_id)
-        asistencia.pago_dia = nuevo_pago
-        asistencia.save() # Aquí se vuelve permanente
-        return JsonResponse({'status': 'ok'})
+        # Uso de get_object_or_404 para evitar errores 500
+        asistencia = get_object_or_404(Asistencia, id=asistencia_id)
+        
+        try:
+            asistencia.pago_dia = float(nuevo_pago)
+            asistencia.save()
+            return JsonResponse({'status': 'ok'})
+        except (ValueError, TypeError):
+            return JsonResponse({'status': 'error', 'message': 'Monto inválido'}, status=400)
 
 @login_required
 def calcular_nomina_web(request):
