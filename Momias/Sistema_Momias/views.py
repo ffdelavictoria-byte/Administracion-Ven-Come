@@ -1401,22 +1401,25 @@ def calcular_nomina_web(request):
                     
                     estatus_limpio = (reg.estatus or "").upper()
 
-                    # --- DENTRO DE calcular_nomina_web ---
+                    # --- BLOQUE DE DESCANSO CORREGIDO ---
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-                        # Si YA tiene un valor en la DB, lo usamos
-                        if reg.pago_dia and reg.pago_dia > 0:
+                        # 1. PRIORIDAD ABSOLUTA: Si ya hay un valor físico en la DB (manual o guardado previo), lo usamos.
+                        if reg.pago_dia and float(reg.pago_dia) > 0:
                             salario_dia = float(reg.pago_dia)
                         
-                        # Si NO tiene valor, calculamos y GUARDAMOS para la posteridad
+                        # 2. Si no hay valor en la DB, verificamos si merece pago de descanso
                         elif not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
                             
-                            # PERSISTENCIA: Guardamos el cálculo en la DB
+                            # PERSISTENCIA AUTOMÁTICA: Guardamos el cálculo para que la próxima vez 
+                            # entre en la Condición 1 y ya no se recalcule.
                             reg.pago_dia = salario_dia
-                            reg.save(update_fields=['pago_dia']) # Solo actualizamos ese campo por eficiencia
+                            reg.save(update_fields=['pago_dia']) 
                         else:
+                            # Si tiene falta o ya se pagó otro descanso en la semana
                             salario_dia = 0.0
+                    # --- FIN DEL BLOQUE ---
                     
                     # --- FIN DEL BLOQUE DE DESCANSO ---
                     
