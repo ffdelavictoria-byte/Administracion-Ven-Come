@@ -972,6 +972,19 @@ def Borrar_Usuario_View(request, usuario_id):
     messages.success(request, f"El usuario '{nombre}' ha sido eliminado.")
     return redirect('lista_usuarios')
 
+
+# views.py
+@login_required
+def actualizar_pago_manual(request):
+    if request.method == "POST":
+        asistencia_id = request.POST.get('id')
+        nuevo_pago = request.POST.get('pago')
+        
+        asistencia = Asistencia.objects.get(id=asistencia_id)
+        asistencia.pago_dia = nuevo_pago
+        asistencia.save() # Aquí se vuelve permanente
+        return JsonResponse({'status': 'ok'})
+
 @login_required
 def calcular_nomina_web(request):
 
@@ -1359,19 +1372,23 @@ def calcular_nomina_web(request):
                         else:
                             salario_dia = 0.0
                     
-                    # --- CORRECCIÓN AQUÍ ---
+                    # --- BUSCA ESTE BLOQUE Y REEMPLÁZALO ---
                     elif es_pago_fijo:
                         retardo_dia = int(reg.horas or 0)
-                        # Si el registro ya trae un pago_dia manual, lo usamos, si no, el base_calc completo
-                        salario_dia = float(reg.pago_dia) if float(reg.pago_dia or 0) > 0 else base_calc
-                        
-                    elif float(reg.pago_dia or 0.0) > 0:
+                        # PRIORIDAD: Si hay un pago_dia manual en la DB, lo usamos sin recalcular
+                        if reg.pago_dia and float(reg.pago_dia) > 0:
+                            salario_dia = float(reg.pago_dia)
+                        else:
+                            salario_dia = base_calc
+                            
+                    elif reg.pago_dia and float(reg.pago_dia) > 0:
+                        # Si el usuario editó el campo, respetamos ese valor manual
                         retardo_dia = int(reg.horas or 0)
                         salario_dia = float(reg.pago_dia)
                     else:
+                        # Solo si no hay valor manual, calculamos por tiempo
                         salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
-                    # ------------------------
 
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
                         # Usamos la base del puesto original (base_calc) para evitar 
