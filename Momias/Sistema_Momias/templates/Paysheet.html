@@ -551,7 +551,8 @@
 
 
 
-    <div id="contenedor-nominas">{% csrf_token %}
+    <div id="contenedor-nominas">
+    {% csrf_token %}
     {% for n in nominas %}
     <div class="tira-compacta">
         <div class="header-nomina">
@@ -564,8 +565,10 @@
         <div class="mb-1">
             {% for dia_list in n.dias %}
                 {% for t in dia_list %}
-                <span class="item-desglose" data-dia-id="{{ t.id|default:'' }}">
-                    <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
+                <span class="item-desglose" 
+                      data-dia-id="{{ t.id|default:'' }}" 
+                      data-empleado-id="{{ n.empleado_id }}" 
+                      data-fecha-raw="{{ t.fecha_dia_iso }}"> <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
                     
                     {% if t.estatus == "DESCANSO" %} 
                         <span class="text-info fw-bold">DESC</span>
@@ -611,6 +614,9 @@
                     {% if t.monto_bono > 0 %} <span class="text-success">● {{ t.motivo_bono }}: +${{ t.monto_bono|floatformat:0 }}</span><br> {% endif %}
                     {% if t.monto_descuento > 0 %} <span class="text-danger">● {{ t.motivo_descuento }}: -${{ t.monto_descuento|floatformat:0 }}</span><br> {% endif %}
                 {% endfor %}{% endfor %}
+            </div>
+            <div class="firma-espacio no-print" style="margin-left: auto; border-top: 1px solid #000; width: 120px; font-size: 0.5rem; text-align: center;">
+                Firma de conformidad
             </div>
         </div>
     </div>
