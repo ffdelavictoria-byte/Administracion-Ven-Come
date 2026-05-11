@@ -619,37 +619,13 @@
 
     <span class="text-success">$<span class="editable-value" data-field="monto">{{ t.pago_dia|floatformat:0 }}</span></span>
 
-    <i class="fas fa-pencil-alt btn-inline-edit no-print" onclick="habilitarEdicion(this)" style="cursor:pointer; margin-left:4px;"></i>
-    <button class="guardar-cambio no-print" onclick="guardarFila(this)" style="display:none;">OK</button>
-</span> </span>
-
-
-
-            
-
-
-
-                        {% if t.puesto %}
-
-
-
-                            <small class="text-muted" style="font-size: 0.55rem;">
-
-
-
-                                [{{ t.puesto|slice:":4" }}]
-
-
-
-                            </small>
-
-
-
-                        {% endif %}
-
-
-
-                    </span>
+    <i class="fas fa-pencil-alt btn-inline-edit no-print" onclick="habilitarEdicion(this)"></i>
+    <button class="guardar-cambio no-print" onclick="guardarFila(this)">OK</button>
+    
+    {% if t.puesto %}
+        <small class="text-muted" style="font-size: 0.55rem;">[{{ t.puesto|slice:":4" }}]</small>
+    {% endif %}
+</span> 
 
 
 
@@ -854,34 +830,47 @@
 }
     function guardarFila(btn) {
     const contenedor = btn.closest('.item-desglose');
+    const diaId = contenedor.getAttribute('data-dia-id'); // El ID que ya pusiste en el HTML
     const inputs = contenedor.querySelectorAll('.edit-input');
     
+    // Recolectamos los datos de los inputs antes de destruirlos
+    let datosParaEnviar = {
+        id: diaId,
+        csrfmiddlewaretoken: '{{ csrf_token }}' // Necesario para Django
+    };
+
     inputs.forEach(input => {
         const span = input.parentElement;
+        const fieldName = span.getAttribute('data-field');
         const nuevoValor = input.value;
         
-        // Validamos que si está vacío ponga 0 para no romper visualmente
+        datosParaEnviar[fieldName] = nuevoValor;
         span.innerText = nuevoValor === "" ? "0" : nuevoValor; 
     });
 
-    // Intercambiamos botones: ocultamos OK y mostramos Lápiz
+    // --- TRIGGER HACIA EL SERVIDOR ---
+    fetch("{% url 'actualizar_pago_manual' %}", {  // Reemplaza con tu URL de Django
+        method: "POST",
+        headers: {
+            "X-CSRFToken": '{{ csrf_token }}',
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams(datosParaEnviar)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            console.log("Guardado en DB correctamente");
+            // Aquí podrías actualizar el TOTAL NETO global si tu backend te devuelve el nuevo cálculo
+        }
+    })
+    .catch(error => console.error("Error:", error));
+
+    // Intercambiamos botones visuales
     btn.style.display = 'none';
     const icon = contenedor.querySelector('.btn-inline-edit');
     if (icon) icon.style.display = 'inline-block';
-
-    // Tip: Aquí podrías llamar a una función para recalcular el "TOTAL NETO" 
-    // de la tarjeta si quieres que el cambio sea instantáneo en el cliente.
-    console.log("Cambios guardados visualmente en el ID:", contenedor.dataset.diaId);
 }
-
-// Opcional: Permitir guardar al presionar "Enter" dentro de un input
-document.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter' && e.target.classList.contains('edit-input')) {
-        const contenedor = e.target.closest('.item-desglose');
-        const btnOk = contenedor.querySelector('.guardar-cambio');
-        if (btnOk) btnOk.click();
-    }
-});
 
 
 
