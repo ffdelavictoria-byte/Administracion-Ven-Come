@@ -700,47 +700,45 @@
     }
 
     function guardarFila(btn) {
-        const contenedor = btn.closest('.item-desglose');
-        const diaId = contenedor.getAttribute('data-dia-id');
-        const inputs = contenedor.querySelectorAll('.edit-input');
-        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const contenedor = btn.closest('.item-desglose');
+    const diaId = contenedor.getAttribute('data-dia-id');
+    const inputs = contenedor.querySelectorAll('.edit-input');
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-        let datosParaEnviar = new URLSearchParams();
-        datosParaEnviar.append('id', diaId);
-        
-        inputs.forEach(input => {
-            const span = input.parentElement;
-            const fieldName = span.getAttribute('data-field');
-            const valor = (input.value !== "") ? input.value : "0";
-            datosParaEnviar.append(fieldName, valor);
-            span.innerText = valor;
-        });
+    let datosParaEnviar = new URLSearchParams();
+    datosParaEnviar.append('id', diaId);
+    
+    inputs.forEach(input => {
+        const span = input.parentElement;
+        const fieldName = span.getAttribute('data-field');
+        const valor = (input.value !== "") ? input.value : "0";
+        datosParaEnviar.append(fieldName, valor);
+        span.innerText = valor;
+    });
 
-        // NOTA: Si esto da error 500 al cargar, verifica que 'actualizar_pago_manual' 
-        // sea el NAME exacto en tu urls.py
-        fetch("{% url 'actualizar_pago_manual' %}", {
-            method: "POST",
-            headers: {
-                "X-CSRFToken": csrftoken,
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: datosParaEnviar
-        })
-        .then(response => response.json())
-        .then(data => {
-            if(data.status === 'ok') {
-                contenedor.style.backgroundColor = "#e8f5e9";
-                setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 500);
-            } else {
-                alert("Error: " + data.message);
-            }
-        })
-        .catch(error => alert("Error de red o de servidor. Revisa logs."));
+    // USANDO EL NAME CORRECTO SEGÚN TU URLS.PY
+    fetch("{% url 'actualizar_dia_nomina' %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": csrftoken,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: datosParaEnviar
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'ok') {
+            contenedor.style.backgroundColor = "#e8f5e9";
+            setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 500);
+        } else {
+            alert("Error: " + data.message);
+        }
+    })
+    .catch(error => alert("Error de servidor. Revisa que la función exista en views.py"));
 
-        btn.style.display = 'none';
-        contenedor.querySelector('.btn-inline-edit').style.display = 'inline-block';
-    }
-
+    btn.style.display = 'none';
+    contenedor.querySelector('.btn-inline-edit').style.display = 'inline-block';
+}
 </script>
 
 
