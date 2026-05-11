@@ -1401,16 +1401,21 @@ def calcular_nomina_web(request):
                     
                     estatus_limpio = (reg.estatus or "").upper()
 
+                    # --- LÓGICA DE PAGO DE DESCANSO (CORREGIDA) ---
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-                        # PRIORIDAD: Si el usuario editó el monto manualmente en la DB
-                        if reg.pago_dia and float(reg.pago_dia) > 0:
+                        # 1. PRIORIDAD ABSOLUTA: Si el usuario editó el monto manualmente (pago_dia)
+                        if reg.pago_dia is not None and float(reg.pago_dia) > 0:
                             salario_dia = float(reg.pago_dia)
-                            descanso_pagado = True # Marcamos como pagado para no repetir en la semana
+                            # Opcional: Si quieres que esto cuente como "el pago del descanso de la semana"
+                            # para que no se pague doble si hay otro registro de descanso:
+                            descanso_pagado = True 
                         
-                        # Si no hay monto manual, usamos la lógica automática
+                        # 2. Si no hay monto manual, usamos la lógica automática de 6 días
                         elif not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
+                        
+                        # 3. Si tiene faltas o ya se pagó un descanso en la semana
                         else:
                             salario_dia = 0.0
                     
