@@ -552,7 +552,7 @@
 
 
 
-    <div id="contenedor-nominas">
+    <div id="contenedor-nominas">{% csrf_token %}
     {% for n in nominas %}
     <div class="tira-compacta">
         <div class="header-nomina">
@@ -708,46 +708,53 @@
     const diaId = contenedor.getAttribute('data-dia-id');
     const inputs = contenedor.querySelectorAll('.edit-input');
     
-    // 1. Obtener el token de forma segura del input que agregamos en el paso 1
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    
+    // Captura el token directamente del input oculto de Django
+    const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!tokenInput) {
+        alert("Falta el token de seguridad en el HTML");
+        return;
+    }
+    const csrftoken = tokenInput.value;
+
     let datosParaEnviar = new URLSearchParams();
     datosParaEnviar.append('id', diaId);
     
     inputs.forEach(input => {
         const span = input.parentElement;
         const fieldName = span.getAttribute('data-field');
-        const valor = input.value || "0";
-        datosParaEnviar.append(fieldName, valor);
-        span.innerText = valor;
+        datosParaEnviar.append(fieldName, input.value || "0");
+        span.innerText = input.value;
     });
 
-    // 2. Ejecutar la petición
-    fetch("{% url 'actualizar_dia_nomina' %}", {
+    // Cambiamos a la URL exacta que definiste en urls.py
+    // El slash final es VITAL
+    const urlDestino = "/nomina/actualizar/"; 
+
+    fetch(urlDestino, {
         method: "POST",
         headers: {
-            "X-CSRFToken": csrftoken, // Usamos la variable constante
+            "X-CSRFToken": csrftoken,
             "Content-Type": "application/x-www-form-urlencoded",
         },
         body: datosParaEnviar
     })
     .then(response => {
-        if (!response.ok) throw new Error('Error en el servidor');
+        if (response.status === 403) throw new Error("Acceso denegado (CSRF)");
+        if (response.status === 404) throw new Error("Ruta no encontrada");
+        if (!response.ok) throw new Error("Error " + response.status);
         return response.json();
     })
     .then(data => {
         if(data.status === 'ok') {
-            // Éxito: Destello verde
-            contenedor.style.transition = "background 0.5s";
             contenedor.style.backgroundColor = "#e8f5e9";
             setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 500);
         } else {
-            alert("Error: " + (data.message || "No se pudo guardar"));
+            alert("Servidor dice: " + data.message);
         }
     })
     .catch(error => {
-        console.error("Error:", error);
-        alert("Error de comunicación con el servidor de Momias.");
+        console.error("Error detallado:", error);
+        alert("Error: " + error.message);
     });
 
     btn.style.display = 'none';
