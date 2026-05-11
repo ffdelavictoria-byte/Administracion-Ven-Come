@@ -569,6 +569,8 @@
                     
                     {% if t.estatus == "DESCANSO" %} 
                         <span class="text-info fw-bold">DESC</span>
+                        <span class="editable-value" data-field="turnos" style="display:none">0</span>
+                        <span class="editable-value" data-field="horas" style="display:none">0</span>
                     {% else %} 
                         <b class="vista-turno">
                             <span class="editable-value" data-field="turnos">{{ t.cantidad_turnos }}</span>T
@@ -577,7 +579,7 @@
                             <span class="editable-value" data-field="horas">{{ t.total_horas }}</span>
                         </b>
                     {% endif %}
-
+                    
                     <span class="text-success">$<span class="editable-value" data-field="monto">{{ t.pago_dia|floatformat:0 }}</span></span>
                     
                     <i class="fas fa-pencil-alt btn-inline-edit no-print" onclick="habilitarEdicion(this)"></i>
@@ -705,29 +707,32 @@
     const inputs = contenedor.querySelectorAll('.edit-input');
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    if (!diaId || diaId === "" || diaId === "None") {
-        alert("Error: No se pudo encontrar el ID del registro de asistencia.");
+    // 1. Validación de seguridad para el ID
+    if (!diaId || diaId === "" || diaId === "None" || diaId === "undefined") {
+        alert("Error: No se encontró un ID válido para este registro. Asegúrate de que el registro exista en la base de datos.");
         return;
     }
 
     let formData = new FormData();
-    formData.append('id', diaId); // El ID que espera el Python
+    formData.append('id', diaId);
     
+    // 2. Recolección de datos de los inputs
     inputs.forEach(input => {
         const span = input.parentElement;
         const fieldName = span.getAttribute('data-field');
         const valor = input.value;
         
-        // Mapeo manual para asegurar que los nombres coincidan con la vista
         if (fieldName === 'turnos') formData.append('turnos', valor);
         if (fieldName === 'horas') formData.append('horas', valor);
         if (fieldName === 'monto') formData.append('monto', valor);
         
-        // Actualizar vista previa
+        // Actualización visual temporal
         span.innerText = valor;
     });
 
-    fetch("{% url 'actualizar_dia_nomina' %}", { // <--- REVISA ESTE NOMBRE
+    // 3. Envío al servidor
+    // NOTA: Asegúrate de que en tu urls.py el nombre sea 'actualizar_pago_manual'
+    fetch("{% url 'actualizar_pago_manual' %}", { 
         method: "POST",
         headers: {
             "X-CSRFToken": csrftoken
@@ -737,24 +742,26 @@
     .then(response => response.json())
     .then(data => {
         if(data.status === 'ok') {
-            // Animación de éxito
-            contenedor.style.transition = "background-color 0.5s";
+            // Feedback visual de éxito
+            contenedor.style.transition = "background-color 0.4s";
             contenedor.style.backgroundColor = "#c8e6c9"; 
-            setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 1000);
             
-            // Sugerencia: Recargar la página si quieres que se recalculen los NETOS automáticamente
-            // location.reload(); 
+            // Recargamos la página para que el cálculo global de la nómina se actualice
+            setTimeout(() => { 
+                location.reload(); 
+            }, 500);
+            
         } else {
             alert("Error del servidor: " + data.message);
-            location.reload(); // Recargamos para mostrar los valores reales si falló
+            location.reload(); // Recargamos para revertir cambios visuales fallidos
         }
     })
     .catch(error => {
-        alert("Error de conexión al servidor");
-        console.error(error);
+        alert("Error crítico de conexión");
+        console.error("Fetch error:", error);
     });
 
-    // Restaurar botones
+    // 4. Restauración de la interfaz (botones)
     btn.style.display = 'none';
     const editIcon = contenedor.querySelector('.btn-inline-edit');
     if(editIcon) editIcon.style.display = 'inline-block';
