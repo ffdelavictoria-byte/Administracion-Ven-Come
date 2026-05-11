@@ -977,23 +977,29 @@ def Borrar_Usuario_View(request, usuario_id):
 def actualizar_pago_manual(request):
     if request.method == "POST":
         try:
-            aid = request.POST.get('id')
-            if not aid:
-                return JsonResponse({'status': 'error', 'message': 'ID no proporcionado'}, status=400)
+            # 1. Intentamos obtener el ID de ambas formas para evitar el error de "ID no proporcionado"
+            aid = request.POST.get('id') or request.POST.get('asistencia_id')
+            
+            if not aid or aid == "None" or aid == "":
+                return JsonResponse({'status': 'error', 'message': 'ID de registro no encontrado en la petición'}, status=400)
                 
             asistencia = get_object_or_404(Asistencia, id=aid)
             
-            # Capturamos los valores del POST
+            # 2. Capturamos los valores del POST
+            # NOTA: Asegúrate de que en tu modelo Asistencia los campos se llamen exactamente así
             nuevo_turno = request.POST.get('turnos')
             nueva_hora = request.POST.get('horas')
             nuevo_monto = request.POST.get('monto')
 
-            # Solo actualizamos si el valor NO es None y NO es una cadena vacía
+            # 3. Solo actualizamos si el valor NO es None y NO es una cadena vacía
+            # Usamos float() para asegurar que se guarden como números si el modelo lo requiere
             if nuevo_turno is not None and nuevo_turno != "":
                 asistencia.cantidad_turnos = nuevo_turno
             
             if nueva_hora is not None and nueva_hora != "":
-                asistencia.total_horas = nueva_hora
+                # En tu otra vista usas asistencia.horas para puntos, 
+                # verifica si aquí debe ser total_horas o solo horas
+                asistencia.horas = nueva_hora 
                 
             if nuevo_monto is not None and nuevo_monto != "":
                 asistencia.pago_dia = nuevo_monto
@@ -1002,9 +1008,9 @@ def actualizar_pago_manual(request):
             return JsonResponse({'status': 'ok'})
             
         except Exception as e:
-            # Imprime el error en la terminal de DigitalOcean para que puedas verlo
-            print(f"Error en nomina: {e}") 
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+            # Esto saldrá en los logs de DigitalOcean
+            print(f"Error crítico en actualizar_pago_manual: {e}") 
+            return JsonResponse({'status': 'error', 'message': f"Error del servidor: {str(e)}"}, status=400)
             
     return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
 
