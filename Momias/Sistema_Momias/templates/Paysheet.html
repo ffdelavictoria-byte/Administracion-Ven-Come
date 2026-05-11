@@ -577,8 +577,10 @@
                         <span class="editable-value" data-field="turnos" style="display:none">0</span>
                         <span class="editable-value" data-field="horas" style="display:none">0</span>
                         
-                        <span class="text-success">$<span class="editable-value" data-field="monto">{{ t.pago_dia|floatformat:0 }}</span></span>
-                    {% else %} 
+                        <span class="text-success">
+                            $<span class="editable-value" data-field="monto" style="font-weight:bold;">{{ t.pago_dia|floatformat:0 }}</span>
+                        </span>
+                    {% else %}
                         <b class="vista-turno">
                             <span class="editable-value" data-field="turnos">{{ t.cantidad_turnos }}</span>T
                         </b>
@@ -678,25 +680,37 @@
 
     }
     function habilitarEdicion(icon) {
-        const contenedor = icon.closest('.item-desglose');
-        const valoresEditables = contenedor.querySelectorAll('.editable-value');
-        const botonGuardar = contenedor.querySelector('.guardar-cambio');
+    const contenedor = icon.closest('.item-desglose');
+    const valoresEditables = contenedor.querySelectorAll('.editable-value');
+    const botonGuardar = contenedor.querySelector('.guardar-cambio');
 
-        valoresEditables.forEach(span => {
+    valoresEditables.forEach(span => {
+        // Solo creamos input si el span no está oculto por el sistema
+        // O si es el campo 'monto' (que siempre queremos editar)
+        const fieldName = span.getAttribute('data-field');
+        const isHidden = window.getComputedStyle(span).display === 'none';
+
+        if (!isHidden || fieldName === 'monto') {
             const valorActual = span.innerText.trim();
-            const fieldName = span.getAttribute('data-field');
             const input = document.createElement('input');
             input.type = 'number';
+            input.step = '0.01'; // Permitir decimales en monto
             input.value = valorActual;
             input.className = 'edit-input';
-            input.style.width = (fieldName === 'monto') ? '55px' : '35px';
+            
+            // Si el campo estaba oculto (como turnos en descanso), 
+            // nos aseguramos que el input también sea discreto o no estorbe
+            if (isHidden) input.style.display = 'none'; 
+
+            input.style.width = (fieldName === 'monto') ? '60px' : '35px';
             span.innerHTML = '';
             span.appendChild(input);
-        });
+        }
+    });
 
-        icon.style.display = 'none';
-        botonGuardar.style.display = 'inline-block';
-    }
+    icon.style.display = 'none';
+    botonGuardar.style.display = 'inline-block';
+}
 
     function guardarFila(btn) {
     const contenedor = btn.closest('.item-desglose');
