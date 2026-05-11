@@ -860,8 +860,8 @@ def Asistencias_FF_view(request):
             asistencia.empleado, asistencia.fecha, asistencia.estatus, asistencia.puesto = empleado_obj, fecha_dt, estatus_jornada, puesto_sel
             asistencia.entrada_matutina, asistencia.salida_matutina = ent_m, sal_m
             asistencia.entrada_vespertina, asistencia.salida_vespertina = ent_v, sal_v
-            sistencia.cantidad_cargas = float(request.POST.get('cantidad_cargas') or 0)
-            asistencia.cantidad_cargas_momias = float(request.POST.get('cantidad_cargas_momias') or 0)
+            sistencia.cantidad_cargas = float(request.POST.get(c_ff) or 0)
+            asistencia.cantidad_cargas_momias = float(request.POST.get(c_mom) or 0)
             
             # Guardamos bono y descuento en sus campos, pero NO los restamos de pago_dia
             asistencia.bonificacion = bono
