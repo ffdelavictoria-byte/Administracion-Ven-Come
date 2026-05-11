@@ -705,61 +705,56 @@
     const inputs = contenedor.querySelectorAll('.edit-input');
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    // VALIDACIÓN CRÍTICA: Si no hay ID, no disparamos el error 400
-    if (!diaId || diaId === "") {
-        alert("Error local: No se encontró el ID de este registro (data-dia-id está vacío).");
+    if (!diaId || diaId === "" || diaId === "None") {
+        alert("Error: No se pudo encontrar el ID del registro de asistencia.");
         return;
     }
 
-    // Usamos FormData para asegurar compatibilidad total con request.POST
     let formData = new FormData();
-    formData.append('id', diaId);
+    formData.append('id', diaId); // El ID que espera el Python
     
     inputs.forEach(input => {
         const span = input.parentElement;
         const fieldName = span.getAttribute('data-field');
-        const valor = (input.value !== "") ? input.value : "0";
-        formData.append(fieldName, valor);
+        const valor = input.value;
         
-        // Actualizamos el texto del span para que se vea el cambio inmediatamente
+        // Mapeo manual para asegurar que los nombres coincidan con la vista
+        if (fieldName === 'turnos') formData.append('turnos', valor);
+        if (fieldName === 'horas') formData.append('horas', valor);
+        if (fieldName === 'monto') formData.append('monto', valor);
+        
+        // Actualizar vista previa
         span.innerText = valor;
     });
 
-    fetch("{% url 'actualizar_dia_nomina' %}", {
+    fetch("{% url 'actualizar_pago_manual' %}", { // <--- REVISA ESTE NOMBRE
         method: "POST",
         headers: {
-            "X-CSRFToken": csrftoken,
-            // Importante: Con FormData NO se pone el Content-Type manualmente
+            "X-CSRFToken": csrftoken
         },
         body: formData
     })
-    .then(response => {
-        if (!response.ok) {
-            // Si el servidor responde 400, 404 o 500
-            return response.json().then(err => { throw new Error(err.message || 'Error en servidor'); });
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if(data.status === 'ok') {
-            contenedor.style.backgroundColor = "#e8f5e9";
-            setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 600);
+            // Animación de éxito
+            contenedor.style.transition = "background-color 0.5s";
+            contenedor.style.backgroundColor = "#c8e6c9"; 
+            setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 1000);
             
-            // Opcional: Si tu servidor devuelve el nuevo NETO, podrías actualizarlo aquí
-            if(data.nuevo_total_neto) {
-                const netoBox = contenedor.closest('.tira-compacta').querySelector('.total-neto-box');
-                netoBox.innerText = 'NETO: $' + data.nuevo_total_neto;
-            }
+            // Sugerencia: Recargar la página si quieres que se recalculen los NETOS automáticamente
+            // location.reload(); 
         } else {
-            alert("Error: " + data.message);
+            alert("Error del servidor: " + data.message);
+            location.reload(); // Recargamos para mostrar los valores reales si falló
         }
     })
     .catch(error => {
-        alert("Error de comunicación: " + error.message);
-        console.error("Detalle del error:", error);
+        alert("Error de conexión al servidor");
+        console.error(error);
     });
 
-    // Restaurar iconos
+    // Restaurar botones
     btn.style.display = 'none';
     const editIcon = contenedor.querySelector('.btn-inline-edit');
     if(editIcon) editIcon.style.display = 'inline-block';
