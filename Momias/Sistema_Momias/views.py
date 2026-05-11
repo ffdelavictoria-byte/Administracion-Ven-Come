@@ -977,17 +977,33 @@ def Borrar_Usuario_View(request, usuario_id):
 def actualizar_pago_manual(request):
     if request.method == "POST":
         asistencia_id = request.POST.get('id')
-        nuevo_pago = request.POST.get('pago')
         
-        # Uso de get_object_or_404 para evitar errores 500
+        # Obtenemos los 3 valores que enviamos desde el JS
+        nuevos_turnos = request.POST.get('turnos')
+        nuevas_horas = request.POST.get('horas')
+        nuevo_pago = request.POST.get('monto') # Cambiado de 'pago' a 'monto' para coincidir con el JS
+        
         asistencia = get_object_or_404(Asistencia, id=asistencia_id)
         
         try:
-            asistencia.pago_dia = float(nuevo_pago)
+            # Actualizamos todos los campos
+            if nuevos_turnos is not None:
+                asistencia.cantidad_turnos = float(nuevos_turnos)
+            
+            if nuevas_horas is not None:
+                asistencia.total_horas = float(nuevas_horas)
+                
+            if nuevo_pago is not None:
+                asistencia.pago_dia = float(nuevo_pago)
+            
             asistencia.save()
-            return JsonResponse({'status': 'ok'})
-        except (ValueError, TypeError):
-            return JsonResponse({'status': 'error', 'message': 'Monto inválido'}, status=400)
+            
+            return JsonResponse({'status': 'ok', 'message': 'Datos actualizados correctamente'})
+        
+        except (ValueError, TypeError) as e:
+            return JsonResponse({'status': 'error', 'message': 'Datos inválidos'}, status=400)
+            
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
 
 @login_required
 def calcular_nomina_web(request):
