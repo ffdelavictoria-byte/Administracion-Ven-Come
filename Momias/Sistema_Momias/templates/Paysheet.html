@@ -604,28 +604,26 @@
 
 
                     <span class="item-desglose" data-dia-id="{{ t.id }}">
-    <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
-
-    {% if t.estatus == "DESCANSO" %} 
-        <span class="text-info fw-bold">DESC</span>
-    {% else %} 
-        <b class="vista-turno">
-            <span class="editable-value" data-field="turnos">{{ t.cantidad_turnos }}</span>T
-        </b>
-        <b class="vista-hora" style="display: none; color: #673ab7;">
-            <span class="editable-value" data-field="horas">{{ t.total_horas }}</span>
-        </b>
-    {% endif %}
-
-    <span class="text-success">$<span class="editable-value" data-field="monto">{{ t.pago_dia|floatformat:0 }}</span></span>
-
-    <i class="fas fa-pencil-alt btn-inline-edit no-print" onclick="habilitarEdicion(this)"></i>
-    <button class="guardar-cambio no-print" onclick="guardarFila(this)">OK</button>
-    
-    {% if t.puesto %}
-        <small class="text-muted" style="font-size: 0.55rem;">[{{ t.puesto|slice:":4" }}]</small>
-    {% endif %}
-</span> 
+                        <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
+                        {% if t.estatus == "DESCANSO" %} 
+                            <span class="text-info fw-bold">DESC</span>
+                        {% else %} 
+                            <b class="vista-turno">
+                                <span class="editable-value" data-field="turnos">{{ t.cantidad_turnos }}</span>T
+                            </b>
+                            <b class="vista-hora" style="display: none; color: #673ab7;">
+                                <span class="editable-value" data-field="horas">{{ t.total_horas }}</span>
+                            </b>
+                        {% endif %}
+                        <span class="text-success">$<span class="editable-value" data-field="monto">{{ t.pago_dia|floatformat:0 }}</span></span>
+                        
+                        <i class="fas fa-pencil-alt btn-inline-edit no-print" onclick="habilitarEdicion(this)"></i>
+                        <button class="guardar-cambio no-print" onclick="guardarFila(this)">OK</button>
+                        
+                        {% if t.puesto %}
+                            <small class="text-muted" style="font-size: 0.55rem;">[{{ t.puesto|slice:":4" }}]</small>
+                        {% endif %}
+                    </span>
 
 
 
