@@ -976,33 +976,19 @@ def Borrar_Usuario_View(request, usuario_id):
 @login_required
 def actualizar_pago_manual(request):
     if request.method == "POST":
-        asistencia_id = request.POST.get('id')
-        
-        # Obtenemos los 3 valores que enviamos desde el JS
-        nuevos_turnos = request.POST.get('turnos')
-        nuevas_horas = request.POST.get('horas')
-        nuevo_pago = request.POST.get('monto') # Cambiado de 'pago' a 'monto' para coincidir con el JS
-        
-        asistencia = get_object_or_404(Asistencia, id=asistencia_id)
-        
         try:
-            # Actualizamos todos los campos
-            if nuevos_turnos is not None:
-                asistencia.cantidad_turnos = float(nuevos_turnos)
+            aid = request.POST.get('id')
+            asistencia = get_object_or_404(Asistencia, id=aid)
             
-            if nuevas_horas is not None:
-                asistencia.total_horas = float(nuevas_horas)
-                
-            if nuevo_pago is not None:
-                asistencia.pago_dia = float(nuevo_pago)
+            # Actualizamos los campos (si vienen en el POST)
+            asistencia.cantidad_turnos = request.POST.get('turnos', asistencia.cantidad_turnos)
+            asistencia.total_horas = request.POST.get('horas', asistencia.total_horas)
+            asistencia.pago_dia = request.POST.get('monto', asistencia.pago_dia)
             
             asistencia.save()
-            
-            return JsonResponse({'status': 'ok', 'message': 'Datos actualizados correctamente'})
-        
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'status': 'error', 'message': 'Datos inválidos'}, status=400)
-            
+            return JsonResponse({'status': 'ok'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
     return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
 
 @login_required
