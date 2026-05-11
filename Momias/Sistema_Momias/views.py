@@ -1401,23 +1401,24 @@ def calcular_nomina_web(request):
                     
                     estatus_limpio = (reg.estatus or "").upper()
 
-                    # --- LÓGICA DE PAGO DE DESCANSO (CORREGIDA) ---
+                    # --- LÓGICA DE PAGO DE DESCANSO (OPTIMIZADA) ---
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-                        # 1. PRIORIDAD ABSOLUTA: Si el usuario editó el monto manualmente (pago_dia)
-                        if reg.pago_dia is not None and float(reg.pago_dia) > 0:
+                        # 1. PRIORIDAD MÁXIMA: Modificación manual en la base de datos
+                        if reg.pago_dia is not None and float(reg.pago_dia) >= 0:
                             salario_dia = float(reg.pago_dia)
-                            # Opcional: Si quieres que esto cuente como "el pago del descanso de la semana"
-                            # para que no se pague doble si hay otro registro de descanso:
+                            # Marcamos como pagado para que otros registros de "Descanso" en la misma semana no sumen
                             descanso_pagado = True 
                         
-                        # 2. Si no hay monto manual, usamos la lógica automática de 6 días
+                        # 2. SEGUNDA PRIORIDAD: Lógica automática (6 días trabajados, sin faltas)
                         elif not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
                         
-                        # 3. Si tiene faltas o ya se pagó un descanso en la semana
+                        # 3. CASO POR DEFECTO: Si hay faltas o no hay monto manual, el descanso es 0
                         else:
                             salario_dia = 0.0
+                    
+                    # --- FIN DEL BLOQUE DE DESCANSO ---
                     
                     # --- BUSCA ESTE BLOQUE Y REEMPLÁZALO ---
                     elif es_pago_fijo:
