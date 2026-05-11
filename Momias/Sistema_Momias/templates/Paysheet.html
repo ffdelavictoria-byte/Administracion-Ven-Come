@@ -156,6 +156,39 @@
 
     }
 
+    /* Estilos para el modo edición */
+.edit-input {
+    width: 45px;
+    font-size: 0.65rem;
+    border: 1px solid #ff9800;
+    padding: 0;
+    text-align: center;
+}
+
+.btn-inline-edit {
+    cursor: pointer;
+    font-size: 0.6rem;
+    margin-left: 2px;
+    color: #ff9800;
+    transition: 0.2s;
+}
+
+.btn-inline-edit:hover {
+    color: #e65100;
+    transform: scale(1.2);
+}
+
+.guardar-cambio {
+    display: none; /* Se muestra solo cuando hay cambios */
+    background: #28a745;
+    color: white;
+    padding: 2px 5px;
+    font-size: 0.6rem;
+    border: none;
+    border-radius: 3px;
+    margin-left: 5px;
+}
+
 
 
 
@@ -570,45 +603,25 @@
 
 
 
-                    <span class="item-desglose">
+                    <span class="item-desglose" data-dia-id="{{ t.id }}">
+    <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
 
+    {% if t.estatus == "DESCANSO" %} 
+        <span class="text-info fw-bold">DESC</span>
+    {% else %} 
+        <b class="vista-turno">
+            <span class="editable-value" data-field="turnos">{{ t.cantidad_turnos }}</span>T
+        </b>
+        <b class="vista-hora" style="display: none; color: #673ab7;">
+            <span class="editable-value" data-field="horas">{{ t.total_horas }}</span>
+        </b>
+    {% endif %}
 
+    <span class="text-success">$<span class="editable-value" data-field="monto">{{ t.pago_dia|floatformat:0 }}</span></span>
 
-                        <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
-
-
-
-                        
-
-
-
-                        {% if t.estatus == "DESCANSO" %} 
-
-                            <span class="text-info fw-bold">DESC</span>
-
-                        {% else %} 
-
-                            <b class="vista-turno">
-
-                                {{ t.cantidad_turnos }}T
-
-                            </b>
-
-                            <b class="vista-hora" style="display: none; color: #673ab7;">
-
-                                {{ t.total_horas }}
-
-                            </b>
-
-                        {% endif %}
-
-
-
-            
-
-
-
-                        <span class="text-success">${{ t.pago_dia|floatformat:0 }}</span>
+    <i class="fas fa-pencil-alt btn-inline-edit no-print" onclick="habilitarEdicion(this)" style="cursor:pointer; margin-left:4px;"></i>
+    <button class="guardar-cambio no-print" onclick="guardarFila(this)" style="display:none;">OK</button>
+</span>
 
 
 
@@ -815,6 +828,30 @@
         }
 
     }
+    function habilitarEdicion(icon) {
+    const contenedor = icon.closest('.item-desglose');
+    const valoresEditables = contenedor.querySelectorAll('.editable-value');
+    const botonGuardar = contenedor.querySelector('.guardar-cambio');
+
+    valoresEditables.forEach(span => {
+        const valorActual = span.innerText.trim();
+        const fieldName = span.getAttribute('data-field');
+        
+        const input = document.createElement('input');
+        input.type = 'number'; // Cambiado a number para facilitar edición en móvil/tablet
+        input.value = valorActual;
+        
+        // Ajuste de ancho dinámico: más ancho para el monto, más corto para turnos
+        input.className = 'edit-input';
+        input.style.width = (fieldName === 'monto') ? '55px' : '35px';
+        
+        span.innerHTML = '';
+        span.appendChild(input);
+    });
+
+    icon.style.display = 'none';
+    botonGuardar.style.display = 'inline-block';
+}
 
 
 
