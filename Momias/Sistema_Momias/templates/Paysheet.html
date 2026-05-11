@@ -564,7 +564,7 @@
         <div class="mb-1">
             {% for dia_list in n.dias %}
                 {% for t in dia_list %}
-                <span class="item-desglose" data-dia-id="{{ t.id }}">
+                <span class="item-desglose" data-dia-id="{{ t.id|default:'' }}">
                     <b class="text-primary">{{ t.dia_semana|default:"" }}</b>({{ t.fecha_dia }})
                     
                     {% if t.estatus == "DESCANSO" %} 
@@ -705,39 +705,64 @@
     const inputs = contenedor.querySelectorAll('.edit-input');
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    let datosParaEnviar = new URLSearchParams();
-    datosParaEnviar.append('id', diaId);
+    // VALIDACIÓN CRÍTICA: Si no hay ID, no disparamos el error 400
+    if (!diaId || diaId === "") {
+        alert("Error local: No se encontró el ID de este registro (data-dia-id está vacío).");
+        return;
+    }
+
+    // Usamos FormData para asegurar compatibilidad total con request.POST
+    let formData = new FormData();
+    formData.append('id', diaId);
     
     inputs.forEach(input => {
         const span = input.parentElement;
         const fieldName = span.getAttribute('data-field');
         const valor = (input.value !== "") ? input.value : "0";
-        datosParaEnviar.append(fieldName, valor);
+        formData.append(fieldName, valor);
+        
+        // Actualizamos el texto del span para que se vea el cambio inmediatamente
         span.innerText = valor;
     });
 
-    // USANDO EL NAME CORRECTO SEGÚN TU URLS.PY
     fetch("{% url 'actualizar_dia_nomina' %}", {
         method: "POST",
         headers: {
             "X-CSRFToken": csrftoken,
-            "Content-Type": "application/x-www-form-urlencoded",
+            // Importante: Con FormData NO se pone el Content-Type manualmente
         },
-        body: datosParaEnviar
+        body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            // Si el servidor responde 400, 404 o 500
+            return response.json().then(err => { throw new Error(err.message || 'Error en servidor'); });
+        }
+        return response.json();
+    })
     .then(data => {
         if(data.status === 'ok') {
             contenedor.style.backgroundColor = "#e8f5e9";
-            setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 500);
+            setTimeout(() => { contenedor.style.backgroundColor = "#fdfdfd"; }, 600);
+            
+            // Opcional: Si tu servidor devuelve el nuevo NETO, podrías actualizarlo aquí
+            if(data.nuevo_total_neto) {
+                const netoBox = contenedor.closest('.tira-compacta').querySelector('.total-neto-box');
+                netoBox.innerText = 'NETO: $' + data.nuevo_total_neto;
+            }
         } else {
             alert("Error: " + data.message);
         }
     })
-    .catch(error => alert("Error de servidor. Revisa que la función exista en views.py"));
+    .catch(error => {
+        alert("Error de comunicación: " + error.message);
+        console.error("Detalle del error:", error);
+    });
 
+    // Restaurar iconos
     btn.style.display = 'none';
-    contenedor.querySelector('.btn-inline-edit').style.display = 'inline-block';
+    const editIcon = contenedor.querySelector('.btn-inline-edit');
+    if(editIcon) editIcon.style.display = 'inline-block';
 }
 </script>
 
