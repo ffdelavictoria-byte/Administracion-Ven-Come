@@ -732,7 +732,7 @@
 
     // 3. Envío al servidor
     // NOTA: Asegúrate de que en tu urls.py el nombre sea 'actualizar_pago_manual'
-    fetch("{% url 'actualizar_pago_manual' %}", { 
+    fetch("{% url 'actualizar_dia_nomina' %}", { 
         method: "POST",
         headers: {
             "X-CSRFToken": csrftoken
