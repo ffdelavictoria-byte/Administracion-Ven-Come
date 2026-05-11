@@ -1401,16 +1401,20 @@ def calcular_nomina_web(request):
                     
                     estatus_limpio = (reg.estatus or "").upper()
 
-                    # --- LÓGICA DE PAGO DE DESCANSO (OPTIMIZADA) ---
+                    # --- DENTRO DE calcular_nomina_web ---
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-                        # Si tú escribiste algo manualmente, ESTO manda sobre TODO
-                        if reg.pago_dia is not None and reg.pago_dia > 0:
+                        # Si YA tiene un valor en la DB, lo usamos
+                        if reg.pago_dia and reg.pago_dia > 0:
                             salario_dia = float(reg.pago_dia)
-                            # No marcamos descanso_pagado para permitir múltiples descansos manuales si el usuario así lo quiere
                         
+                        # Si NO tiene valor, calculamos y GUARDAMOS para la posteridad
                         elif not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
+                            
+                            # PERSISTENCIA: Guardamos el cálculo en la DB
+                            reg.pago_dia = salario_dia
+                            reg.save(update_fields=['pago_dia']) # Solo actualizamos ese campo por eficiencia
                         else:
                             salario_dia = 0.0
                     
