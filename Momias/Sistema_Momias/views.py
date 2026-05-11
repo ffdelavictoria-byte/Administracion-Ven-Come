@@ -977,40 +977,46 @@ def Borrar_Usuario_View(request, usuario_id):
 def actualizar_pago_manual(request):
     if request.method == "POST":
         try:
-            # 1. Intentamos obtener el ID de ambas formas para evitar el error de "ID no proporcionado"
+            # 1. Obtención del ID con validación extendida
             aid = request.POST.get('id') or request.POST.get('asistencia_id')
             
-            if not aid or aid == "None" or aid == "":
-                return JsonResponse({'status': 'error', 'message': 'ID de registro no encontrado en la petición'}, status=400)
+            if not aid or str(aid).strip() in ["None", "", "undefined"]:
+                return JsonResponse({'status': 'error', 'message': 'ID de registro no válido'}, status=400)
                 
             asistencia = get_object_or_404(Asistencia, id=aid)
             
-            # 2. Capturamos los valores del POST
-            # NOTA: Asegúrate de que en tu modelo Asistencia los campos se llamen exactamente así
+            # 2. Captura de valores del POST
             nuevo_turno = request.POST.get('turnos')
             nueva_hora = request.POST.get('horas')
             nuevo_monto = request.POST.get('monto')
 
-            # 3. Solo actualizamos si el valor NO es None y NO es una cadena vacía
-            # Usamos float() para asegurar que se guarden como números si el modelo lo requiere
-            if nuevo_turno is not None and nuevo_turno != "":
-                asistencia.cantidad_turnos = nuevo_turno
+            # 3. Actualización Condicional con Limpieza de Datos
+            # Actualizamos Turnos
+            if nuevo_turno is not None and str(nuevo_turno).strip() != "":
+                try:
+                    asistencia.cantidad_turnos = float(nuevo_turno)
+                except ValueError:
+                    return JsonResponse({'status': 'error', 'message': 'Formato de turno inválido'}, status=400)
             
-            if nueva_hora is not None and nueva_hora != "":
-                # En tu otra vista usas asistencia.horas para puntos, 
-                # verifica si aquí debe ser total_horas o solo horas
+            # Actualizamos Horas (Se guarda en el campo 'horas' según tu lógica de retardos)
+            if nueva_hora is not None and str(nueva_hora).strip() != "":
                 asistencia.horas = nueva_hora 
                 
-            if nuevo_monto is not None and nuevo_monto != "":
-                asistencia.pago_dia = nuevo_monto
+            # Actualizamos el Monto (pago_dia)
+            # Este es el valor que el calculador de nómina priorizará para descansos o días fijos
+            if nuevo_monto is not None and str(nuevo_monto).strip() != "":
+                try:
+                    asistencia.pago_dia = float(nuevo_monto)
+                except ValueError:
+                    return JsonResponse({'status': 'error', 'message': 'Formato de monto inválido'}, status=400)
             
             asistencia.save()
-            return JsonResponse({'status': 'ok'})
+            return JsonResponse({'status': 'ok', 'message': 'Registro actualizado correctamente'})
             
         except Exception as e:
-            # Esto saldrá en los logs de DigitalOcean
-            print(f"Error crítico en actualizar_pago_manual: {e}") 
-            return JsonResponse({'status': 'error', 'message': f"Error del servidor: {str(e)}"}, status=400)
+            # El error aparecerá en los logs de DigitalOcean
+            print(f"Error crítico en actualizar_pago_manual: {str(e)}") 
+            return JsonResponse({'status': 'error', 'message': f"Error interno: {str(e)}"}, status=500)
             
     return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
 
@@ -1393,9 +1399,16 @@ def calcular_nomina_web(request):
                     puestos_pago_fijo = ["TURNO INTERMEDIO", "FIN DE SEMANA", "CREPAS", "RAPPI", "9 HORAS","BENNY"]
                     es_pago_fijo = any(x in pue_up for x in puestos_pago_fijo)
                     
+                    estatus_limpio = (reg.estatus or "").upper()
+
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-                        # (Tu lógica de descanso se queda igual...)
-                        if not tiene_falta_en_semana and not descanso_pagado:
+                        # PRIORIDAD: Si el usuario editó el monto manualmente en la DB
+                        if reg.pago_dia and float(reg.pago_dia) > 0:
+                            salario_dia = float(reg.pago_dia)
+                            descanso_pagado = True # Marcamos como pagado para no repetir en la semana
+                        
+                        # Si no hay monto manual, usamos la lógica automática
+                        elif not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
                         else:
@@ -1636,6 +1649,10 @@ def calcular_nomina_web(request):
                         'cantidad_turnos': cantidad_turnos, # Ahora usará el valor corregido
                         
                         'id': reg.id  # <--- AGREGA ESTA LÍNEA (Es vital para el modal)
+                        # --- CAMPOS ADICIONALES RECOMENDADOS ---
+                        'es_manual': True if (reg.pago_dia and float(reg.pago_dia) > 0) else False, # Para poner un icono de "editado" en el HTML
+                        'monto_original': reg.pago_dia if reg.pago_dia else 0, # Para cargar el valor actual en el input del modal
+                        # ---------------------------------------
 
                     })
 
