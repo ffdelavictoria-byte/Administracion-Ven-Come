@@ -1633,7 +1633,9 @@ def calcular_nomina_web(request):
 
                         'estatus': item['estatus'],
 
-                        'cantidad_turnos': cantidad_turnos # Ahora usará el valor corregido
+                        'cantidad_turnos': cantidad_turnos, # Ahora usará el valor corregido
+                        
+                        'id': reg.id  # <--- AGREGA ESTA LÍNEA (Es vital para el modal)
 
                     })
 
