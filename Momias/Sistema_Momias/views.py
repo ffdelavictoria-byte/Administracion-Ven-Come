@@ -1412,39 +1412,45 @@ def calcular_nomina_web(request):
                     estatus_limpio = (reg.estatus or "").upper()
 
                     
-                    # --- BLOQUE DE DESCANSO CORREGIDO (CON PERSISTENCIA MANUAL) ---
+                    # --- BLOQUE DE DESCANSO CORREGIDO (CON PERSISTENCIA) ---
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-                        # 1. PRIORIDAD ABSOLUTA: Si el usuario ya guardó un monto manual en la DB, lo usamos.
-                        # Verificamos si existe y si es mayor a 0 para diferenciarlo de un descanso no pagado.
-                        if reg.pago_dia is not None and float(reg.pago_dia) > 0:
+                        # 1. Si ya hay un monto manual o guardado previamente, lo respetamos
+                        if reg.pago_dia is not None and float(reg.pago_dia) >= 0:
                             salario_dia = float(reg.pago_dia)
                         
-                        # 2. Si no hay valor manual (es 0 o None), aplicamos la lógica automática de la empresa
+                        # 2. Si es None, calculamos y GUARDAMOS para que persista al refrescar
                         elif not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
-                        
-                        # 3. Si tuvo falta o ya se pagó un descanso en esta semana, es 0
+                            # PERSISTENCIA:
+                            reg.pago_dia = salario_dia
+                            reg.save(update_fields=['pago_dia'])
                         else:
                             salario_dia = 0.0
+                            if reg.pago_dia != 0.0: # Si era None, lo hacemos 0 oficial
+                                reg.pago_dia = 0.0
+                                reg.save(update_fields=['pago_dia'])
                     
-                        # NOTA: No hacemos reg.save() aquí para que el cálculo sea dinámico, 
                     elif es_pago_fijo:
-                        retardo_dia = int(reg.horas or 0)
-                        # PRIORIDAD: Si hay un pago_dia manual en la DB, lo usamos sin recalcular
-                        if reg.pago_dia and float(reg.pago_dia) > 0:
+                        if reg.pago_dia is not None:
                             salario_dia = float(reg.pago_dia)
                         else:
                             salario_dia = base_calc
-                            
-                    elif reg.pago_dia and float(reg.pago_dia) > 0:
-                        # Si el usuario editó el campo, respetamos ese valor manual
-                        retardo_dia = int(reg.horas or 0)
+                            # PERSISTENCIA:
+                            reg.pago_dia = salario_dia
+                            reg.save(update_fields=['pago_dia'])
+                    
+                    elif reg.pago_dia is not None:
+                        # Si ya tiene valor (manual o auto-guardado antes), lo usamos
                         salario_dia = float(reg.pago_dia)
+                        retardo_dia = int(reg.horas or 0)
                     else:
-                        # Solo si no hay valor manual, calculamos por tiempo
+                        # Solo si es la primera vez (None), calculamos y guardamos
                         salario_dia, retardo_aut = calcular_pago_dia_final(base_calc, reg)
                         retardo_dia = int(reg.horas) if reg.horas else retardo_aut
+                        # PERSISTENCIA:
+                        reg.pago_dia = salario_dia
+                        reg.save(update_fields=['pago_dia'])
 
                     if "DESCANSO TRABAJADO" in estatus_limpio or "FESTIVO" in estatus_limpio:
                         # Usamos la base del puesto original (base_calc) para evitar 
