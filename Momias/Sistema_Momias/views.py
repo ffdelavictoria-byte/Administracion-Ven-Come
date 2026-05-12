@@ -1411,29 +1411,22 @@ def calcular_nomina_web(request):
                     
                     estatus_limpio = (reg.estatus or "").upper()
 
+                    
                     # --- BLOQUE DE DESCANSO CORREGIDO ---
                     if "DESCANSO" in estatus_limpio and "TRABAJADO" not in estatus_limpio:
-                        # 1. PRIORIDAD ABSOLUTA: Si ya hay un valor físico en la DB (manual o guardado previo), lo usamos.
-                        if reg.pago_dia and float(reg.pago_dia) > 0:
+                        # 1. PRIORIDAD: Si ya hay un valor en la DB, lo usamos y NO recalculamos ni guardamos nada.
+                        if reg.pago_dia is not None and float(reg.pago_dia) > 0:
                             salario_dia = float(reg.pago_dia)
                         
-                        # 2. Si no hay valor en la DB, verificamos si merece pago de descanso
+                        # 2. Solo si es 0 o None, calculamos el automático
                         elif not tiene_falta_en_semana and not descanso_pagado:
                             salario_dia = salario_descanso
                             descanso_pagado = True
-                            
-                            # PERSISTENCIA AUTOMÁTICA: Guardamos el cálculo para que la próxima vez 
-                            # entre en la Condición 1 y ya no se recalcule.
-                            reg.pago_dia = salario_dia
-                            reg.save(update_fields=['pago_dia']) 
+                            # Solo guardamos si queremos que el sistema "proponga" un valor inicial
+                            # pero si quieres total libertad, es mejor no hacer .save() automático aquí.
                         else:
-                            # Si tiene falta o ya se pagó otro descanso en la semana
                             salario_dia = 0.0
                     # --- FIN DEL BLOQUE ---
-                    
-                    # --- FIN DEL BLOQUE DE DESCANSO ---
-                    
-                    # --- BUSCA ESTE BLOQUE Y REEMPLÁZALO ---
                     elif es_pago_fijo:
                         retardo_dia = int(reg.horas or 0)
                         # PRIORIDAD: Si hay un pago_dia manual en la DB, lo usamos sin recalcular
