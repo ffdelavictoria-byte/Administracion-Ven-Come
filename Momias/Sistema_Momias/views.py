@@ -416,6 +416,7 @@ def Asistencias_view(request):
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
+            cargas = 0.0
             # 1. Definición temprana de variables para evitar errores de Scope
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
@@ -441,7 +442,7 @@ def Asistencias_view(request):
             # --- LÓGICA DE CÁLCULO DE MONTO ---
             monto_final = 0.0
             DESCANSO_DESTAJO = 138.00
-            cargas = 0.0
+            
 
             if estatus in ["Falta", "Permiso", "Vacaciones"]:
                 monto_final = 0.0
