@@ -515,7 +515,9 @@ def Asistencias_view(request):
                             monto_final = monto_base_descanso
                                 
             elif puesto_seleccionado == "Tuppers":
-                cargas = float(request.POST.get('cantidad_cargas') or 0)
+                # PASO 2: Solo si es Tuppers, sobreescribimos el 0 con el valor del POST
+                cargas_input = request.POST.get('cantidad_cargas')
+                cargas = float(cargas_input) if cargas_input else 0.0
                 monto_final = cargas * 46.50
 
             elif puesto_seleccionado == "Benny":
@@ -601,7 +603,7 @@ def Asistencias_view(request):
             asistencia.motivo_descuento = request.POST.get('motivo_descuento')
             asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
             asistencia.observaciones = request.POST.get('observaciones')
-            asistencia.cantidad_cargas = float(cargas)
+            asistencia.cantidad_cargas = cargas
             
             asistencia.save()
             messages.success(request, "¡Registro guardado con éxito!")
