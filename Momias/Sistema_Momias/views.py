@@ -416,8 +416,7 @@ def Asistencias_view(request):
     # --- LÓGICA DE GUARDADO / MODIFICACIÓN ---
     if request.method == 'POST':
         try:
-            cargas = 0.0
-            # 1. Definición temprana de variables para evitar errores de Scope
+            # 1. DEFINICIÓN DE VARIABLES E INICIALIZACIÓN (Paso Crítico)
             asistencia_id = request.POST.get('asistencia_id')
             empleado_id = request.POST.get('empleado')
             fecha_captura = request.POST.get('fecha')
@@ -429,21 +428,23 @@ def Asistencias_view(request):
             ent_v = (request.POST.get('entrada_vespertina') or "").strip()
             sal_v = (request.POST.get('salida_vespertina') or "").strip()
 
+            # Variables de cálculo inicializadas al inicio del bloque
+            monto_final = 0.0
+            cargas = 0.0  # <--- Aquí garantizamos que existe para CUALQUIER puesto
+            DESCANSO_DESTAJO = 138.00
+
+            # 2. FUNCIONES DE APOYO (Definidas antes de usarlas)
+            def calcular_puntos_interno(valor):
+                if not valor or ":" in valor or "R1" in valor: return 0
+                mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
+                for clave, pts in mapping.items():
+                    if clave in valor.upper(): return pts
+                return 0
+
             # Convertir fecha y obtener objeto empleado
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
             empleado_obj = Empleado.objects.get(id=empleado_id)
-
-            # --- APLICACIÓN DEL BLOQUEO ---
-            #if fecha_dt < limite_bloqueo:
-                #messages.error(request, "⚠️ Error: No puedes modificar registros anteriores al cierre del lunes.")
-                #return redirect('asistencias')
-
             
-            # --- LÓGICA DE CÁLCULO DE MONTO ---
-            monto_final = 0.0
-            DESCANSO_DESTAJO = 138.00
-            
-
             if estatus in ["Falta", "Permiso", "Vacaciones"]:
                 monto_final = 0.0
             
@@ -547,12 +548,6 @@ def Asistencias_view(request):
             # [Aquí continuaría el resto de tu lógica: calcular_puntos, validación de duplicados y .save()]
 
             # 2. Puntos de Retardo (Referencia en campo horas)
-            def calcular_puntos(valor):
-                if not valor or ":" in valor or "R1" in valor: return 0
-                mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
-                for clave, pts in mapping.items():
-                    if clave in valor.upper(): return pts
-                return 0
 
             total_puntos = calcular_puntos(ent_m) + calcular_puntos(ent_v)
 
