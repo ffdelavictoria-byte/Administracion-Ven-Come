@@ -441,6 +441,7 @@ def Asistencias_view(request):
             # --- LÓGICA DE CÁLCULO DE MONTO ---
             monto_final = 0.0
             DESCANSO_DESTAJO = 138.00
+            cargas = 0.0
 
             if estatus in ["Falta", "Permiso", "Vacaciones"]:
                 monto_final = 0.0
@@ -599,7 +600,7 @@ def Asistencias_view(request):
             asistencia.motivo_descuento = request.POST.get('motivo_descuento')
             asistencia.tipo_uniforme = request.POST.get('tipo_uniforme')
             asistencia.observaciones = request.POST.get('observaciones')
-            asistencia.cantidad_cargas = float(cargas) # <--- AÑADE ESTA LÍNEA
+            asistencia.cantidad_cargas = float(cargas)
             
             asistencia.save()
             messages.success(request, "¡Registro guardado con éxito!")
