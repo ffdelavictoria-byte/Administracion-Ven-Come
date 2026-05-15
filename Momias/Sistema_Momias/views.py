@@ -1668,10 +1668,6 @@ def calcular_nomina_web(request):
                         'cantidad_turnos': cantidad_turnos, # Ahora usará el valor corregido
                         
                         'id': reg.id  # <--- AGREGA ESTA LÍNEA (Es vital para el modal)
-                        # --- CAMPOS ADICIONALES RECOMENDADOS ---
-                        'es_manual': True if (reg.pago_dia and float(reg.pago_dia) > 0) else False, # Para poner un icono de "editado" en el HTML
-                        'monto_original': reg.pago_dia if reg.pago_dia else 0, # Para cargar el valor actual en el input del modal
-                        # ---------------------------------------
 
                     })
 
