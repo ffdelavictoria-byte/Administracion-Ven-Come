@@ -433,14 +433,6 @@ def Asistencias_view(request):
             cargas = 0.0  # <--- Aquí garantizamos que existe para CUALQUIER puesto
             DESCANSO_DESTAJO = 138.00
 
-            # 2. FUNCIONES DE APOYO (Definidas antes de usarlas)
-            def calcular_puntos_interno(valor):
-                if not valor or ":" in valor or "R1" in valor: return 0
-                mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
-                for clave, pts in mapping.items():
-                    if clave in valor.upper(): return pts
-                return 0
-
             # Convertir fecha y obtener objeto empleado
             fecha_dt = datetime.strptime(fecha_captura, '%Y-%m-%d').date()
             empleado_obj = Empleado.objects.get(id=empleado_id)
@@ -514,6 +506,14 @@ def Asistencias_view(request):
                             monto_final = monto_base_descanso * 2
                         else:
                             monto_final = monto_base_descanso
+                        # 2. FUNCIONES DE APOYO (Definidas antes de usarlas)
+            
+            def calcular_puntos_interno(valor):
+                if not valor or ":" in valor or "R1" in valor: return 0
+                mapping = {"R2": 1, "R3": 2, "R4": 3, "R5": 4, "R6": 5, "R7": 6, "R8": 7, "R9": 8, "R10": 9, "R11": 10, "R12": 11}
+                for clave, pts in mapping.items():
+                    if clave in valor.upper(): return pts
+                return 0
                                 
             elif puesto_seleccionado == "Tuppers":
                 # PASO 2: Solo si es Tuppers, sobreescribimos el 0 con el valor del POST
